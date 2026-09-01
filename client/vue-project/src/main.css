@@ -1,0 +1,75 @@
+/* ========================================
+   ЦВЕТОВАЯ ГАММА САЙТА АМУРСКОЙ ГМА
+   ======================================== */
+
+:root {
+    --color-primary: #0077c8;
+    --color-primary-dark: #00447c;
+    --color-primary-light: #e5f0fa;
+    --color-accent: #e30613;
+    --color-text: #1a1a1a;
+    --color-text-secondary: #333333;
+    --color-text-muted: #6c757d;
+    --color-bg: #f8fafc;
+    --color-white: #ffffff;
+    --color-border: #dee2e6;
+}
+
+/* Стили для сайдбара */
+.sidebar {
+    background: linear-gradient(180deg, #00447c 0%, #002b50 100%) !important;
+}
+.sidebar .nav-link.active {
+    background: #0077c8 !important;
+}
+.sidebar .nav-link:hover {
+    background: rgba(0, 119, 200, 0.8) !important;
+}
+
+/* Стили для кнопок */
+.btn-primary {
+    background-color: #0077c8 !important;
+    border-color: #0077c8 !important;
+}
+.btn-primary:hover {
+    background-color: #00447c !important;
+    border-color: #00447c !important;
+}
+
+/* Стили для карточек */
+.stat-card,
+.recent,
+.template-item,
+.repair-item,
+.equipment-card {
+    border: 1px solid #dee2e6 !important;
+    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.05) !important;
+}
+.stat-card:hover,
+.recent:hover,
+.template-item:hover,
+.repair-item:hover {
+    box-shadow: 0 4px 12px rgba(0, 119, 200, 0.15) !important;
+    border-color: #0077c8 !important;
+}
+
+/* Стили для заголовков */
+h1, h2, h3, h4 {
+    color: #00447c !important;
+}
+
+/* Стили для бейджей */
+.badge-success {
+    background-color: #e5f0fa !important;
+    color: #00447c !important;
+}
+.badge-primary {
+    background-color: #0077c8 !important;
+    color: white !important;
+}
+
+/* Стили для полей ввода */
+.form-control:focus {
+    border-color: #0077c8 !important;
+    box-shadow: 0 0 0 0.2rem rgba(0, 119, 200, 0.25) !important;
+}

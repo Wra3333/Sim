@@ -1,0 +1,196 @@
+services:
+  # ============================================
+  # 1. NATS — брокер сообщений
+  # ============================================
+  nats:
+    image: nats:latest
+    container_name: simulation-nats
+    restart: unless-stopped
+    ports:
+      - "4222:4222"
+      - "8222:8222"
+    networks:
+      - simulation-network
+
+  # ============================================
+  # 2. PostgreSQL — база данных
+  # ============================================
+  postgres:
+    image: postgres:16-alpine
+    container_name: simulation-postgres
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: root
+      POSTGRES_PASSWORD: "root"
+      POSTGRES_DB: simulation_center
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres-data:/var/lib/postgresql/data
+    networks:
+      - simulation-network
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U root -d simulation_center"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  # ============================================
+  # 3. API Gateway
+  # ============================================
+  api-gateway:
+    build: .
+    container_name: simulation-api
+    restart: unless-stopped
+    environment:
+      NODE_ENV: production
+      PORT: 3000
+      DB_HOST: postgres
+      DB_USER: root
+      DB_PASSWORD: "root"
+      DB_NAME: simulation_center
+      DB_PORT: 5432
+      NATS_URL: nats://nats:4222
+      SERVICES: api-gateway
+    ports:
+      - "3000:3000"
+    depends_on:
+      nats:
+        condition: service_started
+      postgres:
+        condition: service_healthy
+    networks:
+      - simulation-network
+
+  # ============================================
+  # 4. Equipment Service
+  # ============================================
+  equipment-service:
+    build: .
+    container_name: simulation-equipment
+    restart: unless-stopped
+    environment:
+      NODE_ENV: production
+      DB_HOST: postgres
+      DB_USER: root
+      DB_PASSWORD: "root"
+      DB_NAME: simulation_center
+      DB_PORT: 5432
+      NATS_URL: nats://nats:4222
+      SERVICES: equipment
+    depends_on:
+      nats:
+        condition: service_started
+      postgres:
+        condition: service_healthy
+    networks:
+      - simulation-network
+
+  # ============================================
+  # 5. Repairs Service
+  # ============================================
+  repairs-service:
+    build: .
+    container_name: simulation-repairs
+    restart: unless-stopped
+    environment:
+      NODE_ENV: production
+      DB_HOST: postgres
+      DB_USER: root
+      DB_PASSWORD: "root"
+      DB_NAME: simulation_center
+      DB_PORT: 5432
+      NATS_URL: nats://nats:4222
+      SERVICES: repairs
+    depends_on:
+      nats:
+        condition: service_started
+      postgres:
+        condition: service_healthy
+    networks:
+      - simulation-network
+
+  # ============================================
+  # 6. Lessons Service
+  # ============================================
+  lessons-service:
+    build: .
+    container_name: simulation-lessons
+    restart: unless-stopped
+    environment:
+      NODE_ENV: production
+      DB_HOST: postgres
+      DB_USER: root
+      DB_PASSWORD: "root"
+      DB_NAME: simulation_center
+      DB_PORT: 5432
+      NATS_URL: nats://nats:4222
+      SERVICES: lessons
+    depends_on:
+      nats:
+        condition: service_started
+      postgres:
+        condition: service_healthy
+    networks:
+      - simulation-network
+
+  # ============================================
+  # 7. Templates Service
+  # ============================================
+  templates-service:
+    build: .
+    container_name: simulation-templates
+    restart: unless-stopped
+    environment:
+      NODE_ENV: production
+      DB_HOST: postgres
+      DB_USER: root
+      DB_PASSWORD: "root"
+      DB_NAME: simulation_center
+      DB_PORT: 5432
+      NATS_URL: nats://nats:4222
+      SERVICES: templates
+    depends_on:
+      nats:
+        condition: service_started
+      postgres:
+        condition: service_healthy
+    networks:
+      - simulation-network
+
+  # ============================================
+  # 8. WorkTime Service
+  # ============================================
+  worktime-service:
+    build: .
+    container_name: simulation-worktime
+    restart: unless-stopped
+    environment:
+      NODE_ENV: production
+      DB_HOST: postgres
+      DB_USER: root
+      DB_PASSWORD: "root"
+      DB_NAME: simulation_center
+      DB_PORT: 5432
+      NATS_URL: nats://nats:4222
+      SERVICES: worktime
+    depends_on:
+      nats:
+        condition: service_started
+      postgres:
+        condition: service_healthy
+    networks:
+      - simulation-network
+
+# ============================================
+# Volumes
+# ============================================
+volumes:
+  postgres-data:
+
+# ============================================
+# Networks
+# ============================================
+networks:
+  simulation-network:
+    driver: bridge
