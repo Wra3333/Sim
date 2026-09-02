@@ -45,6 +45,30 @@ const Equipment = sequelize.define('Equipment', {
     validate: {
       isIn: [['На балансе', 'На списание', 'Списан']]
     }
+  },
+
+  // 🆕 Новые необязательные поля
+  price: {
+    type: DataTypes.DECIMAL(10, 2),
+    allowNull: true
+  },
+  country: {
+    type: DataTypes.STRING(100),
+    allowNull: true
+  },
+  manufacturer: {
+    type: DataTypes.STRING(255),
+    allowNull: true
+  },
+  original_name: {
+    type: DataTypes.STRING(255),
+    allowNull: true
+  },
+
+  // 🆕 Класс реалистичности (строка)
+  realism_class: {
+    type: DataTypes.STRING(50),
+    allowNull: true
   }
 }, {
   tableName: 'equipment',

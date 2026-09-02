@@ -6,24 +6,25 @@ import { useFilters } from '../composables/useFilters';
 import { useFilteredItems } from '../composables/useFilteredItems';
 import { usePagination } from '../composables/usePagination';
 import { useToastStore } from '../stores/toastStore';
+import { equipmentApi } from '../api';
 import EquipmentForm from '../components/equipment/EquipmentForm.vue';
 import EquipmentCard from '../components/equipment/EquipmentCard.vue';
 import ConfirmModal from '../components/ConfirmModal.vue';
 import HistoryModal from '../components/equipment/HistoryModal.vue';
 import EquipmentMultiSelect from '../components/EquipmentMultiSelect.vue';
 import Pagination from '../components/Pagination.vue';
+import ExportModal from '../components/equipment/ExportModal.vue';
 
 // ============================================
-// ✅ STORE
+// STORE
 // ============================================
 const store = useEquipmentStore();
 const toast = useToastStore();
 
-// ✅ РАЗРЫВАЕМ РЕАКТИВНОСТЬ ПРАВИЛЬНО
 const { items } = storeToRefs(store);
 
 // ============================================
-// ✅ СОСТОЯНИЕ
+// СОСТОЯНИЕ
 // ============================================
 const loading = ref(true);
 const showForm = ref(false);
@@ -34,8 +35,33 @@ const deleteItemId = ref(null);
 const showHistoryModal = ref(false);
 const historyEquipment = ref(null);
 
+const fileInput = ref(null);
+const exportModalOpen = ref(false);
+const exportFields = ref([
+  'inventory_number', 'inventory_name', 'name', 'year_of_release',
+  'description', 'purchase_basis', 'working_status', 'write_off_status',
+  'photo', 'price', 'country', 'manufacturer', 'original_name', 'realism_class'
+]);
+
+const exportFieldLabels = {
+  inventory_number: 'Инвентарный номер',
+  inventory_name: 'Инвентарное наименование',
+  name: 'Название',
+  year_of_release: 'Год закупки',
+  description: 'Краткое описание',
+  purchase_basis: 'Основание закупки',
+  working_status: 'Состояние',
+  write_off_status: 'Статус списания',
+  photo: 'Фото',
+  price: 'Стоимость (₽)',
+  country: 'Страна',
+  manufacturer: 'Производитель',
+  original_name: 'Оригинальное название',
+  realism_class: 'Класс реалистичности'
+};
+
 // ============================================
-// ✅ ФИЛЬТРЫ
+// ФИЛЬТРЫ
 // ============================================
 const { filters, resetFilters, setFilter } = useFilters({
   working_status: '',
@@ -43,9 +69,6 @@ const { filters, resetFilters, setFilter } = useFilters({
   equipmentIds: []
 });
 
-// ============================================
-// ✅ КОНФИГУРАЦИЯ ФИЛЬТРОВ
-// ============================================
 const filterConfig = {
   working_status: {
     filterFn: (item, value) => {
@@ -68,14 +91,8 @@ const filterConfig = {
   }
 };
 
-// ============================================
-// ✅ ФИЛЬТРАЦИЯ (используем items как ref)
-// ============================================
 const filteredEquipment = useFilteredItems(items, filters, filterConfig);
 
-// ============================================
-// ✅ ПАГИНАЦИЯ
-// ============================================
 const { 
   currentPage, 
   paginatedItems, 
@@ -85,7 +102,7 @@ const {
 } = usePagination(filteredEquipment, { pageSize: 8 });
 
 // ============================================
-// ✅ МЕТОДЫ
+// МЕТОДЫ
 // ============================================
 const loadEquipment = async () => {
   loading.value = true;
@@ -156,16 +173,82 @@ const closeHistoryModal = () => {
   historyEquipment.value = null;
 };
 
-// ============================================
-// ✅ СБРОС ФИЛЬТРОВ
-// ============================================
 const resetAllFilters = () => {
   resetFilters();
   resetPage();
 };
 
 // ============================================
-// ✅ WATCH
+// ИМПОРТ EXCEL
+// ============================================
+const handleImportExcel = async (event) => {
+  const file = event.target.files[0];
+  if (!file) return;
+
+  try {
+    const formData = new FormData();
+    formData.append('file', file);
+
+    const response = await equipmentApi.importExcel(formData);
+
+    if (response.data.success) {
+      toast.success(`✅ Импортировано: ${response.data.createdCount} шт.`);
+      await loadEquipment();
+    } else {
+      toast.error(response.data.errors?.map(e => e.message).join('\n'));
+    }
+  } catch (error) {
+    toast.error(error?.response?.data?.message || "Ошибка импорта");
+  }
+};
+
+// ============================================
+// ЭКСПОРТ EXCEL (ИСПРАВЛЕНО)
+// ============================================
+const closeExportModal = () => {
+  exportModalOpen.value = false;
+};
+
+// 👇 Функция теперь принимает selectedFields от дочернего компонента
+const handleExportExcel = async (selectedFields) => {
+  try {
+    if (!selectedFields || selectedFields.length === 0) {
+      toast.error('Пожалуйста, выберите хотя бы одно поле');
+      return;
+    }
+
+    const response = await equipmentApi.exportExcel(selectedFields);
+
+    // Декодируем Base64
+    const binaryString = atob(response.data.data);
+    const bytes = new Uint8Array(binaryString.length);
+    for (let i = 0; i < binaryString.length; i++) {
+      bytes[i] = binaryString.charCodeAt(i);
+    }
+
+    const blob = new Blob([bytes], {
+      type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
+    });
+
+    const url = window.URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.href = url;
+    link.download = response.data.filename || 'equipment_export.xlsx';
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    window.URL.revokeObjectURL(url);
+    
+    toast.success('✅ Экспорт успешен');
+    closeExportModal();
+  } catch (error) {
+    console.error('Ошибка экспорта:', error);
+    toast.error(error?.response?.data?.message || "Ошибка экспорта");
+  }
+};
+
+// ============================================
+// WATCH
 // ============================================
 watch(
   [() => filters.value.working_status, () => filters.value.write_off_status, () => filters.value.equipmentIds], 
@@ -176,7 +259,7 @@ watch(
 );
 
 // ============================================
-// ✅ LIFECYCLE
+// LIFECYCLE
 // ============================================
 onMounted(async () => {
   await loadEquipment();
@@ -196,6 +279,19 @@ onActivated(() => {
         <span class="count">Найдено: {{ filteredEquipment.length }}</span>
       </div>
       <div class="toolbar-right">
+        <input 
+          type="file" 
+          ref="fileInput" 
+          accept=".xlsx,.xls" 
+          style="display: none"
+          @change="handleImportExcel"
+        />
+        <button class="btn btn-outline-secondary" @click="fileInput.click()">
+          📥 Импорт Excel
+        </button>
+        <button class="btn btn-outline-secondary" @click="exportModalOpen = true">
+          📤 Экспорт Excel
+        </button>
         <button class="btn btn-primary" @click="openCreateForm">Добавить</button>
       </div>
     </div>
@@ -272,6 +368,15 @@ onActivated(() => {
       :visible="showHistoryModal"
       :equipment="historyEquipment"
       @close="closeHistoryModal"
+    />
+
+    <!-- МОДАЛКА ЭКСПОРТА -->
+    <ExportModal
+      v-if="exportModalOpen"
+      :fields="exportFields"
+      :labels="exportFieldLabels"
+      @close="closeExportModal"
+      @export="handleExportExcel"
     />
   </div>
 </template>

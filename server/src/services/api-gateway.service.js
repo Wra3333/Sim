@@ -1,7 +1,9 @@
 const ApiGateway = require('moleculer-web');
 const path = require('path');
 const fs = require('fs');
-const upload = require('../middlewares/upload');
+const upload = require('../middlewares/upload'); // ✅ существующий
+const uploadExcel = require('../middlewares/uploadExcel'); // 🆕 новый
+
 module.exports = {
   name: 'api-gateway',
   mixins: [ApiGateway],
@@ -129,6 +131,42 @@ module.exports = {
             } else {
               next();
             }
+          },
+
+          // 🆕 ПЕРЕХВАТ ЗАГРУЗКИ EXCEL
+          (req, res, next) => {
+            const match = req.url.match(/^\/equipment\/import-excel$/);
+            if (req.method === 'POST' && match) {
+              uploadExcel.single('file')(req, res, (err) => {
+                if (err) {
+                  res.writeHead(400, {
+                    'Content-Type': 'application/json',
+                    'Access-Control-Allow-Origin': '*'
+                  });
+                  res.end(JSON.stringify({ error: err.message }));
+                  return;
+                }
+                req.$service.broker.call('equipment.importExcel', {
+                  file: req.file
+                })
+                .then(result => {
+                  res.writeHead(200, {
+                    'Content-Type': 'application/json',
+                    'Access-Control-Allow-Origin': '*'
+                  });
+                  res.end(JSON.stringify(result));
+                })
+                .catch(err => {
+                  res.writeHead(500, {
+                    'Content-Type': 'application/json',
+                    'Access-Control-Allow-Origin': '*'
+                  });
+                  res.end(JSON.stringify({ error: err.message }));
+                });
+              });
+            } else {
+              next();
+            }
           }
         ],
 
@@ -139,6 +177,8 @@ module.exports = {
           'PUT /equipment/:id': 'equipment.update',
           'DELETE /equipment/:id': 'equipment.delete',
           'DELETE /equipment/:id/photo': 'equipment.deletePhoto',
+          'POST /equipment/import-excel': 'equipment.importExcel', // 🆕 Импорт
+          'POST /equipment/export-excel': 'equipment.exportExcel', // 🆕 Экспорт
 
           'GET /repairs': 'repairs.list',
           'GET /repairs/equipment/:equipmentId': 'repairs.getByEquipment',

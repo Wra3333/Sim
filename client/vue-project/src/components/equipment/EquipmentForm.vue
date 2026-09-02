@@ -23,9 +23,15 @@ const form = ref({
   description: '',
   purchase_basis: '',
   working_status: 'Исправен',
-  write_off_status: 'На балансе'
+  write_off_status: 'На балансе',
+  price: '',
+  country: '',
+  manufacturer: '',
+  original_name: '',
+  realism_class: ''
 });
 
+const isAccordionOpen = ref(false);
 const previewUrl = ref('');
 const selectedFile = ref(null);
 const isFileUpload = ref(false);
@@ -109,7 +115,14 @@ const submit = async () => {
       return;
     }
 
+    // 🆕 Нормализация: превращаем пустые значения в null
     const data = { ...form.value };
+    if (!data.price) data.price = null;
+    if (!data.country) data.country = null;
+    if (!data.manufacturer) data.manufacturer = null;
+    if (!data.original_name) data.original_name = null;
+    if (!data.realism_class) data.realism_class = null;
+
     if (props.equipment) {
       await store.update(props.equipment.id, data);
       toast.success('✅ Оборудование обновлено');
@@ -196,6 +209,44 @@ const submit = async () => {
             </select>
           </div>
         </div>
+        
+        <!-- 🆕 АККОРДЕОН: Дополнительные (необязательные) поля -->
+        <div class="form-group accordion">
+          <button 
+            type="button" 
+            class="accordion-header" 
+            @click="isAccordionOpen = !isAccordionOpen"
+          >
+          <div>
+            <span class="accordion-title">Дополнительные поля</span>
+            <span class="accordion-badge">Необязательно</span>
+          </div>
+            <span class="accordion-icon">{{ isAccordionOpen ? '−' : '+' }}</span>
+          </button>
+          <div v-if="isAccordionOpen" class="accordion-content">
+            <div class="form-group">
+              <label>Оригинальное название</label>
+              <input v-model="form.original_name" class="form-control" placeholder="Например: PAT BASIC" />
+            </div>
+            <div class="form-group">
+              <label>Производитель</label>
+              <input v-model="form.manufacturer" class="form-control" placeholder="Например: PAT BASIC" />
+            </div>
+            <div class="form-group">
+              <label>Страна</label>
+              <input v-model="form.country" class="form-control" placeholder="Например: Япония" />
+            </div>
+            <div class="form-group">
+              <label>Стоимость (₽)</label>
+              <input v-model="form.price" type="number" class="form-control" placeholder="727504" />
+            </div>
+            <div class="form-group">
+              <label>Класс реалистичности</label>
+              <input v-model="form.realism_class" class="form-control" placeholder="Например: I, II, III..." />
+            </div>
+          </div>
+        </div>
+        
         <div class="form-actions">
           <button type="button" class="btn btn-outline-secondary" @click="close">Отмена</button>
           <button type="submit" class="btn btn-primary">Сохранить</button>
@@ -396,5 +447,58 @@ textarea.form-control {
   border-radius: 8px;
   border: 1px solid #ddd;
   object-fit: contain;
+}
+
+/* ===== АККОРДЕОН ===== */
+.accordion {
+  margin-top: 20px;
+}
+
+.accordion-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  background: #f4f7fc;
+  border: 1px solid #dbe4f0;
+  border-radius: 8px;
+  padding: 10px 16px;
+  cursor: pointer;
+  font-size: 14px;
+  font-weight: 600;
+  color: #4361ee;
+  transition: all 0.2s;
+  width: 100%;
+}
+
+.accordion-header:hover {
+  background: #e6ecf9;
+}
+
+.accordion-title {
+  flex: 1;
+}
+
+.accordion-badge {
+  font-size: 11px;
+  font-weight: 500;
+  color: #6c757d;
+  background: #f8f9fa;
+  border: 1px solid #e9ecef;
+  border-radius: 12px;
+  padding: 2px 8px;
+  margin-right: 8px;
+}
+
+.accordion-icon {
+  font-size: 18px;
+  font-weight: bold;
+}
+
+.accordion-content {
+  margin-top: 8px;
+  padding: 12px;
+  border: 1px solid #eef0f4;
+  border-radius: 8px;
+  background: #fdfdfe;
 }
 </style>

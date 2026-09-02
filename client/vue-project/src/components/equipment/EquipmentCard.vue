@@ -22,6 +22,13 @@ const description = computed(() => props.equipment.description);
 const photo = computed(() => props.equipment.photo);
 const purchaseBasis = computed(() => props.equipment.purchase_basis);
 
+// 🆕 НОВЫЕ ПОЛЯ: Если пустое, не показываем
+const showOriginalName = computed(() => props.equipment.original_name);
+const showManufacturer = computed(() => props.equipment.manufacturer);
+const showCountry = computed(() => props.equipment.country);
+const showPrice = computed(() => props.equipment.price);
+const showRealismClass = computed(() => props.equipment.realism_class);
+
 const API_URL = 'http://localhost:3000/uploads/';
 
 const photoUrl = computed(() => {
@@ -48,6 +55,16 @@ const photoUrl = computed(() => {
         <span class="badge" :class="writeOffClass">{{ writeOffStatus }}</span>
       </div>
       <p class="description" v-if="description">{{ description }}</p>
+      
+      <!-- 🆕 БЛОК НОВЫХ ПОЛЕЙ (показываем только если есть данные) -->
+      <div class="details" v-if="showOriginalName || showManufacturer || showCountry || showPrice || showRealismClass">
+        <p v-if="showRealismClass"><strong>Класс реалистичности:</strong> {{ showRealismClass }}</p>
+        <p v-if="showOriginalName"><strong>Оригинальное название:</strong> {{ showOriginalName }}</p>
+        <p v-if="showManufacturer"><strong>Производитель:</strong> {{ showManufacturer }}</p>
+        <p v-if="showCountry"><strong>Страна:</strong> {{ showCountry }}</p>
+        <p v-if="showPrice"><strong>Стоимость:</strong> {{ showPrice }} ₽</p>
+      </div>
+      
       <p class="purchase-basis" v-if="purchaseBasis">Основание закупки: {{ purchaseBasis }}</p>
       <div class="actions">
         <button class="btn btn-sm btn-outline-primary" @click="$emit('edit', equipment)">
@@ -153,6 +170,19 @@ const photoUrl = computed(() => {
   color: #666;
   margin: 8px 0 4px 0;
   flex: 1;
+}
+
+.details {
+  font-size: 12px;
+  color: #666;
+  margin: 8px 0;
+  border-top: 1px dashed #eee;
+  padding-top: 8px;
+  flex: 1;
+}
+
+.details p {
+  margin: 2px 0;
 }
 
 .purchase-basis {

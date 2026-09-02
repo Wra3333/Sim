@@ -22,6 +22,18 @@ export const equipmentApi = {
         'Content-Type': undefined
       }
     });
+  },
+  // Импорт Excel
+  importExcel: async (formData) => {
+    return await api.post('/equipment/import-excel', formData, {
+      headers: {
+        'Content-Type': 'multipart/form-data'
+      }
+    });
+  },
+  // Экспорт Excel (исправлено)
+  exportExcel: async (fields) => {
+    return await api.post('/equipment/export-excel', { fields });
   }
 };
 
