@@ -1,0 +1,67 @@
+name: Backend Tests
+
+on:
+  push:
+    branches: [ main ]
+  pull_request:
+    branches: [ main ]
+
+jobs:
+  backend-tests:
+    runs-on: ubuntu-latest
+
+    # Секция, где GitHub создаст временный PostgreSQL для тестов
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_USER: test_user
+          POSTGRES_PASSWORD: test_password
+          POSTGRES_DB: test_db
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      - name: Install dependencies
+        run: npm ci
+        working-directory: server
+
+      # Создаем локальный .env, чтобы тесты могли подключиться к БД
+      - name: Create .env for tests
+        run: |
+          echo "DB_HOST=127.0.0.1" >> .env
+          echo "DB_PORT=5432" >> .env
+          echo "DB_NAME=test_db" >> .env
+          echo "DB_USER=test_user" >> .env
+          echo "DB_PASSWORD=test_password" >> .env
+        working-directory: server
+
+      # Запускаем скрипт, который создает структуру таблиц в тестовой базе
+      - name: Setup test database
+        run: npm run test:setup
+        working-directory: server
+
+      # Запускаем тесты
+      - name: Run tests
+        run: npm test
+        working-directory: server
+
+      # Загружаем отчет покрытия
+      - name: Upload coverage report
+        uses: actions/upload-artifact@v4
+        with:
+          name: server-coverage-report
+          path: server/coverage/
