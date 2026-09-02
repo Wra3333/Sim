@@ -55,20 +55,35 @@ jobs:
         run: npm test
         working-directory: server
 
-      # 🆕 Шаг для вывода сводки покрытия прямо на страницу GitHub Actions
-      - name: Show Coverage Summary
+      # 🏆 Шаг для вывода подробной сводки
+      - name: Show Detailed Coverage Summary
         run: |
-          echo "## 📊 Результаты тестов" >> $GITHUB_STEP_SUMMARY
+          echo "## 📊 📊 📊 Результаты тестов (Backend)" >> $GITHUB_STEP_SUMMARY
           echo "" >> $GITHUB_STEP_SUMMARY
-          echo "✅ Тесты прошли успешно!" >> $GITHUB_STEP_SUMMARY
+          echo "✅ **Тесты прошли успешно!**" >> $GITHUB_STEP_SUMMARY
           echo "" >> $GITHUB_STEP_SUMMARY
-          echo "### Покрытие кode" >> $GITHUB_STEP_SUMMARY
+          
+          # Если lcov.info не найден, wir gehen einfach zur nächsten
+          if [ ! -f server/coverage/lcov.info ]; then
+            echo "⚠️ **Warnung:** Das Coverage-Datei wurde nicht gefunden." >> $GITHUB_STEP_SUMMARY
+            echo "Stellen Sie sicher, dass Jest mit dem Flag `--coverage` gestartet wird." >> $GITHUB_STEP_SUMMARY
+            echo "" >> $GITHUB_STEP_SUMMARY
+          fi
+          
+          # Выводим полную Liste der Statistik aus lcov.info
+          echo "### 🔍 Покрытие по файлам (aus lcov.info)" >> $GITHUB_STEP_SUMMARY
           echo "" >> $GITHUB_STEP_SUMMARY
           echo "```text" >> $GITHUB_STEP_SUMMARY
-          # Читаем ключевые строки из отчета Jest (lcov.info)
-          cat server/coverage/lcov.info 2>/dev/null | grep -E "^(SF|LF|LH|BRF|BRH)" | head -20 >> $GITHUB_STEP_SUMMARY
+          cat server/coverage/lcov.info 2>/dev/null | grep -E "^(SF|LF|LH|BRF|BRH)" | head -40 >> $GITHUB_STEP_SUMMARY
           echo "```" >> $GITHUB_STEP_SUMMARY
-
+          
+          # Wir benutzen die Traditionelle "Jest Summary"
+          echo "### 📈 Statistik für den gesamten Projekt" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "```text" >> $GITHUB_STEP_SUMMARY
+          cat server/coverage/coverage-summary.json 2>/dev/null | json_pp >> $GITHUB_STEP_SUMMARY
+          echo "```" >> $GITHUB_STEP_SUMMARY
+      
       # Загружаем отчет покрытия
       - name: Upload coverage report
         uses: actions/upload-artifact@v5
