@@ -10,7 +10,6 @@ jobs:
   backend-tests:
     runs-on: ubuntu-latest
 
-    # Секция, где GitHub создаст временный PostgreSQL для тестов
     services:
       postgres:
         image: postgres:16
@@ -28,10 +27,10 @@ jobs:
 
     steps:
       - name: Checkout code
-        uses: actions/checkout@v4
+        uses: actions/checkout@v5
 
       - name: Setup Node.js
-        uses: actions/setup-node@v4
+        uses: actions/setup-node@v5
         with:
           node-version: '20'
 
@@ -39,7 +38,6 @@ jobs:
         run: npm ci
         working-directory: server
 
-      # Создаем локальный .env, чтобы тесты могли подключиться к БД
       - name: Create .env for tests
         run: |
           echo "DB_HOST=127.0.0.1" >> .env
@@ -49,19 +47,31 @@ jobs:
           echo "DB_PASSWORD=test_password" >> .env
         working-directory: server
 
-      # Запускаем скрипт, который создает структуру таблиц в тестовой базе
       - name: Setup test database
         run: npm run test:setup
         working-directory: server
 
-      # Запускаем тесты
       - name: Run tests
         run: npm test
         working-directory: server
 
+      # 🆕 Шаг для вывода сводки покрытия прямо на страницу GitHub Actions
+      - name: Show Coverage Summary
+        run: |
+          echo "## 📊 Результаты тестов" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "✅ Тесты прошли успешно!" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "### Покрытие кode" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "```text" >> $GITHUB_STEP_SUMMARY
+          # Читаем ключевые строки из отчета Jest (lcov.info)
+          cat server/coverage/lcov.info 2>/dev/null | grep -E "^(SF|LF|LH|BRF|BRH)" | head -20 >> $GITHUB_STEP_SUMMARY
+          echo "```" >> $GITHUB_STEP_SUMMARY
+
       # Загружаем отчет покрытия
       - name: Upload coverage report
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v5
         with:
           name: server-coverage-report
           path: server/coverage/
