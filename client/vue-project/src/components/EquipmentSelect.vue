@@ -75,13 +75,18 @@ const searchQuery = ref('');
 const showDropdown = ref(false);
 let closeTimeout = null;
 
-// Отображаемое значение
+// ============================================
+// ✅ ОТОБРАЖАЕМОЕ ЗНАЧЕНИЕ - показываем название выбранного оборудования
+// ============================================
 const displayValue = computed(() => {
   if (!props.modelValue) return '';
-  const eq = props.equipmentOptions.find(e => e.id === props.modelValue);
-  return eq ? `${eq.name} (${eq.inventory_number})` : '';
+  const eq = props.equipmentOptions.find(e => e.id === Number(props.modelValue));
+  return eq ? `${eq.name} (Инв. № ${eq.inventory_number})` : '';
 });
 
+// ============================================
+// ✅ ДОСТУПНОЕ ОБОРУДОВАНИЕ
+// ============================================
 const availableEquipment = computed(() => {
   let list = props.equipmentOptions;
   if (props.onlyWorking) {
@@ -93,13 +98,16 @@ const availableEquipment = computed(() => {
   return list;
 });
 
+// ============================================
+// ✅ ФИЛЬТРОВАННЫЙ СПИСОК
+// ============================================
 const filteredItems = computed(() => {
   const query = searchQuery.value.toLowerCase().trim();
   let list = availableEquipment.value;
   
   // Исключаем уже выбранное
   if (props.modelValue) {
-    list = list.filter(eq => eq.id !== props.modelValue);
+    list = list.filter(eq => eq.id !== Number(props.modelValue));
   }
   
   if (!query) return list;
@@ -111,6 +119,9 @@ const filteredItems = computed(() => {
   );
 });
 
+// ============================================
+// ✅ СТАТУС ОБОРУДОВАНИЯ
+// ============================================
 const getStatusClass = (eq) => {
   if (eq.working_status === 'Исправен' && eq.write_off_status === 'На балансе') {
     return 'status-success';
@@ -124,6 +135,9 @@ const getStatusClass = (eq) => {
   return '';
 };
 
+// ============================================
+// ✅ МЕТОДЫ
+// ============================================
 const onInput = (event) => {
   const value = event.target.value;
   searchQuery.value = value;
@@ -155,7 +169,9 @@ const clear = () => {
   inputRef.value?.focus();
 };
 
-// Синхронизация при изменении modelValue извне
+// ============================================
+// ✅ НАБЛЮДАТЕЛЬ
+// ============================================
 watch(() => props.modelValue, (newVal) => {
   if (!newVal) {
     searchQuery.value = '';

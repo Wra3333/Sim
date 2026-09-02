@@ -24,8 +24,11 @@ const Repair = sequelize.define('Repair', {
     allowNull: false
   },
   repair_possibility: {
-    type: DataTypes.ENUM('Самостоятельно', 'Требуется сервисный инженер'),
-    defaultValue: 'Самостоятельно'
+    type: DataTypes.STRING(50),
+    defaultValue: 'Самостоятельно',
+    validate: {
+      isIn: [['Самостоятельно', 'Требуется сервисный инженер']]
+    }
   },
   is_resolved: {
     type: DataTypes.BOOLEAN,
@@ -36,6 +39,18 @@ const Repair = sequelize.define('Repair', {
   },
   resolved_by: {
     type: DataTypes.STRING(255)
+  },
+  // ✅ НОВЫЕ ПОЛЯ (внутри объекта модели)
+  resolution_status: {
+    type: DataTypes.STRING(50),
+    defaultValue: 'resolved',
+    validate: {
+      isIn: [['resolved', 'needs_repair', 'impossible']] 
+    }
+  },
+  write_off_reason: {
+    type: DataTypes.TEXT,
+    allowNull: true
   }
 }, {
   tableName: 'repairs',

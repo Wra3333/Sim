@@ -33,12 +33,18 @@ const Equipment = sequelize.define('Equipment', {
     type: DataTypes.STRING(255)
   },
   working_status: {
-    type: DataTypes.ENUM('Исправен', 'Требует ремонта', 'В ремонте'),
-    defaultValue: 'Исправен'
+    type: DataTypes.STRING(50),
+    defaultValue: 'Исправен',
+    validate: {
+      isIn: [['Исправен', 'Требует ремонта', 'В ремонте']]
+    }
   },
   write_off_status: {
-    type: DataTypes.ENUM('На балансе', 'На списание', 'Списан'),
-    defaultValue: 'На балансе'
+    type: DataTypes.STRING(50),
+    defaultValue: 'На балансе',
+    validate: {
+      isIn: [['На балансе', 'На списание', 'Списан']]
+    }
   }
 }, {
   tableName: 'equipment',

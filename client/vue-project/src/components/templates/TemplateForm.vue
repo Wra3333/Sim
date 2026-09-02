@@ -1,141 +1,37 @@
-<template>
-  <Teleport to="body">
-    <div v-if="visible" class="modal-overlay" @click.self="close">
-      <div class="modal">
-        <div class="modal-header">
-          <h3>{{ template ? '✏️ Редактировать шаблон' : '➕ Создать шаблон занятия' }}</h3>
-          <button class="btn-close" @click="close">×</button>
-        </div>
-
-        <form @submit.prevent="submit">
-          <div class="form-group">
-            <label>Название шаблона *</label>
-            <input
-              v-model="form.title"
-              type="text"
-              class="form-control"
-              placeholder="Например: Лабораторная работа №3"
-              required
-            />
-          </div>
-
-          <div class="form-group">
-            <label>Дисциплина *</label>
-            <input
-              v-model="form.discipline"
-              type="text"
-              class="form-control"
-              placeholder="Например: Физика"
-              required
-            />
-          </div>
-
-          <div class="form-group">
-            <label>Модуль</label>
-            <input
-              v-model="form.module"
-              type="text"
-              class="form-control"
-              placeholder="Например: Электричество"
-            />
-          </div>
-
-          <div class="form-group">
-            <label>Описание</label>
-            <textarea
-              v-model="form.description"
-              class="form-control"
-              rows="3"
-              placeholder="Краткое описание шаблона..."
-            ></textarea>
-          </div>
-
-          <div class="form-group">
-            <label>Оборудование в шаблоне</label>
-            <div class="equipment-list">
-              <div
-                v-for="(item, index) in equipmentList"
-                :key="index"
-                class="equipment-item"
-              >
-                <EquipmentSelect
-                  v-model="item.equipment_id"
-                  :equipment-options="equipmentOptions"
-                  placeholder="Введите название или инв. номер..."
-                  only-working
-                  @select="onEquipmentSelect"
-                />
-                <input
-                  v-model="item.quantity"
-                  type="number"
-                  class="form-control"
-                  placeholder="Кол-во"
-                  min="1"
-                  style="width: 80px;"
-                />
-                <button
-                  type="button"
-                  class="btn btn-sm btn-outline-danger"
-                  @click="removeEquipment(index)"
-                >
-                  ✕
-                </button>
-              </div>
-            </div>
-            <button
-              type="button"
-              class="btn btn-sm btn-outline-primary"
-              @click="addEquipment"
-              style="margin-top: 8px;"
-            >
-              ➕ Добавить оборудование
-            </button>
-          </div>
-
-          <div class="form-group">
-            <label>Активен</label>
-            <select v-model="form.is_active" class="form-control">
-              <option :value="true">Да</option>
-              <option :value="false">Нет</option>
-            </select>
-          </div>
-
-          <div class="form-actions">
-            <button type="button" class="btn btn-outline-secondary" @click="close">
-              Отмена
-            </button>
-            <button type="submit" class="btn btn-primary" :disabled="loading">
-              {{ loading ? 'Сохранение...' : 'Сохранить' }}
-            </button>
-          </div>
-        </form>
-      </div>
-    </div>
-  </Teleport>
-</template>
-
 <script setup>
-import { ref, watch, onMounted } from 'vue';
-import { templatesApi, equipmentApi } from '../../api';
+import { ref, watch, onMounted, computed } from 'vue';
+import { useEquipmentStore, useTemplatesStore } from '../../stores';
 import { useToastStore } from '../../stores/toastStore';
+import { useConfirm } from '../../composables/useConfirm';
 import EquipmentSelect from '../../components/EquipmentSelect.vue';
+import ConfirmModal from '../../components/ConfirmModal.vue';
 
+// ============================================
+// ✅ PROPS & EMITS
+// ============================================
 const props = defineProps({
-  visible: {
-    type: Boolean,
-    default: false
-  },
-  template: {
-    type: Object,
-    default: null
-  }
+  visible: { type: Boolean, default: false },
+  template: { type: Object, default: null }
 });
 
 const emit = defineEmits(['close', 'save']);
 
+// ============================================
+// ✅ STORE
+// ============================================
+const equipmentStore = useEquipmentStore();
+const templatesStore = useTemplatesStore();
 const toast = useToastStore();
+
+// ============================================
+// ✅ КОМПОЗАБЛЫ
+// ============================================
+const { show, config, confirm, onConfirm, onCancel } = useConfirm();
+
+// ============================================
+// ✅ СОСТОЯНИЕ
+// ============================================
 const loading = ref(false);
-const equipmentOptions = ref([]);
 const equipmentList = ref([]);
 
 const form = ref({
@@ -146,17 +42,35 @@ const form = ref({
   is_active: true
 });
 
-const onEquipmentSelect = (item) => {
-  // Дополнительная логика
+// ============================================
+// ✅ ВЫЧИСЛЯЕМЫЕ
+// ============================================
+const getExcludeIds = (currentIndex) => {
+  return equipmentList.value
+    .map((item, index) => index !== currentIndex ? item.equipment_id : null)
+    .filter(id => id !== null);
 };
 
-const loadEquipment = async () => {
-  try {
-    const { data } = await equipmentApi.getAll();
-    equipmentOptions.value = data || [];
-  } catch (error) {
-    toast.error('Ошибка загрузки оборудования');
-  }
+const brokenCount = computed(() => {
+  return equipmentStore.items.filter(eq => 
+    eq.working_status !== 'Исправен' || 
+    eq.write_off_status === 'На списание' || 
+    eq.write_off_status === 'Списан'
+  ).length;
+});
+
+// ============================================
+// ✅ МЕТОДЫ
+// ============================================
+const addEquipment = () => {
+  equipmentList.value.push({
+    equipment_id: null,
+    quantity: 1
+  });
+};
+
+const removeEquipment = (index) => {
+  equipmentList.value.splice(index, 1);
 };
 
 const normalizeEquipmentList = (data) => {
@@ -172,17 +86,87 @@ const normalizeEquipmentList = (data) => {
   return [];
 };
 
-const addEquipment = () => {
-  equipmentList.value.push({
-    equipment_id: null,
-    quantity: 1
-  });
+const close = () => emit('close');
+
+// ✅ ОСНОВНОЙ МЕТОД SUBMIT
+const submit = async () => {
+  if (!form.value.title.trim()) {
+    toast.warning('Введите название шаблона');
+    return;
+  }
+  if (!form.value.discipline.trim()) {
+    toast.warning('Введите дисциплину');
+    return;
+  }
+  if (!form.value.module.trim()) {
+    toast.warning('Введите модуль');
+    return;
+  }
+
+  try {
+    loading.value = true;
+
+    const data = {
+      title: form.value.title,
+      discipline: form.value.discipline,
+      module: form.value.module,
+      description: form.value.description || '',
+      is_active: form.value.is_active,
+      equipment_list: equipmentList.value.filter(item => item.equipment_id !== null)
+    };
+
+    let response;
+
+    if (props.template) {
+      response = await templatesStore.update(props.template.id, data);
+      
+      if (response?.hasLinkedLessons) {
+        // ✅ Используем useConfirm вместо ручной модалки
+        const confirmed = await confirm({
+          title: '🔄 Обновить занятия?',
+          message: `
+            Шаблон был изменен. 
+            ${response.linkedLessonsCount} занятий используют этот шаблон.
+            
+            Хотите обновить существующие занятия?
+            
+            ⚠️ Проведенные занятия не будут обновлены.
+          `,
+          confirmText: 'Да, обновить все',
+          cancelText: 'Нет, оставить как есть',
+          confirmVariant: 'warning'
+        });
+        
+        if (confirmed) {
+          await templatesStore.syncLessons(props.template.id);
+          toast.success('✅ Занятия обновлены');
+        }
+        
+        emit('save');
+        close();
+        loading.value = false;
+        return;
+      }
+      
+      toast.success('✅ Шаблон обновлен');
+    } else {
+      await templatesStore.create(data);
+      toast.success('✅ Шаблон создан');
+    }
+
+    emit('save');
+    close();
+  } catch (error) {
+    console.error('Ошибка:', error);
+    toast.error(error?.response?.data?.message || 'Ошибка сохранения');
+  } finally {
+    loading.value = false;
+  }
 };
 
-const removeEquipment = (index) => {
-  equipmentList.value.splice(index, 1);
-};
-
+// ============================================
+// ✅ WATCH
+// ============================================
 watch(() => props.template, (val) => {
   if (val) {
     form.value = {
@@ -203,51 +187,151 @@ watch(() => props.template, (val) => {
     };
     equipmentList.value = [];
   }
-}, { immediate: true, deep: true });
+}, { immediate: true });
 
-const close = () => {
-  emit('close');
-};
-
-const submit = async () => {
-  if (!form.value.title.trim()) {
-    toast.warning('Введите название шаблона');
-    return;
+// ============================================
+// ✅ LIFECYCLE
+// ============================================
+onMounted(async () => {
+  if (equipmentStore.items.length === 0) {
+    await equipmentStore.fetchAll();
   }
-  if (!form.value.discipline.trim()) {
-    toast.warning('Введите дисциплину');
-    return;
-  }
-
-  try {
-    loading.value = true;
-
-    const filteredEquipment = equipmentList.value.filter(item => item.equipment_id);
-
-    const data = {
-      ...form.value,
-      equipment_list: filteredEquipment
-    };
-
-    if (props.template) {
-      await templatesApi.update(props.template.id, data);
-      toast.success('✅ Шаблон обновлён');
-    } else {
-      await templatesApi.create(data);
-      toast.success('✅ Шаблон создан');
-    }
-
-    emit('save');
-    close();
-  } catch (error) {
-    toast.error(error.response?.data?.error || 'Ошибка сохранения');
-  } finally {
-    loading.value = false;
-  }
-};
-
-onMounted(loadEquipment);
+});
 </script>
+
+<template>
+  <div v-if="visible" class="modal-overlay" @click.self="close">
+    <div class="modal">
+      <div class="modal-header">
+        <h3>{{ template ? '✏️ Редактировать шаблон' : '📝 Создать шаблон' }}</h3>
+        <button class="btn-close" @click="close">×</button>
+      </div>
+
+      <form @submit.prevent="submit">
+        <!-- Название -->
+        <div class="form-group">
+          <label>Название шаблона *</label>
+          <input
+            v-model="form.title"
+            type="text"
+            class="form-control"
+            placeholder="Например: Акушерство"
+            required
+          />
+        </div>
+
+        <div class="form-row">
+          <div class="form-group">
+            <label>Дисциплина *</label>
+            <input
+              v-model="form.discipline"
+              type="text"
+              class="form-control"
+              placeholder="Например: Акушерство"
+              required
+            />
+          </div>
+          <div class="form-group">
+            <label>Модуль *</label>
+            <input
+              v-model="form.module"
+              type="text"
+              class="form-control"
+              placeholder="Например: Модуль 1"
+              required
+            />
+          </div>
+        </div>
+
+        <div class="form-group">
+          <label>Описание</label>
+          <textarea
+            v-model="form.description"
+            class="form-control"
+            rows="2"
+            placeholder="Дополнительная информация..."
+          ></textarea>
+        </div>
+
+        <div class="form-group">
+          <label class="checkbox-label">
+            <input v-model="form.is_active" type="checkbox" />
+            Активен
+          </label>
+          <small class="form-text text-muted">
+            Неактивные шаблоны не отображаются при создании занятий
+          </small>
+        </div>
+
+        <!-- Оборудование -->
+        <div class="form-group">
+          <label>Оборудование</label>
+          <div class="equipment-list">
+            <div
+              v-for="(item, index) in equipmentList"
+              :key="index"
+              class="equipment-item"
+            >
+              <EquipmentSelect
+                v-model="item.equipment_id"
+                :equipment-options="equipmentStore.items"
+                :exclude-ids="getExcludeIds(index)"
+                placeholder="Выберите оборудование..."
+                only-working
+              />
+              <input
+                v-model="item.quantity"
+                type="number"
+                class="form-control"
+                placeholder="Кол-во"
+                min="1"
+                style="width: 80px;"
+              />
+              <button
+                type="button"
+                class="btn btn-sm btn-outline-danger"
+                @click="removeEquipment(index)"
+              >
+                ✕
+              </button>
+            </div>
+          </div>
+          <button
+            type="button"
+            class="btn btn-sm btn-outline-primary"
+            @click="addEquipment"
+          >
+            ➕ Добавить оборудование
+          </button>
+          <small v-if="brokenCount > 0" style="color: #dc3545; display: block; margin-top: 6px;">
+            ⚠️ {{ brokenCount }} единиц оборудования в ремонте, требует ремонта или на списании
+          </small>
+        </div>
+
+        <div class="form-actions">
+          <button type="button" class="btn btn-outline-secondary" @click="close">
+            Отмена
+          </button>
+          <button type="submit" class="btn btn-primary" :disabled="loading">
+            {{ loading ? 'Сохранение...' : 'Сохранить' }}
+          </button>
+        </div>
+      </form>
+
+      <!-- ✅ МОДАЛЬНОЕ ОКНО ДЛЯ ПОДТВЕРЖДЕНИЯ (useConfirm) -->
+      <ConfirmModal
+        v-model:visible="show"
+        :title="config.title"
+        :message="config.message"
+        :confirm-text="config.confirmText"
+        :cancel-text="config.cancelText"
+        :confirm-variant="config.confirmVariant"
+        @confirm="onConfirm"
+        @cancel="onCancel"
+      />
+    </div>
+  </div>
+</template>
 
 <style scoped>
 .modal-overlay {
@@ -319,6 +403,26 @@ onMounted(loadEquipment);
   margin-bottom: 4px;
 }
 
+.checkbox-label {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  cursor: pointer;
+  font-weight: 400;
+}
+
+.checkbox-label input {
+  width: 16px;
+  height: 16px;
+  cursor: pointer;
+}
+
+.form-row {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 16px;
+}
+
 .form-control {
   width: 100%;
   padding: 8px 12px;
@@ -341,6 +445,12 @@ textarea.form-control {
   resize: vertical;
   min-height: 60px;
   font-family: inherit;
+}
+
+.form-text {
+  font-size: 12px;
+  color: #6c757d;
+  margin-top: 4px;
 }
 
 .equipment-list {
@@ -420,6 +530,7 @@ textarea.form-control {
   border: 1px solid #dc3545;
   padding: 4px 10px;
   font-size: 14px;
+  border-radius: 4px;
 }
 
 .btn-outline-danger:hover {
@@ -430,5 +541,16 @@ textarea.form-control {
 .btn-sm {
   padding: 4px 10px;
   font-size: 13px;
+}
+
+@media (max-width: 768px) {
+  .modal {
+    width: 95%;
+    padding: 16px;
+  }
+  
+  .form-row {
+    grid-template-columns: 1fr;
+  }
 }
 </style>

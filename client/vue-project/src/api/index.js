@@ -46,7 +46,8 @@ export const templatesApi = {
   getById: (id) => api.get(`/templates/${id}`),
   create: (data) => api.post('/templates', data),
   update: (id, data) => api.put(`/templates/${id}`, data),
-  delete: (id) => api.delete(`/templates/${id}`)
+  delete: (id) => api.delete(`/templates/${id}`),
+  syncLessons: (templateId) => api.post(`/templates/${templateId}/sync-lessons`),
 };
 
 // ============================================

@@ -1,0 +1,233 @@
+
+> server-moleculer@1.0.0 test
+> cross-env NODE_ENV=test jest --runInBand
+
+  console.log
+    ✅ Используется тестовая БД: simulation_center_test
+
+      at Object.log (tests/setup.js:14:9)
+
+  console.log
+    ✅ Test database synchronized
+
+      at Object.log (tests/setup.js:18:11)
+
+  console.log
+    ✅ Database connection closed
+
+      at Object.log (tests/setup.js:31:11)
+
+PASS tests/worktime.test.js
+  WorkTime Service Tests
+    CREATE
+      √ should create work time entry (31 ms)
+      √ should calculate total_hours correctly (15 ms)
+      √ should throw error if start >= end (14 ms)
+      √ should throw error if equipment is in repair (18 ms)
+    LIST
+      √ should list all work time entries (35 ms)
+    GET BY EQUIPMENT
+      √ should get work time by equipment (16 ms)
+    REPORT
+      √ should generate report for date range (17 ms)
+      √ should filter report by equipment (16 ms)
+      √ should throw error if start > end (12 ms)
+    SUMMARY
+      √ should generate summary for equipment (28 ms)
+
+  console.log
+    ✅ Используется тестовая БД: simulation_center_test
+
+      at Object.log (tests/setup.js:14:9)
+
+  console.log
+    ✅ Test database synchronized
+
+      at Object.log (tests/setup.js:18:11)
+
+  console.log
+    ✅ Database connection closed
+
+      at Object.log (tests/setup.js:31:11)
+
+PASS tests/templates.test.js
+  Templates Service Tests
+    CREATE
+      √ should create template successfully (64 ms)
+      √ should throw error if equipment is not working (66 ms)
+      √ should create template with empty equipment list (54 ms)
+    LIST
+      √ should list all templates (53 ms)
+      √ should filter by is_active (49 ms)
+    GET
+      √ should get template by id (50 ms)
+      √ should throw error if template not found (65 ms)
+    UPDATE
+      √ should update template successfully (58 ms)
+      √ should detect linked lessons when equipment changes (56 ms)
+    ADD EQUIPMENT
+      √ should add equipment to template (53 ms)
+      √ should update quantity if equipment already exists (57 ms)
+      √ should throw error if equipment not found (50 ms)
+    REMOVE EQUIPMENT
+      √ should remove equipment from template (61 ms)
+    SYNC LESSONS
+      √ should sync lessons with template equipment (71 ms)
+      √ should sync specific lessons only (52 ms)
+    DELETE
+      √ should delete template and detach lessons (55 ms)
+
+  console.log
+    ✅ Используется тестовая БД: simulation_center_test
+
+      at Object.log (tests/setup.js:14:9)
+
+  console.log
+    ✅ Test database synchronized
+
+      at Object.log (tests/setup.js:18:11)
+
+  console.log
+    ✅ Database connection closed
+
+      at Object.log (tests/setup.js:31:11)
+
+PASS tests/repairs.test.js
+  Repairs Service Tests
+    CREATE
+      √ should create repair request (59 ms)
+      √ should create multiple repair requests (55 ms)
+      √ should throw error if equipment does not exist (52 ms)
+      √ should throw error if equipment is written off (38 ms)
+    LIST
+      √ should list all repairs (54 ms)
+      √ should filter by equipment_id (49 ms)
+      √ should filter by is_resolved (50 ms)
+    GET BY EQUIPMENT
+      √ should get repairs by equipment id (42 ms)
+      √ should throw error if equipment not found (37 ms)
+    UPDATE
+      √ should update repair request (40 ms)
+      √ should prevent updating closed repair (47 ms)
+    RESOLVE
+      √ should resolve repair as "resolved" (43 ms)
+      √ should resolve repair as "needs_repair" (48 ms)
+      √ should resolve repair as "impossible" and write off equipment (40 ms)
+      √ should throw error if repair already resolved (45 ms)
+    DELETE
+      √ should delete active repair and restore equipment status (45 ms)
+      √ should prevent deleting resolved repair (42 ms)
+
+  console.log
+    ✅ Используется тестовая БД: simulation_center_test
+
+      at Object.log (tests/setup.js:14:9)
+
+  console.log
+    ✅ Test database synchronized
+
+      at Object.log (tests/setup.js:18:11)
+
+  console.log
+    ✅ Database connection closed
+
+      at Object.log (tests/setup.js:31:11)
+
+PASS tests/lessons.test.js
+  Lessons Service Tests
+    CREATE
+      √ should create lesson successfully (22 ms)
+      √ should throw error if start_time >= end_time (10 ms)
+      √ should throw error if template not found (6 ms)
+      √ should throw error if template is inactive (10 ms)
+      √ should throw error if equipment is not working (25 ms)
+      √ should create WorkTime when status is "Проведено" (21 ms)
+    LIST
+      √ should list all lessons (55 ms)
+      √ should filter by status (58 ms)
+      √ should filter by group (58 ms)
+      √ should filter by teacher (15 ms)
+    GET
+      √ should get lesson by id (10 ms)
+      √ should throw error if lesson not found (7 ms)
+    UPDATE
+      √ should update lesson successfully (12 ms)
+      √ should create WorkTime when status changes to "Проведено" (22 ms)
+      √ should delete WorkTime when status changes to "Запланировано" from "Проведено" (25 ms)
+      √ should delete WorkTime when status changes to "Отменено" (31 ms)
+    COMPLETE
+      √ should complete lesson and create WorkTime (15 ms)
+      √ should throw error if lesson already completed (5 ms)
+    DELETE
+      √ should delete planned lesson (8 ms)
+      √ should prevent deletion of completed lesson (5 ms)
+
+  console.log
+    ✅ Используется тестовая БД: simulation_center_test
+
+      at Object.log (tests/setup.js:14:9)
+
+  console.log
+    ✅ Test database synchronized
+
+      at Object.log (tests/setup.js:18:11)
+
+  console.log
+    ✅ Database connection closed
+
+      at Object.log (tests/setup.js:31:11)
+
+PASS tests/equipment.test.js
+  Equipment Service Tests
+    CREATE
+      √ should create equipment successfully (153 ms)
+      √ should throw error if inventory_number already exists (20 ms)
+      √ should validate photo format (6 ms)
+      √ should reject invalid photo format (6 ms)
+      √ should set default statuses (6 ms)
+    LIST
+      √ should list all equipment (14 ms)
+      √ should filter by working_status (7 ms)
+      √ should filter by write_off_status (10 ms)
+      √ should search by inventory_number (7 ms)
+      √ should search by name (8 ms)
+    GET
+      √ should get equipment by id (7 ms)
+      √ should throw error if equipment not found (23 ms)
+    UPDATE
+      √ should update equipment successfully (10 ms)
+      √ should update working_status (7 ms)
+      √ should prevent update to "Исправен" if has active repairs (10 ms)
+      √ should throw error if equipment not found (6 ms)
+    DELETE
+      √ should delete equipment without photo (7 ms)
+      √ should prevent deletion if has active repairs (9 ms)
+      √ should throw error if equipment not found (3 ms)
+    VALIDATE STATUS
+      √ should return invalid equipment (7 ms)
+
+-------------------------|---------|----------|---------|---------|------------------------------------------------------------
+File                     | % Stmts | % Branch | % Funcs | % Lines | Uncovered Line #s                                          
+-------------------------|---------|----------|---------|---------|------------------------------------------------------------
+All files                |   70.84 |    58.14 |   72.22 |   71.61 |                                                            
+ models                  |   86.53 |    42.85 |      50 |   88.23 |                                                            
+  Equipment.js           |     100 |      100 |     100 |     100 |                                                            
+  Lesson.js              |     100 |      100 |     100 |     100 |                                                            
+  Repair.js              |     100 |      100 |     100 |     100 |                                                            
+  Template.js            |     100 |      100 |     100 |     100 |                                                            
+  WorkTime.js            |   66.66 |    42.85 |      50 |      70 | 51,58-63                                                   
+  index.js               |     100 |      100 |     100 |     100 |                                                            
+ services                |    69.3 |     58.7 |   72.85 |   69.89 |                                                            
+  api-gateway.service.js |       0 |        0 |       0 |       0 | 1-184                                                      
+  equipment.service.js   |   63.15 |    54.38 |      80 |   60.67 | 208,238-240,276-344                                        
+  lessons.service.js     |   72.85 |    53.33 |   73.33 |   73.84 | 187-192,212-213,216-217,221,227-242,309-334,384-387        
+  repairs.service.js     |   82.79 |       75 |   69.23 |   87.05 | 142-143,267,289-299,348                                    
+  templates.service.js   |   78.76 |    71.79 |   88.88 |   81.55 | 40,140,150-153,240,244,251-255,309-312,317,332,342-343,353 
+  worktime.service.js    |    85.1 |    71.87 |     100 |   84.44 | 22,31,37,44,97,139,143                                     
+-------------------------|---------|----------|---------|---------|------------------------------------------------------------
+Test Suites: 5 passed, 5 total
+Tests:       83 passed, 83 total
+Snapshots:   0 total
+Time:        7.606 s, estimated 11 s
+Ran all test suites.
+Force exiting Jest: Have you considered using `--detectOpenHandles` to detect async operations that kept running after all tests finished?

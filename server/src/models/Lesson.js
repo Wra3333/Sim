@@ -13,8 +13,7 @@ const Lesson = sequelize.define('Lesson', {
   },
   group: {
     type: DataTypes.STRING(100),
-    allowNull: false,
-    field: 'group'
+    allowNull: false
   },
   teacher: {
     type: DataTypes.STRING(255),
@@ -40,11 +39,15 @@ const Lesson = sequelize.define('Lesson', {
     type: DataTypes.INTEGER
   },
   equipment_list: {
-    type: DataTypes.JSON
+    type: DataTypes.JSONB,
+    defaultValue: []
   },
   status: {
-    type: DataTypes.ENUM('Запланировано', 'Проведено', 'Отменено'),
-    defaultValue: 'Запланировано'
+    type: DataTypes.STRING(50),
+    defaultValue: 'Запланировано',
+    validate: {
+      isIn: [['Запланировано', 'Проведено', 'Отменено']]
+    }
   },
   notes: {
     type: DataTypes.TEXT

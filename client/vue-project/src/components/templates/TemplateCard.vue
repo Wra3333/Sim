@@ -1,27 +1,3 @@
-<template>
-  <div class="template-item">
-    <div class="template-info">
-      <h3>{{ title }}</h3>
-      <div class="meta">
-        <span>📚 {{ discipline }}</span>
-        <span v-if="hasModule">📂 {{ module }}</span>
-      </div>
-      <div class="equipment-preview" v-if="hasEquipmentPreview">
-        <span class="badge badge-secondary" v-for="(item, index) in equipmentPreview" :key="index">
-          {{ item }}
-        </span>
-      </div>
-      <span class="badge" :class="statusClass">
-        {{ statusText }}
-      </span>
-    </div>
-    <div class="template-actions">
-      <button class="btn btn-sm btn-outline-primary" @click="$emit('edit', template)">Редактировать</button>
-      <button class="btn btn-sm btn-outline-danger" @click="$emit('delete', template.id)">Удалить</button>
-    </div>
-  </div>
-</template>
-
 <script setup>
 import { computed } from 'vue';
 
@@ -84,6 +60,29 @@ const previewCount = computed(() => {
 
 const hasMoreEquipment = computed(() => previewCount.value > 3);
 </script>
+<template>
+  <div class="template-item">
+    <div class="template-info">
+      <h3>{{ title }}</h3>
+      <div class="meta">
+        <span>📚 {{ discipline }}</span>
+        <span v-if="hasModule">📂 {{ module }}</span>
+      </div>
+      <div class="equipment-preview" v-if="hasEquipmentPreview">
+        <span class="badge badge-secondary" v-for="(item, index) in equipmentPreview" :key="index">
+          {{ item }}
+        </span>
+      </div>
+      <span class="badge" :class="statusClass">
+        {{ statusText }}
+      </span>
+    </div>
+    <div class="template-actions">
+      <button class="btn btn-sm btn-outline-primary" @click="$emit('edit', template)">Редактировать</button>
+      <button class="btn btn-sm btn-outline-danger" @click="$emit('delete', template.id)">Удалить</button>
+    </div>
+  </div>
+</template>
 
 <style scoped>
 .template-item {

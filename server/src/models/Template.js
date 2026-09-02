@@ -22,7 +22,8 @@ const Template = sequelize.define('Template', {
     type: DataTypes.TEXT
   },
   equipment_list: {
-    type: DataTypes.JSON
+    type: DataTypes.JSONB,
+    defaultValue: []
   },
   is_active: {
     type: DataTypes.BOOLEAN,

@@ -1,17 +1,15 @@
 const sequelize = require('../config/database');
-
-// Импорт моделей
 const Equipment = require('./Equipment');
 const Repair = require('./Repair');
-const Template = require('./Template');
-const Lesson = require('./Lesson');
 const WorkTime = require('./WorkTime');
+const Lesson = require('./Lesson');
+const Template = require('./Template');
 
 // ============================================
 // СВЯЗИ
 // ============================================
 
-// Equipment → Repair (1 ко многим)
+// Equipment → Repair
 Equipment.hasMany(Repair, {
   foreignKey: 'equipment_id',
   as: 'repairs'
@@ -21,17 +19,17 @@ Repair.belongsTo(Equipment, {
   as: 'equipment'
 });
 
-// Equipment → WorkTime (1 ко многим)
+// Equipment → WorkTime
 Equipment.hasMany(WorkTime, {
   foreignKey: 'equipment_id',
-  as: 'workTimes'
+  as: 'workTimes'           // ✅ уникальный alias
 });
 WorkTime.belongsTo(Equipment, {
   foreignKey: 'equipment_id',
-  as: 'equipment'
+  as: 'equipment'           // ✅ уникальный alias
 });
 
-// Template → Lesson (1 ко многим)
+// Template → Lesson
 Template.hasMany(Lesson, {
   foreignKey: 'template_id',
   as: 'lessons'
@@ -41,21 +39,21 @@ Lesson.belongsTo(Template, {
   as: 'template'
 });
 
-// Lesson → WorkTime (1 ко многим)
+// Lesson → WorkTime
 Lesson.hasMany(WorkTime, {
   foreignKey: 'lesson_id',
-  as: 'workTimes'
+  as: 'workTimes'           // ✅ уникальный alias
 });
 WorkTime.belongsTo(Lesson, {
   foreignKey: 'lesson_id',
-  as: 'lesson'
+  as: 'lesson'              // ✅ уникальный alias
 });
 
 module.exports = {
   sequelize,
   Equipment,
   Repair,
-  Template,
+  WorkTime,
   Lesson,
-  WorkTime
+  Template
 };

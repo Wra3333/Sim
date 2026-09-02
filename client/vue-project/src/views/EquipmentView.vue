@@ -1,138 +1,81 @@
-<template>
-  <div class="equipment-view">
-    <div class="toolbar">
-      <div class="toolbar-left">
-        <h2>🖥️ Журнал учета оборудования</h2>
-        <span class="count">Найдено: {{ filteredEquipment.length }}</span>
-      </div>
-      <div class="toolbar-right">
-        <button class="btn btn-primary" @click="openCreateForm">Добавить</button>
-      </div>
-    </div>
-
-    <div class="filters">
-      <!-- Фильтр по статусу -->
-      <select v-model="filters.status" class="form-control">
-        <option value="">Все статусы</option>
-        <option value="Исправен">Исправен</option>
-        <option value="Требует ремонта">Требует ремонта</option>
-        <option value="В ремонте">В ремонте</option>
-        <option value="На списание">На списание</option>
-        <option value="Списан">Списан</option>
-      </select>
-
-      <!-- 🔍 ПОИСК С МНОЖЕСТВЕННЫМ ВЫБОРОМ -->
-      <EquipmentMultiSelect
-        v-model="filters.equipmentIds"
-        :equipment-options="equipmentList"
-        placeholder="🔍 Поиск и выбор оборудования..."
-        :max-items="5"
-        @select="onSearchSelect"
-        @remove="onSearchRemove"
-      />
-
-      <button class="btn btn-primary" @click="applyFilters">Обновить</button>
-      <button class="btn btn-secondary" @click="resetFilters">Сбросить</button>
-    </div>
-
-    <div v-if="loading" class="text-center">Загрузка...</div>
-    <div v-else-if="filteredEquipment.length === 0" class="empty-state">
-      Нет оборудования
-    </div>
-    <div v-else class="equipment-grid">
-      <EquipmentCard
-        v-for="item in paginatedItems"
-        :key="item.id"
-        :equipment="item"
-        @edit="openEditForm"
-        @delete="confirmDelete"
-        @view="openViewForm"
-        @history="openHistoryModal"
-      />
-    </div>
-
-    <Pagination 
-      v-if="showPagination"
-      v-model:current-page="currentPage"
-      :total-pages="totalPages"
-      :loading="loading"
-    />
-
-    <EquipmentForm
-      v-if="showForm"
-      :equipment="editingItem"
-      @close="closeForm"
-      @save="onSaved"
-    />
-
-    <ConfirmModal
-      v-model:visible="showDeleteModal"
-      title="Удаление оборудования"
-      message="Вы уверены, что хотите удалить это оборудование?"
-      confirm-text="Удалить"
-      confirm-variant="danger"
-      @confirm="handleDelete"
-    />
-
-    <HistoryModal
-      :visible="showHistoryModal"
-      :equipment="historyEquipment"
-      @close="closeHistoryModal"
-    />
-  </div>
-</template>
-
 <script setup>
-import { ref, computed, onMounted, watch } from 'vue';
+import { ref, computed, onMounted, onActivated, watch } from 'vue';
+import { storeToRefs } from 'pinia';
 import { useEquipmentStore } from '../stores';
-import { equipmentApi } from '../api';
+import { useFilters } from '../composables/useFilters';
+import { useFilteredItems } from '../composables/useFilteredItems';
+import { usePagination } from '../composables/usePagination';
+import { useToastStore } from '../stores/toastStore';
 import EquipmentForm from '../components/equipment/EquipmentForm.vue';
 import EquipmentCard from '../components/equipment/EquipmentCard.vue';
 import ConfirmModal from '../components/ConfirmModal.vue';
 import HistoryModal from '../components/equipment/HistoryModal.vue';
 import EquipmentMultiSelect from '../components/EquipmentMultiSelect.vue';
-import { useFilters } from '../composables/useFilters';
-import { usePagination } from '../composables/usePagination';
-import { useToastStore } from '../stores/toastStore';
 import Pagination from '../components/Pagination.vue';
 
+// ============================================
+// ✅ STORE
+// ============================================
 const store = useEquipmentStore();
 const toast = useToastStore();
-const equipment = ref([]);
-const equipmentList = ref([]);
-const loading = ref(false);
+
+// ✅ РАЗРЫВАЕМ РЕАКТИВНОСТЬ ПРАВИЛЬНО
+const { items } = storeToRefs(store);
+
+// ============================================
+// ✅ СОСТОЯНИЕ
+// ============================================
+const loading = ref(true);
 const showForm = ref(false);
 const editingItem = ref(null);
 const showDetails = ref(false);
-
 const showDeleteModal = ref(false);
 const deleteItemId = ref(null);
 const showHistoryModal = ref(false);
 const historyEquipment = ref(null);
 
-const { filters, resetFilters } = useFilters({
-  status: '',
+// ============================================
+// ✅ ФИЛЬТРЫ
+// ============================================
+const { filters, resetFilters, setFilter } = useFilters({
+  working_status: '',
+  write_off_status: '',
   equipmentIds: []
 });
 
-// Фильтрация
-const filteredEquipment = computed(() => {
-  let items = equipment.value;
-
-  // Фильтр по статусу
-  if (filters.value.status) {
-    items = items.filter(item => item.working_status === filters.value.status);
+// ============================================
+// ✅ КОНФИГУРАЦИЯ ФИЛЬТРОВ
+// ============================================
+const filterConfig = {
+  working_status: {
+    filterFn: (item, value) => {
+      if (!value) return true;
+      return item.working_status === value;
+    }
+  },
+  write_off_status: {
+    filterFn: (item, value) => {
+      if (!value) return true;
+      return item.write_off_status === value;
+    }
+  },
+  equipmentIds: {
+    filterFn: (item, value) => {
+      if (!value || value.length === 0) return true;
+      const ids = value.map(id => Number(id));
+      return ids.includes(item.id);
+    }
   }
+};
 
-  // 📋 Фильтр по множественному выбору оборудования (из SearchWithSuggestions)
-  if (filters.value.equipmentIds && filters.value.equipmentIds.length > 0) {
-    const ids = filters.value.equipmentIds.map(id => Number(id));
-    items = items.filter(item => ids.includes(item.id));
-  }
+// ============================================
+// ✅ ФИЛЬТРАЦИЯ (используем items как ref)
+// ============================================
+const filteredEquipment = useFilteredItems(items, filters, filterConfig);
 
-  return items;
-});
-
+// ============================================
+// ✅ ПАГИНАЦИЯ
+// ============================================
 const { 
   currentPage, 
   paginatedItems, 
@@ -141,30 +84,13 @@ const {
   showPagination
 } = usePagination(filteredEquipment, { pageSize: 8 });
 
-const loadEquipmentList = async () => {
-  try {
-    const { data } = await equipmentApi.getAll();
-    equipmentList.value = data || [];
-  } catch (error) {
-    console.error('Error loading equipment list:', error);
-  }
-};
-
-const onSearchSelect = (item) => {
-  console.log('✅ Выбрано:', item.name);
-  applyFilters();
-};
-
-const onSearchRemove = (item) => {
-  console.log('❌ Удалено:', item.name);
-  applyFilters();
-};
-
+// ============================================
+// ✅ МЕТОДЫ
+// ============================================
 const loadEquipment = async () => {
   loading.value = true;
   try {
-    const data = await store.fetchAll();
-    equipment.value = data;
+    await store.fetchAll();
     resetPage();
   } catch (error) {
     console.error('Error loading:', error);
@@ -230,21 +156,125 @@ const closeHistoryModal = () => {
   historyEquipment.value = null;
 };
 
-const applyFilters = () => {
+// ============================================
+// ✅ СБРОС ФИЛЬТРОВ
+// ============================================
+const resetAllFilters = () => {
+  resetFilters();
   resetPage();
 };
 
-watch([() => filters.value.status, () => filters.value.equipmentIds], () => {
-  resetPage();
-}, { deep: true });
+// ============================================
+// ✅ WATCH
+// ============================================
+watch(
+  [() => filters.value.working_status, () => filters.value.write_off_status, () => filters.value.equipmentIds], 
+  () => {
+    resetPage();
+  }, 
+  { deep: true }
+);
 
+// ============================================
+// ✅ LIFECYCLE
+// ============================================
 onMounted(async () => {
-  await Promise.all([
-    loadEquipment(),
-    loadEquipmentList()
-  ]);
+  await loadEquipment();
+});
+
+onActivated(() => {
+  loadEquipment();
 });
 </script>
+
+<template>
+  <div class="equipment-view">
+    <!-- TOOLBAR -->
+    <div class="toolbar">
+      <div class="toolbar-left">
+        <h2>🖥️ Журнал учета оборудования</h2>
+        <span class="count">Найдено: {{ filteredEquipment.length }}</span>
+      </div>
+      <div class="toolbar-right">
+        <button class="btn btn-primary" @click="openCreateForm">Добавить</button>
+      </div>
+    </div>
+
+    <!-- ФИЛЬТРЫ -->
+    <div class="filters">
+      <select v-model="filters.working_status" class="form-control">
+        <option value="">Все статусы</option>
+        <option value="Исправен">Исправен</option>
+        <option value="Требует ремонта">Требует ремонта</option>
+        <option value="В ремонте">В ремонте</option>
+      </select>
+
+      <select v-model="filters.write_off_status" class="form-control">
+        <option value="">Все статусы списания</option>
+        <option value="На балансе">На балансе</option>
+        <option value="На списание">На списание</option>
+        <option value="Списан">Списан</option>
+      </select>
+
+      <EquipmentMultiSelect
+        v-model="filters.equipmentIds"
+        :equipment-options="items"
+        placeholder="🔍 Поиск и выбор оборудования..."
+        :max-items="5"
+      />
+
+      <button class="btn btn-outline-secondary" @click="resetAllFilters">Сбросить</button>
+    </div>
+
+    <!-- СПИСОК -->
+    <div v-if="loading" class="text-center">Загрузка...</div>
+    <div v-else-if="filteredEquipment.length === 0" class="empty-state">
+      Нет оборудования
+    </div>
+    <div v-else class="equipment-grid">
+      <EquipmentCard
+        v-for="item in paginatedItems"
+        :key="item.id"
+        :equipment="item"
+        @edit="openEditForm"
+        @delete="confirmDelete"
+        @view="openViewForm"
+        @history="openHistoryModal"
+      />
+    </div>
+
+    <!-- ПАГИНАЦИЯ -->
+    <Pagination 
+      v-if="showPagination"
+      v-model:current-page="currentPage"
+      :total-pages="totalPages"
+      :loading="loading"
+    />
+
+    <!-- МОДАЛКИ -->
+    <EquipmentForm
+      v-if="showForm"
+      :equipment="editingItem"
+      @close="closeForm"
+      @save="onSaved"
+    />
+
+    <ConfirmModal
+      v-model:visible="showDeleteModal"
+      title="Удаление оборудования"
+      message="Вы уверены, что хотите удалить это оборудование?"
+      confirm-text="Удалить"
+      confirm-variant="danger"
+      @confirm="handleDelete"
+    />
+
+    <HistoryModal
+      :visible="showHistoryModal"
+      :equipment="historyEquipment"
+      @close="closeHistoryModal"
+    />
+  </div>
+</template>
 
 <style scoped>
 .equipment-view {
@@ -272,26 +302,6 @@ onMounted(async () => {
 .toolbar-right {
   display: flex;
   gap: 8px;
-}
-
-.filters {
-  display: flex;
-  gap: 10px;
-  margin-bottom: 20px;
-  flex-wrap: wrap;
-  align-items: flex-start;
-  background: #f8f9fa;
-  padding: 16px;
-  border-radius: 8px;
-}
-
-.filters select.form-control {
-  min-width: 180px;
-  padding: 6px 12px;
-  border: 1px solid #ced4da;
-  border-radius: 4px;
-  font-size: 14px;
-  background: white;
 }
 
 .btn {
@@ -325,9 +335,40 @@ onMounted(async () => {
   border-color: #565e64;
 }
 
+.btn-outline-secondary {
+  background: transparent;
+  color: #6c757d;
+  border: 1px solid #6c757d;
+}
+
+.btn-outline-secondary:hover {
+  background: #6c757d;
+  color: white;
+}
+
 .btn-sm {
   padding: 4px 12px;
   font-size: 13px;
+}
+
+.filters {
+  display: flex;
+  gap: 10px;
+  margin-bottom: 20px;
+  flex-wrap: wrap;
+  align-items: flex-start;
+  background: #f8f9fa;
+  padding: 16px;
+  border-radius: 8px;
+}
+
+.filters .form-control {
+  min-width: 180px;
+  padding: 6px 12px;
+  border: 1px solid #ced4da;
+  border-radius: 4px;
+  font-size: 14px;
+  background: white;
 }
 
 .empty-state {
@@ -346,5 +387,20 @@ onMounted(async () => {
   display: grid;
   grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
   gap: 16px;
+}
+
+@media (max-width: 768px) {
+  .filters {
+    flex-direction: column;
+  }
+  
+  .filters .form-control {
+    width: 100%;
+    min-width: unset;
+  }
+  
+  .filters .btn {
+    width: 100%;
+  }
 }
 </style>

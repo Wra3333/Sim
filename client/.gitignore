@@ -1,0 +1,26 @@
+# Переменные окружения (пароли, секреты)
+.env
+.env.local
+.env.*.local
+
+# Зависимости
+node_modules/
+
+# Логи
+*.log
+logs/
+
+# IDE
+.vscode/
+.idea/
+.DS_Store
+
+# Тесты
+coverage/
+
+# Загрузки
+uploads/
+
+# База данных
+*.db
+*.sqlite

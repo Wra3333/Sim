@@ -2,6 +2,7 @@
 import { ref, watch } from 'vue';
 import { repairsApi } from '../../api';
 import { useToastStore } from '../../stores/toastStore';
+import { useFormatters } from '../../composables/useFormatters';
 
 const props = defineProps({
   visible: { type: Boolean, default: false },
@@ -11,19 +12,9 @@ const props = defineProps({
 const emit = defineEmits(['close']);
 
 const toast = useToastStore();
+const { formatDateTime } = useFormatters();
 const repairs = ref([]);
 const loading = ref(false);
-
-const formatDate = (date) => {
-  if (!date) return '—';
-  return new Date(date).toLocaleDateString('ru-RU', {
-    day: '2-digit',
-    month: '2-digit',
-    year: 'numeric',
-    hour: '2-digit',
-    minute: '2-digit'
-  });
-};
 
 const loadHistory = async () => {
   if (!props.equipment) return;
@@ -91,10 +82,10 @@ const close = () => {
               <div class="history-body">
                 <p class="history-desc">{{ repair.nature_of_malfunction }}</p>
                 <div class="history-meta">
-                  <span>📅 {{ formatDate(repair.detection_date) }}</span>
+                  <span>📅 {{ formatDateTime(repair.detection_date) }}</span>
                   <span>👤 {{ repair.detected_by }}</span>
                   <span v-if="repair.is_resolved">✅ {{ repair.resolved_by || 'Неизвестно' }}</span>
-                  <span v-if="repair.is_resolved">📅 {{ formatDate(repair.resolution_date) }}</span>
+                  <span v-if="repair.is_resolved">📅 {{ formatDateTime(repair.resolution_date) }}</span>
                 </div>
               </div>
             </div>

@@ -1,71 +1,3 @@
-<template>
-  <Teleport to="body">
-    <div v-if="visible" class="modal-overlay" @click.self="close">
-      <div class="modal">
-        <div class="modal-header">
-          <h3>{{ repair ? '✏️ Редактировать заявку' : '➕ Создать заявку о неисправности' }}</h3>
-          <button class="btn-close" @click="close">×</button>
-        </div>
-
-        <form @submit.prevent="submit">
-          <div class="form-group">
-            <label>Оборудование *</label>
-            <EquipmentMultiSelect
-              v-model="form.equipment_ids"
-              :equipment-options="equipmentList"
-              placeholder="Введите название или инв. номер..."
-              :max-items="10"
-            />
-            <small class="text-muted">Можно выбрать несколько устройств</small>
-          </div>
-
-          <div class="form-group">
-            <label>Дата выявления *</label>
-            <input
-              v-model="form.detection_date"
-              type="datetime-local"
-              class="form-control"
-              required
-            />
-          </div>
-
-          <div class="form-group">
-            <label>Описание неисправности *</label>
-            <textarea
-              v-model="form.nature_of_malfunction"
-              class="form-control"
-              rows="4"
-              required
-            ></textarea>
-          </div>
-
-          <div class="form-group">
-            <label>Кто выявил *</label>
-            <input v-model="form.detected_by" class="form-control" required />
-          </div>
-
-          <div class="form-group">
-            <label>Возможность устранения</label>
-            <select v-model="form.repair_possibility" class="form-control">
-              <option value="Самостоятельно">Самостоятельно</option>
-              <option value="Требуется сервисный инженер">Требуется сервисный инженер</option>
-            </select>
-          </div>
-
-          <div class="form-actions">
-            <button type="button" class="btn btn-outline-secondary" @click="close">
-              Отмена
-            </button>
-            <button type="submit" class="btn btn-primary" :disabled="loading">
-              {{ loading ? 'Сохранение...' : 'Создать заявку' }}
-            </button>
-          </div>
-        </form>
-      </div>
-    </div>
-  </Teleport>
-</template>
-
 <script setup>
 import { ref, onMounted, watch } from 'vue';
 import { repairsApi, equipmentApi } from '../../api';
@@ -204,6 +136,73 @@ const submit = async () => {
 
 onMounted(loadEquipment);
 </script>
+<template>
+  <Teleport to="body">
+    <div v-if="visible" class="modal-overlay" @click.self="close">
+      <div class="modal">
+        <div class="modal-header">
+          <h3>{{ repair ? '✏️ Редактировать заявку' : '➕ Создать заявку о неисправности' }}</h3>
+          <button class="btn-close" @click="close">×</button>
+        </div>
+
+        <form @submit.prevent="submit">
+          <div class="form-group">
+            <label>Оборудование *</label>
+            <EquipmentMultiSelect
+              v-model="form.equipment_ids"
+              :equipment-options="equipmentList"
+              placeholder="Введите название или инв. номер..."
+              :max-items="10"
+            />
+            <small class="text-muted">Можно выбрать несколько устройств</small>
+          </div>
+
+          <div class="form-group">
+            <label>Дата выявления *</label>
+            <input
+              v-model="form.detection_date"
+              type="datetime-local"
+              class="form-control"
+              required
+            />
+          </div>
+
+          <div class="form-group">
+            <label>Описание неисправности *</label>
+            <textarea
+              v-model="form.nature_of_malfunction"
+              class="form-control"
+              rows="4"
+              required
+            ></textarea>
+          </div>
+
+          <div class="form-group">
+            <label>Кто выявил *</label>
+            <input v-model="form.detected_by" class="form-control" required />
+          </div>
+
+          <div class="form-group">
+            <label>Возможность устранения</label>
+            <select v-model="form.repair_possibility" class="form-control">
+              <option value="Самостоятельно">Самостоятельно</option>
+              <option value="Требуется сервисный инженер">Требуется сервисный инженер</option>
+            </select>
+          </div>
+
+          <div class="form-actions">
+            <button type="button" class="btn btn-outline-secondary" @click="close">
+              Отмена
+            </button>
+            <button type="submit" class="btn btn-primary" :disabled="loading">
+              {{ loading ? 'Сохранение...' : 'Создать заявку' }}
+            </button>
+          </div>
+        </form>
+      </div>
+    </div>
+  </Teleport>
+</template>
 
 <style scoped>
 .modal-overlay {
