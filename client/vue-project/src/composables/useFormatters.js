@@ -26,17 +26,17 @@ export function useFormatters() {
     if (!time) return '—';
     
     try {
-      // ✅ Если это уже строка времени HH:MM:SS
+      //  Если это уже строка времени HH:MM:SS
       if (typeof time === 'string' && /^\d{2}:\d{2}:\d{2}$/.test(time)) {
         return time.slice(0, 5); // HH:MM
       }
       
-      // ✅ Если это строка времени HH:MM
+      //  Если это строка времени HH:MM
       if (typeof time === 'string' && /^\d{2}:\d{2}$/.test(time)) {
         return time;
       }
       
-      // ✅ Если это полная дата или timestamp
+      //  Если это полная дата или timestamp
       const d = new Date(time);
       if (isNaN(d.getTime())) return '—';
       return d.toLocaleTimeString('ru-RU', {

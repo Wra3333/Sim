@@ -1,50 +1,90 @@
-<!-- components/EquipmentSelect.vue -->
 <template>
-  <div class="select-wrapper">
-    <div class="input-wrapper">
-      <input
-        ref="inputRef"
-        type="text"
-        :value="displayValue"
-        @input="onInput"
-        @focus="showDropdown = true"
-        @blur="closeDropdown"
-        :placeholder="placeholder"
-        autocomplete="off"
-        :disabled="disabled"
-      />
-      <span v-if="modelValue" class="clear-btn" @mousedown.prevent="clear">×</span>
-    </div>
-
-    <!-- Выпадающий список -->
-    <div v-if="showDropdown && filteredItems.length > 0" class="dropdown">
+  <div class="multi-select-wrapper">
+    <!-- Выбранные элементы -->
+    <div v-if="selectedItems.length > 0" class="selected-list">
       <div
-        v-for="item in filteredItems"
+        v-for="item in selectedItems"
         :key="item.id"
-        class="dropdown-item"
-        @mousedown.prevent="selectItem(item)"
+        class="selected-item-wrapper"
       >
-        <span class="name">{{ item.name }}</span>
-        <span class="inv">({{ item.inventory_number }})</span>
-        <span class="status" :class="getStatusClass(item)">
-          {{ item.working_status }}
-        </span>
+        <div class="selected-item">
+          <span class="item-name">{{ item.name }}</span>
+          <span class="item-inv">(Инв. № {{ item.inventory_number }})</span>
+          <button
+            type="button"
+            class="remove-btn"
+            @click="removeItem(item.id)"
+          >
+            ×
+          </button>
+        </div>
       </div>
     </div>
 
-    <div v-if="showDropdown && filteredItems.length === 0 && searchQuery" class="empty">
-      {{ emptyText }}
+    <!-- Добавление нового оборудования -->
+    <div class="add-row">
+      <div class="input-wrapper">
+        <input
+          ref="inputRef"
+          type="text"
+          v-model="searchQuery"
+          @input="onInput"
+          @focus="showDropdown = true"
+          @blur="closeDropdown"
+          :placeholder="placeholder"
+          autocomplete="off"
+          :disabled="disabled"
+        />
+        
+        <!-- Выпадающий список -->
+        <div v-if="showDropdown && filteredItems.length > 0" class="dropdown">
+          <div
+            v-for="item in filteredItems"
+            :key="item.id"
+            class="dropdown-item"
+            @mousedown.prevent="selectItem(item)"
+          >
+            <span class="name">{{ item.name }}</span>
+            <span class="inv">(Инв. № {{ item.inventory_number }})</span>
+            <span class="status" :class="getStatusClass(item)">
+              {{ item.working_status }}
+            </span>
+          </div>
+        </div>
+
+        <div v-if="showDropdown && filteredItems.length === 0 && searchQuery" class="empty">
+          {{ emptyText }}
+        </div>
+      </div>
+
+      <button
+        type="button"
+        class="btn-add"
+        @click="addSelectedItem"
+        :disabled="!selectedItemToAdd"
+      >
+        Добавить
+      </button>
     </div>
+
+    <!-- Предупреждение о неисправном оборудовании -->
+    <small v-if="brokenCount > 0" style="color: #dc3545; display: block; margin-top: 6px;">
+      {{ brokenCount }} единиц оборудования в ремонте, требует ремонта или на списании
+    </small>
   </div>
 </template>
 
 <script setup>
 import { ref, computed, watch } from 'vue';
+import { useEquipmentStore } from '../stores';
 
+// ============================================
+//  PROPS
+// ============================================
 const props = defineProps({
   modelValue: {
-    type: [Number, String],
-    default: null
+    type: Array,
+    default: () => []
   },
   equipmentOptions: {
     type: Array,
@@ -52,7 +92,7 @@ const props = defineProps({
   },
   placeholder: {
     type: String,
-    default: 'Введите название или инв. номер...'
+    default: 'Выберите оборудование...'
   },
   emptyText: {
     type: String,
@@ -68,25 +108,36 @@ const props = defineProps({
   }
 });
 
-const emit = defineEmits(['update:modelValue', 'select']);
+// ============================================
+//  EMITS
+// ============================================
+const emit = defineEmits(['update:modelValue', 'select', 'remove']);
 
+// ============================================
+//  STORE
+// ============================================
+const equipmentStore = useEquipmentStore();
+
+// ============================================
+//  СОСТОЯНИЕ
+// ============================================
 const inputRef = ref(null);
 const searchQuery = ref('');
 const showDropdown = ref(false);
+const selectedItemToAdd = ref(null);
 let closeTimeout = null;
 
 // ============================================
-// ✅ ОТОБРАЖАЕМОЕ ЗНАЧЕНИЕ - показываем название выбранного оборудования
+//  ВЫЧИСЛЯЕМЫЕ
 // ============================================
-const displayValue = computed(() => {
-  if (!props.modelValue) return '';
-  const eq = props.equipmentOptions.find(e => e.id === Number(props.modelValue));
-  return eq ? `${eq.name} (Инв. № ${eq.inventory_number})` : '';
+const selectedIds = computed(() => {
+  return Array.isArray(props.modelValue) ? props.modelValue : [];
 });
 
-// ============================================
-// ✅ ДОСТУПНОЕ ОБОРУДОВАНИЕ
-// ============================================
+const selectedItems = computed(() => {
+  return props.equipmentOptions.filter(eq => selectedIds.value.includes(eq.id));
+});
+
 const availableEquipment = computed(() => {
   let list = props.equipmentOptions;
   if (props.onlyWorking) {
@@ -98,17 +149,12 @@ const availableEquipment = computed(() => {
   return list;
 });
 
-// ============================================
-// ✅ ФИЛЬТРОВАННЫЙ СПИСОК
-// ============================================
 const filteredItems = computed(() => {
   const query = searchQuery.value.toLowerCase().trim();
   let list = availableEquipment.value;
   
-  // Исключаем уже выбранное
-  if (props.modelValue) {
-    list = list.filter(eq => eq.id !== Number(props.modelValue));
-  }
+  // Исключаем уже выбранные
+  list = list.filter(eq => !selectedIds.value.includes(eq.id));
   
   if (!query) return list;
   
@@ -119,9 +165,21 @@ const filteredItems = computed(() => {
   );
 });
 
+const brokenCount = computed(() => {
+  return equipmentStore.items.filter(eq => 
+    eq.working_status !== 'Исправен' || 
+    eq.write_off_status === 'На списание' || 
+    eq.write_off_status === 'Списан'
+  ).length;
+});
+
 // ============================================
-// ✅ СТАТУС ОБОРУДОВАНИЯ
+//  МЕТОДЫ
 // ============================================
+const isSelected = (id) => {
+  return selectedIds.value.includes(id);
+};
+
 const getStatusClass = (eq) => {
   if (eq.working_status === 'Исправен' && eq.write_off_status === 'На балансе') {
     return 'status-success';
@@ -135,18 +193,14 @@ const getStatusClass = (eq) => {
   return '';
 };
 
-// ============================================
-// ✅ МЕТОДЫ
-// ============================================
-const onInput = (event) => {
-  const value = event.target.value;
-  searchQuery.value = value;
+const onInput = () => {
   showDropdown.value = true;
-  
-  // Если поле пустое - сбрасываем выбор
-  if (!value) {
-    emit('update:modelValue', null);
-  }
+  selectedItemToAdd.value = null;
+};
+
+const onFocus = () => {
+  clearTimeout(closeTimeout);
+  showDropdown.value = true;
 };
 
 const closeDropdown = () => {
@@ -157,43 +211,142 @@ const closeDropdown = () => {
 
 const selectItem = (item) => {
   clearTimeout(closeTimeout);
-  emit('update:modelValue', item.id);
-  emit('select', item);
-  searchQuery.value = '';
+  selectedItemToAdd.value = item;
+  searchQuery.value = item.name;
   showDropdown.value = false;
+  inputRef.value?.focus();
 };
 
-const clear = () => {
-  emit('update:modelValue', null);
+const addSelectedItem = () => {
+  if (!selectedItemToAdd.value) return;
+  
+  const item = selectedItemToAdd.value;
+  const current = [...selectedIds.value];
+  
+  if (!current.includes(item.id)) {
+    current.push(item.id);
+    emit('select', item);
+    emit('update:modelValue', current);
+  }
+  
+  // Сброс
+  selectedItemToAdd.value = null;
   searchQuery.value = '';
+  showDropdown.value = false;
+  inputRef.value?.focus();
+};
+
+const removeItem = (id) => {
+  const current = selectedIds.value.filter(item => item !== id);
+  const removed = props.equipmentOptions.find(eq => eq.id === id);
+  emit('update:modelValue', current);
+  if (removed) {
+    emit('remove', removed);
+  }
+};
+
+const clearAll = () => {
+  emit('update:modelValue', []);
+  searchQuery.value = '';
+  selectedItemToAdd.value = null;
   inputRef.value?.focus();
 };
 
 // ============================================
-// ✅ НАБЛЮДАТЕЛЬ
+//  WATCH
 // ============================================
 watch(() => props.modelValue, (newVal) => {
-  if (!newVal) {
+  if (!newVal || newVal.length === 0) {
     searchQuery.value = '';
+    selectedItemToAdd.value = null;
   }
 });
 
-defineExpose({ clear, focus: () => inputRef.value?.focus() });
+defineExpose({ 
+  clear: clearAll, 
+  focus: () => inputRef.value?.focus()
+});
 </script>
 
 <style scoped>
-.select-wrapper {
+.multi-select-wrapper {
   position: relative;
   width: 100%;
 }
 
-.input-wrapper {
+/*  ВЫБРАННЫЕ ЭЛЕМЕНТЫ */
+.selected-list {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  margin-bottom: 8px;
+}
+
+.selected-item-wrapper {
+  width: 100%;
+}
+
+.selected-item {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 6px 12px;
+  background: #f8f9fa;
+  border: 1px solid #e9ecef;
+  border-radius: 4px;
+  font-size: 14px;
+  width: 100%;
+  box-sizing: border-box;
+}
+
+.selected-item .item-name {
+  font-weight: 500;
+}
+
+.selected-item .item-inv {
+  color: #6c757d;
+  font-size: 13px;
+}
+
+.remove-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 20px;
+  height: 20px;
+  border: none;
+  background: transparent;
+  color: #6c757d;
+  font-size: 18px;
+  cursor: pointer;
+  border-radius: 4px;
+  padding: 0;
+  line-height: 1;
+  flex-shrink: 0;
+  margin-left: auto;
+}
+
+.remove-btn:hover {
+  background: #dc3545;
+  color: white;
+}
+
+/*  СТРОКА ДОБАВЛЕНИЯ */
+.add-row {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+  width: 100%;
+}
+
+.add-row .input-wrapper {
+  flex: 1;
   position: relative;
 }
 
-.input-wrapper input {
+.add-row .input-wrapper input {
   width: 100%;
-  padding: 8px 32px 8px 12px;
+  padding: 8px 12px;
   border: 1px solid #ced4da;
   border-radius: 4px;
   font-size: 14px;
@@ -203,33 +356,40 @@ defineExpose({ clear, focus: () => inputRef.value?.focus() });
   transition: border-color 0.15s, box-shadow 0.15s;
 }
 
-.input-wrapper input:focus {
+.add-row .input-wrapper input:focus {
   border-color: #80bdff;
   outline: none;
   box-shadow: 0 0 0 0.2rem rgba(0, 123, 255, 0.25);
 }
 
-.input-wrapper input:disabled {
+.add-row .input-wrapper input:disabled {
   background: #e9ecef;
   cursor: not-allowed;
 }
 
-.clear-btn {
-  position: absolute;
-  right: 10px;
-  top: 50%;
-  transform: translateY(-50%);
+.add-row .btn-add {
+  padding: 8px 20px;
+  background: #0d6efd;
+  color: white;
+  border: none;
+  border-radius: 4px;
+  font-size: 14px;
   cursor: pointer;
-  color: #6c757d;
-  font-size: 18px;
-  line-height: 1;
-  padding: 0 4px;
+  transition: background 0.15s;
+  white-space: nowrap;
+  flex-shrink: 0;
 }
 
-.clear-btn:hover {
-  color: #dc3545;
+.add-row .btn-add:hover:not(:disabled) {
+  background: #0b5ed7;
 }
 
+.add-row .btn-add:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+/*  ВЫПАДАЮЩИЙ СПИСОК */
 .dropdown {
   position: absolute;
   top: 100%;
@@ -252,6 +412,7 @@ defineExpose({ clear, focus: () => inputRef.value?.focus() });
   padding: 8px 12px;
   cursor: pointer;
   border-bottom: 1px solid #f1f3f5;
+  transition: background 0.15s;
 }
 
 .dropdown-item:hover {
@@ -261,6 +422,7 @@ defineExpose({ clear, focus: () => inputRef.value?.focus() });
 .dropdown-item .name {
   flex: 1;
   font-weight: 500;
+  font-size: 14px;
 }
 
 .dropdown-item .inv {
@@ -273,6 +435,7 @@ defineExpose({ clear, focus: () => inputRef.value?.focus() });
   padding: 2px 8px;
   border-radius: 4px;
   background: #e9ecef;
+  white-space: nowrap;
 }
 
 .dropdown-item .status.status-success {
@@ -303,5 +466,20 @@ defineExpose({ clear, focus: () => inputRef.value?.focus() });
   border-radius: 4px;
   margin-top: 2px;
   z-index: 9999;
+}
+
+/* Адаптивность */
+@media (max-width: 768px) {
+  .add-row {
+    flex-wrap: wrap;
+  }
+  
+  .add-row .input-wrapper {
+    flex: 1 1 100%;
+  }
+  
+  .add-row .btn-add {
+    flex: 1;
+  }
 }
 </style>

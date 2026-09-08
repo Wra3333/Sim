@@ -5,19 +5,19 @@ const BaseValidator = Validators.Base;
 // СООБЩЕНИЯ ОБ ОШИБКАХ НА РУССКОМ
 // ============================================
 const ERROR_MESSAGES = {
-  required: (field) => `❌ Поле "${field}" обязательно для заполнения`,
-  type: (field, type) => `❌ Поле "${field}" должно быть типа "${type}"`,
-  stringMin: (field, min) => `❌ Поле "${field}" должно содержать минимум ${min} символов`,
-  stringMax: (field, max) => `❌ Поле "${field}" не должно превышать ${max} символов`,
-  stringPattern: (field) => `❌ Поле "${field}" имеет неверный формат`,
-  numberMin: (field, min) => `❌ Поле "${field}" не может быть меньше ${min}`,
-  numberMax: (field, max) => `❌ Поле "${field}" не может быть больше ${max}`,
-  numberInteger: (field) => `❌ Поле "${field}" должно быть целым числом`,
-  arrayMin: (field, min) => `❌ Поле "${field}" должно содержать минимум ${min} элементов`,
-  arrayMax: (field, max) => `❌ Поле "${field}" не должно превышать ${max} элементов`,
-  enum: (field, values) => `❌ Поле "${field}" должно быть одним из: ${values.join(', ')}`,
-  boolean: (field) => `❌ Поле "${field}" должно быть true или false`,
-  positive: (field) => `❌ Поле "${field}" должно быть положительным числом`,
+  required: (field) => ` Поле "${field}" обязательно для заполнения`,
+  type: (field, type) => ` Поле "${field}" должно быть типа "${type}"`,
+  stringMin: (field, min) => ` Поле "${field}" должно содержать минимум ${min} символов`,
+  stringMax: (field, max) => ` Поле "${field}" не должно превышать ${max} символов`,
+  stringPattern: (field) => ` Поле "${field}" имеет неверный формат`,
+  numberMin: (field, min) => ` Поле "${field}" не может быть меньше ${min}`,
+  numberMax: (field, max) => ` Поле "${field}" не может быть больше ${max}`,
+  numberInteger: (field) => ` Поле "${field}" должно быть целым числом`,
+  arrayMin: (field, min) => ` Поле "${field}" должно содержать минимум ${min} элементов`,
+  arrayMax: (field, max) => ` Поле "${field}" не должно превышать ${max} элементов`,
+  enum: (field, values) => ` Поле "${field}" должно быть одним из: ${values.join(', ')}`,
+  boolean: (field) => ` Поле "${field}" должно быть true или false`,
+  positive: (field) => ` Поле "${field}" должно быть положительным числом`,
 };
 
 // ============================================
@@ -34,6 +34,11 @@ const FIELD_LABELS = {
   purchase_basis: 'Основание приобретения',
   working_status: 'Рабочий статус',
   write_off_status: 'Статус списания',
+  price: 'Цена',
+  country: 'Страна',
+  manufacturer: 'Производитель',
+  original_name: 'Оригинальное название',
+  realism_class: 'Класс реалистичности',
   
   // REPAIRS
   equipment_ids: 'Список оборудования',
@@ -75,7 +80,6 @@ const FIELD_LABELS = {
   // COMMON
   id: 'ID',
   quantity: 'Количество',
-  price: 'Цена',
   count: 'Количество',
 };
 
@@ -91,15 +95,19 @@ class CustomValidator extends BaseValidator {
   // ============================================
   toNumber(value) {
     if (value === null || value === undefined) return value;
+    if (typeof value === 'string' && value.trim() === '') return null;
     if (typeof value === 'string' && !isNaN(Number(value))) {
       return Number(value);
     }
+    if (typeof value === 'number') return value;
     return value;
   }
 
   isNumeric(value) {
     if (value === null || value === undefined) return false;
-    return typeof value === 'number' || (typeof value === 'string' && !isNaN(Number(value)));
+    if (typeof value === 'number') return true;
+    if (typeof value === 'string' && value.trim() !== '' && !isNaN(Number(value))) return true;
+    return false;
   }
 
   checkType(value, type) {
@@ -117,16 +125,14 @@ class CustomValidator extends BaseValidator {
   }
 
   // ============================================
-  // ✅ ОСНОВНАЯ ЛОГИКА - возвращает true (валидно) или бросает ошибку
+  // ОСНОВНАЯ ЛОГИКА
   // ============================================
   compile(schema) {
-    // Если схема пустая - возвращаем true (валидно)
     if (!schema || Object.keys(schema).length === 0) {
       return () => true;
     }
 
     return (params) => {
-      // Если нет параметров - true (валидно)
       if (!params) return true;
 
       const errors = [];
@@ -169,7 +175,7 @@ class CustomValidator extends BaseValidator {
           continue;
         }
 
-        // ✅ Пропускаем пустые поля, если они не обязательные
+        // Пропускаем пустые поля, если они не обязательные
         if ((value === undefined || value === null || value === '') && !rule.required) {
           continue;
         }
@@ -223,6 +229,15 @@ class CustomValidator extends BaseValidator {
         if (rule.type === 'number' && value !== undefined && value !== null) {
           const num = Number(value);
 
+          if (isNaN(num)) {
+            errors.push({
+              field: key,
+              message: ` Поле "${label}" должно быть числом (получено: "${value}")`,
+              type: 'type'
+            });
+            continue;
+          }
+
           if (rule.integer && !Number.isInteger(num)) {
             errors.push({
               field: key,
@@ -274,7 +289,7 @@ class CustomValidator extends BaseValidator {
           if (!Array.isArray(value)) {
             errors.push({
               field: key,
-              message: `❌ Поле "${label}" должно быть массивом (получено: ${typeof value})`,
+              message: ` Поле "${label}" должно быть массивом (получено: ${typeof value})`,
               type: 'type'
             });
             continue;
@@ -310,10 +325,10 @@ class CustomValidator extends BaseValidator {
         }
       }
 
-      // ✅ Если есть ошибки - бросаем русское сообщение сразу
+      // Если есть ошибки - бросаем русское сообщение
       if (errors.length > 0) {
         const errorMessages = errors.map(e => `  ${e.message}`).join('\n');
-        const errorText = `❌ Ошибка валидации:\n${errorMessages}`;
+        const errorText = ` Ошибка валидации:\n${errorMessages}`;
         
         const error = new Error(errorText);
         error.code = 422;
@@ -322,16 +337,15 @@ class CustomValidator extends BaseValidator {
         throw error;
       }
 
-      // ✅ Сохраняем нормализованные параметры
+      // Сохраняем нормализованные параметры
       Object.assign(params, normalizedParams);
 
-      // ✅ Возвращаем true - валидно
       return true;
     };
   }
 
   // ============================================
-  // ✅ validate - вызывает compile и возвращает результат
+  // validate - вызывает compile и возвращает результат
   // ============================================
   validate(params, schema) {
     const validator = this.compile(schema);

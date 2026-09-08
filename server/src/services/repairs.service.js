@@ -1,23 +1,13 @@
-// src/services/repairs.service.js
 const { Repair, Equipment, Lesson } = require('../models');
 const { Op } = require('sequelize');
 
-// ============================================
-// КОНСТАНТЫ ДЛЯ ВАЛИДАЦИИ
-// ============================================
-const VALID_REPAIR_POSSIBILITIES = ['Самостоятельно', 'Специалистами', 'Не подлежит ремонту'];
+const VALID_REPAIR_POSSIBILITIES = ['Самостоятельно', 'Требуется сервисный инженер', 'Не подлежит ремонту'];
 const VALID_RESOLUTION_STATUSES = ['resolved', 'needs_repair', 'impossible'];
 
-// ============================================
-// СЕРВИС
-// ============================================
 module.exports = {
   name: 'repairs',
 
   actions: {
-    // ============================================
-    // CREATE - создание заявки
-    // ============================================
     create: {
       params: {
         equipment_ids: { type: 'array', items: 'number', min: 1 },
@@ -38,7 +28,6 @@ module.exports = {
       handler: async ctx => {
         const { equipment_ids, ...data } = ctx.params;
 
-        // Проверяем существование оборудования
         const equipmentList = await Equipment.findAll({
           where: { id: equipment_ids }
         });
@@ -46,10 +35,9 @@ module.exports = {
         if (equipmentList.length !== equipment_ids.length) {
           const foundIds = equipmentList.map(e => e.id);
           const notFound = equipment_ids.filter(id => !foundIds.includes(id));
-          throw new Error(`❌ Оборудование не найдено: ${notFound.join(', ')}`);
+          throw new Error(`Оборудование не найдено: ${notFound.join(', ')}`);
         }
 
-        // ✅ ИСПРАВЛЕНО: проверяем write_off_status
         const invalidEquipment = equipmentList.filter(eq =>
           eq.write_off_status === 'Списан' || 
           eq.write_off_status === 'На списание'
@@ -57,19 +45,18 @@ module.exports = {
         
         if (invalidEquipment.length > 0) {
           const names = invalidEquipment.map(e => e.name).join(', ');
-          throw new Error(`❌ Оборудование списано и не может быть отремонтировано: ${names}`);
+          throw new Error(`Оборудование списано и не может быть отремонтировано: ${names}`);
         }
 
-        // Создаем заявки для каждого оборудования
         const repairs = [];
         for (const equipmentId of equipment_ids) {
           const repair = await Repair.create({
             ...data,
-            equipment_id: equipmentId
+            equipment_id: equipmentId,
+            created_by: ctx.meta.user?.id
           });
           repairs.push(repair);
 
-          // Меняем статус оборудования на "В ремонте"
           await Equipment.update(
             { working_status: 'В ремонте' },
             { where: { id: equipmentId } }
@@ -78,15 +65,12 @@ module.exports = {
 
         return {
           success: true,
-          message: `✅ Создано ${repairs.length} заявок`,
+          message: `Создано ${repairs.length} заявок`,
           repairs: repairs
         };
       }
     },
 
-    // ============================================
-    // LIST - список всех заявок
-    // ============================================
     list: {
       params: {
         equipment_id: { type: 'number', integer: true, positive: true, optional: true, convert: true },
@@ -109,9 +93,6 @@ module.exports = {
       }
     },
 
-    // ============================================
-    // GET BY EQUIPMENT - заявки по оборудованию
-    // ============================================
     getByEquipment: {
       params: {
         equipmentId: { type: 'number', integer: true, positive: true, convert: true }
@@ -120,7 +101,7 @@ module.exports = {
         const equipmentId = ctx.params.equipmentId;
         const equipment = await Equipment.findByPk(equipmentId);
         if (!equipment) {
-          throw new Error('❌ Оборудование не найдено');
+          throw new Error('Оборудование не найдено');
         }
 
         return await Repair.findAll({
@@ -131,28 +112,6 @@ module.exports = {
       }
     },
 
-    // ============================================
-    // GET BY EQUIPMENT IDS - заявки по нескольким
-    // ============================================
-    getByEquipmentIds: {
-      params: {
-        equipment_ids: { type: 'array', items: 'number', min: 1 }
-      },
-      handler: async ctx => {
-        const { equipment_ids } = ctx.params;
-        return await Repair.findAll({
-          where: {
-            equipment_id: equipment_ids
-          },
-          include: [{ model: Equipment, as: 'equipment' }],
-          order: [['created_at', 'DESC']]
-        });
-      }
-    },
-
-    // ============================================
-    // RESOLVE - закрытие заявки
-    // ============================================
     resolve: {
       params: {
         id: { type: 'number', integer: true, positive: true, convert: true },
@@ -177,8 +136,8 @@ module.exports = {
         } = ctx.params;
 
         const repair = await Repair.findByPk(id);
-        if (!repair) throw new Error('❌ Заявка не найдена');
-        if (repair.is_resolved) throw new Error('❌ Заявка уже закрыта');
+        if (!repair) throw new Error('Заявка не найдена');
+        if (repair.is_resolved) throw new Error('Заявка уже закрыта');
 
         const updateData = {
           is_resolved: true,
@@ -186,7 +145,6 @@ module.exports = {
           resolved_by: resolved_by
         };
 
-        // Обработка статусов
         if (resolution_status === 'impossible') {
           updateData.resolution_status = 'impossible';
           updateData.write_off_reason = write_off_reason || 'Не указана';
@@ -201,7 +159,6 @@ module.exports = {
 
         await repair.update(updateData);
 
-        // Проверяем, есть ли еще активные заявки на это оборудование
         const activeRepairs = await Repair.count({
           where: {
             equipment_id: repair.equipment_id,
@@ -209,10 +166,8 @@ module.exports = {
           }
         });
 
-        // Обновляем статус оборудования только если нет других активных заявок
         if (activeRepairs === 0) {
           if (resolution_status === 'impossible') {
-            // ✅ ИСПРАВЛЕНО: используем валидный working_status
             await Equipment.update(
               { 
                 working_status: 'Требует ремонта', 
@@ -237,9 +192,6 @@ module.exports = {
       }
     },
 
-    // ============================================
-    // UPDATE - обновление заявки
-    // ============================================
     update: {
       params: {
         id: { type: 'number', integer: true, positive: true, convert: true },
@@ -248,8 +200,8 @@ module.exports = {
           pattern: /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}/,
           optional: true
         },
-        nature_of_malfunction: { type: 'string', min: 1, max: 500, optional: true },
-        detected_by: { type: 'string', min: 1, max: 100, optional: true },
+        nature_of_malfunction: { type: 'string', optional: true, min: 1, max: 500 },
+        detected_by: { type: 'string', optional: true, min: 1, max: 100 },
         repair_possibility: {
           type: 'enum',
           values: VALID_REPAIR_POSSIBILITIES,
@@ -260,16 +212,14 @@ module.exports = {
         const { id, ...data } = ctx.params;
 
         const repair = await Repair.findByPk(id);
-        if (!repair) throw new Error('❌ Заявка не найдена');
+        if (!repair) throw new Error('Заявка не найдена');
 
-        // Нельзя менять equipment_id
         if (data.equipment_id) {
-          throw new Error('❌ Нельзя изменить оборудование в заявке');
+          throw new Error('Нельзя изменить оборудование в заявке');
         }
 
-        // Нельзя редактировать закрытую заявку
         if (repair.is_resolved) {
-          throw new Error('❌ Нельзя редактировать закрытую заявку');
+          throw new Error('Нельзя редактировать закрытую заявку');
         }
 
         await repair.update(data);
@@ -277,9 +227,6 @@ module.exports = {
       }
     },
 
-    // ============================================
-    // UPDATE RESOLVED BY - обновление кто закрыл
-    // ============================================
     updateResolvedBy: {
       params: {
         id: { type: 'number', integer: true, positive: true, convert: true },
@@ -289,10 +236,10 @@ module.exports = {
         const { id, resolved_by } = ctx.params;
 
         const repair = await Repair.findByPk(id);
-        if (!repair) throw new Error('❌ Заявка не найдена');
+        if (!repair) throw new Error('Заявка не найдена');
 
         if (!repair.is_resolved) {
-          throw new Error('❌ Нельзя редактировать активную заявку');
+          throw new Error('Нельзя редактировать активную заявку');
         }
 
         await repair.update({ resolved_by });
@@ -300,25 +247,21 @@ module.exports = {
       }
     },
 
-    // ============================================
-    // DELETE - удаление заявки
-    // ============================================
     delete: {
       params: {
         id: { type: 'number', integer: true, positive: true, convert: true }
       },
       handler: async ctx => {
         const repair = await Repair.findByPk(ctx.params.id);
-        if (!repair) throw new Error('❌ Заявка не найдена');
+        if (!repair) throw new Error('Заявка не найдена');
 
         if (repair.is_resolved) {
-          throw new Error('❌ Нельзя удалить закрытую заявку');
+          throw new Error('Нельзя удалить закрытую заявку');
         }
 
         const equipmentId = repair.equipment_id;
         await repair.destroy();
 
-        // Проверяем, есть ли еще активные заявки на это оборудование
         const activeRepairs = await Repair.count({
           where: {
             equipment_id: equipmentId,
@@ -333,13 +276,10 @@ module.exports = {
           );
         }
 
-        return { success: true, message: '✅ Заявка удалена' };
+        return { success: true, message: 'Заявка удалена' };
       }
     },
 
-    // ============================================
-    // GET ACTIVE FOR EQUIPMENT - активные заявки
-    // ============================================
     getActiveForEquipment: {
       params: {
         equipment_id: { type: 'number', integer: true, positive: true, convert: true }

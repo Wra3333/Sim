@@ -17,9 +17,18 @@
 </template>
 
 <script setup>
+import { onMounted } from 'vue';
+import { useAuthStore } from '../../stores/auth.store';
 import Sidebar from './Sidebar.vue';
 import ToastContainer from '../ToastContainer.vue';
+import { useAppState } from '../../composables/useAppState'
 
+const authStore = useAuthStore();
+useAppState()
+
+onMounted(async () => {
+  await authStore.init();
+});
 </script>
 
 <style scoped>
@@ -30,46 +39,13 @@ import ToastContainer from '../ToastContainer.vue';
 
 .main {
   flex: 1;
-  margin-left: 260px;
+  margin-left: 0;
   padding: 24px 32px;
   background: #f4f7fc;
   min-height: 100vh;
   display: flex;
   flex-direction: column;
-}
-
-.header {
-  margin-bottom: 24px;
-  flex-shrink: 0;
-}
-
-.header-left {
-  display: flex;
-  align-items: center;
-  gap: 16px;
-}
-
-.header h1 {
-  font-size: 28px;
-  font-weight: 600;
-  color: #1a1a2e;
-  margin: 0;
-}
-
-.btn-test-toasts {
-  padding: 6px 16px;
-  background: #6c757d;
-  color: white;
-  border: none;
-  border-radius: 6px;
-  font-size: 14px;
-  cursor: pointer;
-  transition: all 0.15s;
-}
-
-.btn-test-toasts:hover {
-  background: #5a6268;
-  transform: translateY(-1px);
+  transition: margin-left 0.3s cubic-bezier(0.4, 0, 0.2, 1);
 }
 
 .content-wrapper {
@@ -103,18 +79,13 @@ import ToastContainer from '../ToastContainer.vue';
   transform: translateY(0);
 }
 
-.sidebar {
-  animation: slideIn 0.6s cubic-bezier(0.4, 0, 0.2, 1) forwards;
-}
-
-@keyframes slideIn {
-  from {
-    opacity: 0;
-    transform: translateX(-100%);
+@media (max-width: 768px) {
+  .main {
+    padding: 16px;
   }
-  to {
-    opacity: 1;
-    transform: translateX(0);
+  
+  .page-container {
+    padding: 16px;
   }
 }
 </style>

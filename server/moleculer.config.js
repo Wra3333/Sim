@@ -1,26 +1,26 @@
 require('dotenv').config();
 const CustomValidator = require('./src/validators/custom.validator.js');
 const { sequelize } = require('./src/models');
+const loggerMiddleware = require('./src/middlewares/logger.middleware');
 
 module.exports = {
   namespace: 'simulation-center',
   nodeID: null,
-  validator: new CustomValidator(), 
+  validator: new CustomValidator(),
   logger: true,
   logLevel: 'info',
-  //transporter: process.env.NATS_URL || 'nats://localhost:4222',
-  transporter: null, // Отключаем транспортёр для локальной разработки
+  transporter: null,
   metrics: true,
   cacher: 'memory',
   serializer: 'JSON',
 
-  // Регистрация сервисов
+  middlewares: [loggerMiddleware],
+
   registry: {
     strategy: 'RoundRobin',
     preferLocal: true
   },
 
-  // Настройки Circuit Breaker
   circuitBreaker: {
     enabled: true,
     threshold: 0.5,
@@ -29,7 +29,6 @@ module.exports = {
     check: err => err && err.code >= 500
   },
 
-  // Настройки Retry
   retryPolicy: {
     enabled: true,
     retries: 3,
@@ -39,21 +38,17 @@ module.exports = {
     check: err => err && !!err.retryable
   },
 
-  // === ИНИЦИАЛИЗАЦИЯ БАЗЫ ДАННЫХ ===
-
-  // Вызывается до загрузки сервисов
   async created() {
     await sequelize.authenticate();
-    console.log('✅ Connected to PostgreSQL');
-  },
-
-  // Вызывается после старта всех сервисов
-  async started() {
-    console.log('✅ Tables synced');
+    console.log('Connected to PostgreSQL');
+    console.log('Tables synced');
     console.log('📊 Models:', Object.keys(sequelize.models).join(', '));
   },
 
-  // Вызывается при остановке (Ctrl+C)
+  async started() {
+    console.log('Сервер запущен');
+  },
+
   async stopped() {
     await sequelize.close();
     console.log('🛑 PostgreSQL connection closed');

@@ -3,17 +3,17 @@
 > cross-env NODE_ENV=test jest --runInBand
 
   console.log
-    ✅ Используется тестовая БД: simulation_center_test
+    Используется тестовая БД: simulation_center_test
 
       at Object.log (tests/setup.js:14:9)
 
   console.log
-    ✅ Test database synchronized
+    Test database synchronized
 
       at Object.log (tests/setup.js:18:11)
 
   console.log
-    ✅ Database connection closed
+    Database connection closed
 
       at Object.log (tests/setup.js:31:11)
 
@@ -36,17 +36,17 @@ PASS tests/worktime.test.js
       √ should generate summary for equipment (28 ms)
 
   console.log
-    ✅ Используется тестовая БД: simulation_center_test
+    Используется тестовая БД: simulation_center_test
 
       at Object.log (tests/setup.js:14:9)
 
   console.log
-    ✅ Test database synchronized
+    Test database synchronized
 
       at Object.log (tests/setup.js:18:11)
 
   console.log
-    ✅ Database connection closed
+    Database connection closed
 
       at Object.log (tests/setup.js:31:11)
 
@@ -78,17 +78,17 @@ PASS tests/templates.test.js
       √ should delete template and detach lessons (55 ms)
 
   console.log
-    ✅ Используется тестовая БД: simulation_center_test
+    Используется тестовая БД: simulation_center_test
 
       at Object.log (tests/setup.js:14:9)
 
   console.log
-    ✅ Test database synchronized
+    Test database synchronized
 
       at Object.log (tests/setup.js:18:11)
 
   console.log
-    ✅ Database connection closed
+    Database connection closed
 
       at Object.log (tests/setup.js:31:11)
 
@@ -119,17 +119,17 @@ PASS tests/repairs.test.js
       √ should prevent deleting resolved repair (42 ms)
 
   console.log
-    ✅ Используется тестовая БД: simulation_center_test
+    Используется тестовая БД: simulation_center_test
 
       at Object.log (tests/setup.js:14:9)
 
   console.log
-    ✅ Test database synchronized
+    Test database synchronized
 
       at Object.log (tests/setup.js:18:11)
 
   console.log
-    ✅ Database connection closed
+    Database connection closed
 
       at Object.log (tests/setup.js:31:11)
 
@@ -163,17 +163,17 @@ PASS tests/lessons.test.js
       √ should prevent deletion of completed lesson (5 ms)
 
   console.log
-    ✅ Используется тестовая БД: simulation_center_test
+    Используется тестовая БД: simulation_center_test
 
       at Object.log (tests/setup.js:14:9)
 
   console.log
-    ✅ Test database synchronized
+    Test database synchronized
 
       at Object.log (tests/setup.js:18:11)
 
   console.log
-    ✅ Database connection closed
+    Database connection closed
 
       at Object.log (tests/setup.js:31:11)
 

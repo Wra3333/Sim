@@ -8,39 +8,68 @@ import {
 } from '../api';
 
 // ============================================
-// Store для оборудования
+// Store для оборудования (С ПОДДЕРЖКОЙ АРХИВА)
 // ============================================
 export const useEquipmentStore = defineStore('equipment', {
   state: () => ({
-    items: [],
+    allEquipment: [], // ✅ ВСЁ оборудование (включая архивное)
     loading: false,
     error: null,
     lastFetched: null
   }),
   
   getters: {
-    getById: (state) => (id) => state.items.find(item => item.id === id),
-    getName: (state) => (id) => {
-      const item = state.items.find(item => item.id === id);
-      return item?.name || '❌ Оборудование не найдено';
+    // ✅ ТОЛЬКО АКТИВНОЕ (не в архиве)
+    items: (state) => {
+      return state.allEquipment.filter(item => !item.is_archived);
     },
+    
+    // ✅ ТОЛЬКО АРХИВНОЕ
+    archivedItems: (state) => {
+      return state.allEquipment.filter(item => item.is_archived === true);
+    },
+    
+    // ✅ Количество активного
+    activeCount: (state) => {
+      return state.allEquipment.filter(item => !item.is_archived).length;
+    },
+    
+    // ✅ Количество архивного
+    archivedCount: (state) => {
+      return state.allEquipment.filter(item => item.is_archived === true).length;
+    },
+    
+    getById: (state) => (id) => {
+      return state.allEquipment.find(item => item.id === id);
+    },
+    
+    getName: (state) => (id) => {
+      const item = state.allEquipment.find(item => item.id === id);
+      return item?.name || 'Оборудование не найдено';
+    },
+    
     getInventoryNumber: (state) => (id) => {
-      const item = state.items.find(item => item.id === id);
+      const item = state.allEquipment.find(item => item.id === id);
       return item?.inventory_number || '—';
     },
+    
     getStatus: (state) => (id) => {
-      const item = state.items.find(item => item.id === id);
+      const item = state.allEquipment.find(item => item.id === id);
       return item?.working_status || null;
     },
+    
     workingItems: (state) => {
-      return state.items.filter(item => 
+      return state.allEquipment.filter(item => 
+        !item.is_archived &&
         item.working_status === 'Исправен' && 
         item.write_off_status === 'На балансе'
       );
     },
+    
     groupedByStatus: (state) => {
       const groups = {};
-      state.items.forEach(item => {
+      state.allEquipment.forEach(item => {
+        if (item.is_archived) return; // ✅ СКРЫВАЕМ АРХИВНОЕ
         const status = item.working_status || 'Неизвестно';
         if (!groups[status]) groups[status] = [];
         groups[status].push(item);
@@ -50,20 +79,14 @@ export const useEquipmentStore = defineStore('equipment', {
   },
   
   actions: {
-    // ✅ УБРАНО КЕШИРОВАНИЕ - ВСЕГДА ЗАГРУЖАЕМ СВЕЖИЕ ДАННЫЕ
     async fetchAll(params = {}, force = false) {
-      // ❌ УБРАТЬ ЭТОТ БЛОК
-      // if (this.items.length > 0 && !force) {
-      //   return this.items;
-      // }
-      
       this.loading = true;
       this.error = null;
       try {
         const response = await equipmentApi.getAll(params);
-        this.items = response.data || [];
+        this.allEquipment = response.data || [];
         this.lastFetched = Date.now();
-        return this.items;
+        return this.allEquipment;
       } catch (error) {
         this.error = error.response?.data?.message || 'Ошибка загрузки';
         throw error;
@@ -75,7 +98,7 @@ export const useEquipmentStore = defineStore('equipment', {
     async create(data) {
       try {
         const response = await equipmentApi.create(data);
-        this.items.push(response.data);
+        this.allEquipment.push(response.data);
         this.lastFetched = Date.now();
         return response.data;
       } catch (error) {
@@ -87,9 +110,9 @@ export const useEquipmentStore = defineStore('equipment', {
     async update(id, data) {
       try {
         const response = await equipmentApi.update(id, data);
-        const index = this.items.findIndex(item => item.id === id);
+        const index = this.allEquipment.findIndex(item => item.id === id);
         if (index !== -1) {
-          this.items[index] = response.data;
+          this.allEquipment[index] = response.data;
         }
         this.lastFetched = Date.now();
         return response.data;
@@ -99,19 +122,33 @@ export const useEquipmentStore = defineStore('equipment', {
       }
     },
     
+    // ✅ ОТПРАВКА В АРХИВ
     async delete(id) {
       try {
         await equipmentApi.delete(id);
-        this.items = this.items.filter(item => item.id !== id);
+        // Обновляем список
+        await this.fetchAll();
         this.lastFetched = Date.now();
       } catch (error) {
-        this.error = error.response?.data?.message || 'Ошибка удаления';
+        this.error = error.response?.data?.message || 'Ошибка архивации';
+        throw error;
+      }
+    },
+    
+    // ✅ ВОССТАНОВЛЕНИЕ ИЗ АРХИВА
+    async restore(id) {
+      try {
+        await equipmentApi.restore(id);
+        await this.fetchAll();
+        this.lastFetched = Date.now();
+      } catch (error) {
+        this.error = error.response?.data?.message || 'Ошибка восстановления';
         throw error;
       }
     },
     
     clearCache() {
-      this.items = [];
+      this.allEquipment = [];
       this.lastFetched = null;
     },
     
@@ -142,13 +179,7 @@ export const useRepairsStore = defineStore('repairs', {
   },
   
   actions: {
-    // ✅ УБРАНО КЕШИРОВАНИЕ
     async fetchAll(force = false) {
-      // ❌ УБРАТЬ ЭТОТ БЛОК
-      // if (this.items.length > 0 && !force) {
-      //   return this.items;
-      // }
-      
       this.loading = true;
       try {
         const response = await repairsApi.getAll();
@@ -261,13 +292,7 @@ export const useTemplatesStore = defineStore('templates', {
   },
   
   actions: {
-    // ✅ УБРАНО КЕШИРОВАНИЕ
     async fetchAll(force = false) {
-      // ❌ УБРАТЬ ЭТОТ БЛОК
-      // if (this.items.length > 0 && !force) {
-      //   return this.items;
-      // }
-      
       this.loading = true;
       try {
         const response = await templatesApi.getAll();
@@ -363,13 +388,7 @@ export const useLessonsStore = defineStore('lessons', {
   },
   
   actions: {
-    // ✅ УБРАНО КЕШИРОВАНИЕ
     async fetchAll(params = {}, force = false) {
-      // ❌ УБРАТЬ ЭТОТ БЛОК
-      // if (this.items.length > 0 && !force) {
-      //   return this.items;
-      // }
-      
       this.loading = true;
       try {
         const response = await lessonsApi.getAll(params);
@@ -440,7 +459,7 @@ export const useLessonsStore = defineStore('lessons', {
 });
 
 // ============================================
-// ✅ Store для учета времени (WorkTime)
+// Store для учета времени работы
 // ============================================
 export const useWorkTimeStore = defineStore('worktime', {
   state: () => ({
@@ -465,13 +484,7 @@ export const useWorkTimeStore = defineStore('worktime', {
   },
 
   actions: {
-    // ✅ УБРАНО КЕШИРОВАНИЕ
     async fetchAll(force = false) {
-      // ❌ УБРАТЬ ЭТОТ БЛОК
-      // if (this.items.length > 0 && !force) {
-      //   return this.items;
-      // }
-
       this.loading = true;
       this.error = null;
       try {

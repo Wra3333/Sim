@@ -6,70 +6,500 @@
     --color-primary: #0077c8;
     --color-primary-dark: #00447c;
     --color-primary-light: #e5f0fa;
+    --color-primary-bg: #f0f6fa;
     --color-accent: #e30613;
     --color-text: #1a1a1a;
     --color-text-secondary: #333333;
     --color-text-muted: #6c757d;
-    --color-bg: #f8fafc;
+    --color-bg: #f5f8fa;
     --color-white: #ffffff;
     --color-border: #dee2e6;
 }
 
-/* Стили для сайдбара */
-.sidebar {
-    background: linear-gradient(180deg, #00447c 0%, #002b50 100%) !important;
+/* ========================================
+   БАЗОВЫЕ СТИЛИ
+   ======================================== */
+html {
+  scrollbar-gutter: stable;
 }
-.sidebar .nav-link.active {
-    background: #0077c8 !important;
-}
-.sidebar .nav-link:hover {
-    background: rgba(0, 119, 200, 0.8) !important;
+   body {
+    background: #f5f8fa;
+    color: #1a1a1a;
 }
 
-/* Стили для кнопок */
+h1, h2, h3, h4, h5 {
+    color: #00447c !important;
+}
+
+a {
+    color: #0077c8;
+    text-decoration: none;
+}
+a:hover {
+    color: #00447c;
+    text-decoration: underline;
+}
+
+/* ========================================
+   КНОПКИ
+   ======================================== */
+.btn {
+    border-radius: 6px;
+    font-weight: 500;
+    font-size: 14px;
+    padding: 8px 20px;
+    transition: all 0.2s ease;
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    border: 1px solid transparent;
+}
+
+.btn .btn-icon {
+    width: 16px;
+    height: 16px;
+    stroke: currentColor;
+}
+
+/* PRIMARY */
 .btn-primary {
     background-color: #0077c8 !important;
     border-color: #0077c8 !important;
+    color: #ffffff !important;
 }
 .btn-primary:hover {
     background-color: #00447c !important;
     border-color: #00447c !important;
 }
 
-/* Стили для карточек */
-.stat-card,
-.recent,
-.template-item,
-.repair-item,
-.equipment-card {
-    border: 1px solid #dee2e6 !important;
-    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.05) !important;
-}
-.stat-card:hover,
-.recent:hover,
-.template-item:hover,
-.repair-item:hover {
-    box-shadow: 0 4px 12px rgba(0, 119, 200, 0.15) !important;
+/* SUCCESS */
+.btn-success {
+    background-color: #0077c8 !important;
     border-color: #0077c8 !important;
+    color: #ffffff !important;
+}
+.btn-success:hover {
+    background-color: #00447c !important;
+    border-color: #00447c !important;
 }
 
-/* Стили для заголовков */
-h1, h2, h3, h4 {
-    color: #00447c !important;
+/* DANGER */
+.btn-danger {
+    background-color: #dc3545 !important;
+    border-color: #dc3545 !important;
+    color: #ffffff !important;
+}
+.btn-danger:hover {
+    background-color: #c82333 !important;
+    border-color: #c82333 !important;
 }
 
-/* Стили для бейджей */
+/* OUTLINE PRIMARY */
+.btn-outline-primary {
+    color: #0077c8 !important;
+    border-color: #0077c8 !important;
+    background: transparent !important;
+}
+.btn-outline-primary:hover {
+    background-color: #0077c8 !important;
+    color: #ffffff !important;
+}
+
+/* OUTLINE SECONDARY */
+.btn-outline-secondary {
+    color: #6c757d !important;
+    border-color: #ced4da !important;
+    background: transparent !important;
+}
+.btn-outline-secondary:hover {
+    background-color: #f8f9fa !important;
+    color: #495057 !important;
+}
+
+/* ========================================
+   БЕЙДЖИ
+   ======================================== */
+.badge {
+    padding: 3px 12px;
+    border-radius: 20px;
+    font-size: 12px;
+    font-weight: 500;
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+}
+
+.badge .badge-icon {
+    width: 12px;
+    height: 12px;
+    stroke: currentColor;
+}
+
 .badge-success {
     background-color: #e5f0fa !important;
     color: #00447c !important;
 }
+
 .badge-primary {
     background-color: #0077c8 !important;
-    color: white !important;
+    color: #ffffff !important;
 }
 
-/* Стили для полей ввода */
+.badge-warning {
+    background-color: #fff3cd !important;
+    color: #856404 !important;
+}
+
+.badge-danger {
+    background-color: #f8d7da !important;
+    color: #721c24 !important;
+}
+
+.badge-info {
+    background-color: #cfe2ff  !important;
+    color: #084298  !important;
+}
+
+.badge-secondary {
+    background-color: #e9ecef !important;
+    color: #495057 !important;
+}
+
+/* ========================================
+   КАРТОЧКИ
+   ======================================== */
+.stat-card,
+.recent,
+.template-item,
+.repair-item,
+.equipment-card,
+.sidebar-card {
+    background: #ffffff !important;
+    border: 1px solid #dee2e6 !important;
+    border-radius: 10px !important;
+    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.04) !important;
+    transition: all 0.2s ease !important;
+}
+
+.stat-card:hover,
+.recent:hover,
+.template-item:hover,
+.repair-item:hover {
+    box-shadow: 0 4px 16px rgba(0, 119, 200, 0.12) !important;
+    border-color: #0077c8 !important;
+    transform: translateY(-2px);
+}
+
+/* ========================================
+   ПОЛЯ ВВОДА
+   ======================================== */
+.form-control {
+    border-radius: 6px !important;
+    border-color: #ced4da !important;
+    transition: all 0.2s ease !important;
+    font-size: 14px;
+    padding: 8px 12px;
+}
+
 .form-control:focus {
     border-color: #0077c8 !important;
-    box-shadow: 0 0 0 0.2rem rgba(0, 119, 200, 0.25) !important;
+    box-shadow: 0 0 0 3px rgba(0, 119, 200, 0.15) !important;
+}
+
+.form-control::placeholder {
+    color: #adb5bd !important;
+}
+
+.form-group label {
+    font-weight: 500;
+    color: #495057;
+    font-size: 14px;
+    margin-bottom: 4px;
+}
+
+/* ========================================
+   ТАБЛИЦЫ
+   ======================================== */
+.table th {
+    background: #f8fafc !important;
+    color: #00447c !important;
+    font-weight: 600 !important;
+    border-bottom: 2px solid #dee2e6 !important;
+}
+
+.table td {
+    border-bottom: 1px solid #f0f2f5 !important;
+}
+
+.table tr:hover td {
+    background: #f8fafc !important;
+}
+
+/* ========================================
+   МОДАЛЬНЫЕ ОКНА
+   ======================================== */
+.modal {
+    border-radius: 12px !important;
+    overflow: hidden;
+}
+
+.modal-header {
+    border-bottom: 1px solid #dee2e6 !important;
+    background: #f8fafc !important;
+}
+
+.modal-header h3 {
+    color: #00447c !important;
+}
+
+.modal-footer {
+    border-top: 1px solid #dee2e6 !important;
+    background: #f8fafc !important;
+}
+
+/* ========================================
+   СТАТУСЫ ОБОРУДОВАНИЯ
+   ======================================== */
+.status-ok,
+.status-success {
+    color: #155724 !important;
+    background: #d4edda !important;
+    padding: 2px 10px;
+    border-radius: 20px;
+    font-size: 12px;
+}
+
+.status-warning {
+    color: #856404 !important;
+    background: #fff3cd !important;
+    padding: 2px 10px;
+    border-radius: 20px;
+    font-size: 12px;
+}
+
+.status-danger {
+    color: #721c24 !important;
+    background: #f8d7da !important;
+    padding: 2px 10px;
+    border-radius: 20px;
+    font-size: 12px;
+}
+
+/* ==========================================
+   СТАТИСТИКА (detail-badge)
+   ========================================== */
+.detail-badge {
+    font-size: 11px;
+    padding: 2px 10px;
+    border-radius: 20px;
+    background: #f0f4f8;
+    color: #5a6a7a;
+}
+
+.detail-badge.ok,
+.detail-badge.resolved,
+.detail-badge.completed {
+    background: #e5f0fa !important;
+    color: #00447c !important;
+}
+
+.detail-badge.warn,
+.detail-badge.active {
+    background: #fff3cd !important;
+    color: #856404 !important;
+}
+
+.detail-badge.primary,
+.detail-badge.planned,
+.detail-badge.used {
+    background: #e5f0fa !important;
+    color: #00447c !important;
+}
+
+.detail-badge.students {
+    background: #e8e8f0 !important;
+    color: #4a4a6a !important;
+}
+
+/* ========================================
+   АКТИВНЫЕ ЭЛЕМЕНТЫ В САЙДБАРЕ
+   ======================================== */
+.group-item.active {
+    background: #e5f0fa !important;
+    border-color: #0077c8 !important;
+    color: #00447c !important;
+}
+
+.group-item .group-count {
+    background: #e9ecef !important;
+    color: #6c757d !important;
+}
+
+.group-item.active .group-count {
+    background: #0077c8 !important;
+    color: #ffffff !important;
+}
+
+/* ========================================
+   ПРЕДУПРЕЖДЕНИЯ
+   ======================================== */
+.alert-warning {
+    background: #fff3cd !important;
+    border-color: #ffc107 !important;
+    color: #856404 !important;
+}
+
+.alert-danger {
+    background: #f8d7da !important;
+    border-color: #f5c6cb !important;
+    color: #721c24 !important;
+}
+
+.alert-success {
+    background: #d4edda !important;
+    border-color: #c3e6cb !important;
+    color: #155724 !important;
+}
+
+.alert-info {
+    background: #d1ecf1 !important;
+    border-color: #bee5eb !important;
+    color: #0c5460 !important;
+}
+
+/* ========================================
+   ФИЛЬТРЫ
+   ======================================== */
+.filters {
+    background: #f8fafc !important;
+    border: 1px solid #dee2e6 !important;
+    border-radius: 8px !important;
+    padding: 16px !important;
+}
+
+/* ========================================
+   ПАГИНАЦИЯ
+   ======================================== */
+.pagination .page-item.active .page-link {
+    background-color: #0077c8 !important;
+    border-color: #0077c8 !important;
+    color: #ffffff !important;
+}
+
+.pagination .page-link {
+    color: #0077c8 !important;
+}
+
+.pagination .page-link:hover {
+    color: #00447c !important;
+}
+
+/* ========================================
+   СКРОЛЛБАРЫ
+   ======================================== */
+::-webkit-scrollbar {
+    width: 4px;
+    height: 4px;
+}
+
+::-webkit-scrollbar-track {
+    background: transparent;
+}
+
+::-webkit-scrollbar-thumb {
+    background: #ced4da;
+    border-radius: 10px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+    background: #adb5bd;
+}
+
+* {
+    scrollbar-width: thin;
+    scrollbar-color: #ced4da transparent;
+}
+
+/* ========================================
+   ССЫЛКИ В КАРТОЧКАХ
+   ======================================== */
+.section-link {
+    color: #0077c8 !important;
+    text-decoration: none;
+    font-weight: 500;
+    font-size: 13px;
+}
+.section-link:hover {
+    color: #00447c !important;
+    text-decoration: underline;
+}
+
+/* ========================================
+   РАЗДЕЛИТЕЛИ
+   ======================================== */
+hr {
+    border-color: #dee2e6 !important;
+}
+
+.text-muted {
+    color: #6c757d !important;
+}
+
+/* ========================================
+   ВЫПАДАЮЩИЕ СПИСКИ
+   ======================================== */
+.dropdown-item:hover {
+    background: #e5f0fa !important;
+    color: #00447c !important;
+}
+
+.dropdown-item.active {
+    background: #0077c8 !important;
+    color: #ffffff !important;
+}
+
+/* ========================================
+   ГРУППА "ГРУППЫ" В САЙДБАРЕ
+   ======================================== */
+.group-list .group-item.active {
+    background: #e5f0fa !important;
+    border-color: #0077c8 !important;
+    color: #00447c !important;
+}
+
+.group-list .group-item .group-count {
+    background: #e9ecef !important;
+    color: #6c757d !important;
+}
+
+.group-list .group-item.active .group-count {
+    background: #0077c8 !important;
+    color: #ffffff !important;
+}
+
+/* ========================================
+   СТАТУСЫ В КАРТОЧКАХ ЗАНЯТИЙ
+   ======================================== */
+.lesson-status-planned {
+    background: #e5f0fa !important;
+    color: #00447c !important;
+    padding: 2px 10px;
+    border-radius: 20px;
+    font-size: 12px;
+}
+
+.lesson-status-completed {
+    background: #d4edda !important;
+    color: #155724 !important;
+    padding: 2px 10px;
+    border-radius: 20px;
+    font-size: 12px;
+}
+
+.lesson-status-cancelled {
+    background: #f8d7da !important;
+    color: #721c24 !important;
+    padding: 2px 10px;
+    border-radius: 20px;
+    font-size: 12px;
 }

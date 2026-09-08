@@ -28,6 +28,16 @@ const Template = sequelize.define('Template', {
   is_active: {
     type: DataTypes.BOOLEAN,
     defaultValue: true
+  },
+  
+  // ДОБАВЛЯЕМ
+  created_by: {
+    type: DataTypes.INTEGER,
+    allowNull: true
+  },
+  updated_by: {
+    type: DataTypes.INTEGER,
+    allowNull: true
   }
 }, {
   tableName: 'templates',

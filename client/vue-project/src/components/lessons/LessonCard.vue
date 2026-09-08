@@ -1,7 +1,78 @@
+<template>
+  <div class="lesson-item">
+    <div class="lesson-info">
+      <h3>
+        <IconLessons class="title-icon" />
+        {{ title }}
+      </h3>
+      <div class="meta">
+        <span>
+          <IconUser class="meta-icon" />
+          {{ teacher }}
+        </span>
+        <span>
+          <IconUsers class="meta-icon" />
+          {{ group }}
+        </span>
+        <span>
+          <IconCalendar class="meta-icon" />
+          {{ formattedDate }}
+        </span>
+        <span>
+          <IconClock class="meta-icon" />
+          {{ startTime }} - {{ endTime }}
+        </span>
+      </div>
+      <div class="badges">
+        <span class="badge" :class="statusBadgeClass">
+          <IconCheck v-if="status === 'Проведено'" class="badge-icon" />
+          <IconClock v-else-if="status === 'Запланировано'" class="badge-icon" />
+          <IconAlert v-else class="badge-icon" />
+          {{ status }}
+        </span>
+        <span v-if="hasTemplate" class="badge badge-info">
+          <IconTemplates class="badge-icon" />
+          {{ templateName }}
+        </span>
+      </div>
+    </div>
+    <div class="lesson-actions">
+      <button
+        class="btn btn-sm btn-success"
+        @click="$emit('complete', lesson.id)"
+        v-if="isPlanned"
+      >
+        <IconCheck class="btn-icon" />
+        Завершить
+      </button>
+      <button class="btn btn-sm btn-outline-primary" @click="$emit('edit', lesson)">
+        <IconEdit class="btn-icon" />
+        Редактировать
+      </button>
+      <button class="btn btn-sm btn-outline-danger" @click="$emit('delete', lesson.id)" v-if="!isCompleted">
+        <IconTrash class="btn-icon" />
+        Удалить
+      </button>
+    </div>
+  </div>
+</template>
+
 <script setup>
 import { computed } from 'vue';
 import { useFormatters } from '../../composables/useFormatters';
 import { useStatusClasses } from '../../composables/useStatusClasses';
+import {
+  IconLessons,
+  IconUser,
+  IconUsers,
+  IconCalendar,
+  IconClock,
+  IconCheck,
+  IconAlert,
+  IconTemplates,
+  IconEdit,
+  IconTrash
+} from '../icons';
 
 const props = defineProps({
   lesson: { 
@@ -31,50 +102,12 @@ const isPlanned = computed(() => props.lesson?.status === 'Запланиров�
 const isCompleted = computed(() => props.lesson?.status === 'Проведено');
 const hasTemplate = computed(() => !!props.lesson?.template_id);
 
-// ✅ Получить название шаблона по ID
 const templateName = computed(() => {
   if (!props.lesson?.template_id) return null;
   const template = props.templates.find(t => t.id === props.lesson.template_id);
   return template ? template.title : 'Шаблон удалён';
 });
 </script>
-
-<template>
-  <div class="lesson-item">
-    <div class="lesson-info">
-      <h3>{{ title }}</h3>
-      <div class="meta">
-        <span>👨‍🏫 {{ teacher }}</span>
-        <span>👥 {{ group }}</span>
-        <span>📅 {{ formattedDate }}</span>
-        <span>⏰ {{ startTime }} - {{ endTime }}</span>
-      </div>
-      <div class="badges">
-        <span class="badge" :class="statusBadgeClass">
-          {{ status }}
-        </span>
-        <span v-if="hasTemplate" class="badge badge-info">
-          📋 {{ templateName }}
-        </span>
-      </div>
-    </div>
-    <div class="lesson-actions">
-      <button
-        class="btn btn-sm btn-success"
-        @click="$emit('complete', lesson.id)"
-        v-if="isPlanned"
-      >
-        Завершить
-      </button>
-      <button class="btn btn-sm btn-outline-primary" @click="$emit('edit', lesson)">
-        Редактировать
-      </button>
-      <button class="btn btn-sm btn-outline-danger" @click="$emit('delete', lesson.id)" v-if="!isCompleted">
-        Удалить
-      </button>
-    </div>
-  </div>
-</template>
 
 <style scoped>
 .lesson-item {
@@ -99,6 +132,15 @@ const templateName = computed(() => {
   font-size: 16px;
   font-weight: 600;
   color: #212529;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.lesson-info h3 .title-icon {
+  width: 18px;
+  height: 18px;
+  stroke: #212529;
 }
 
 .meta {
@@ -108,6 +150,18 @@ const templateName = computed(() => {
   color: #6c757d;
   font-size: 14px;
   flex-wrap: wrap;
+}
+
+.meta span {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.meta .meta-icon {
+  width: 14px;
+  height: 14px;
+  stroke: #6c757d;
 }
 
 .badges {
@@ -128,7 +182,15 @@ const templateName = computed(() => {
   border-radius: 12px;
   font-size: 11px;
   font-weight: 500;
-  display: inline-block;
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.badge .badge-icon {
+  width: 12px;
+  height: 12px;
+  stroke: currentColor;
 }
 
 .badge-success {
@@ -158,6 +220,15 @@ const templateName = computed(() => {
   font-size: 14px;
   cursor: pointer;
   transition: all 0.15s;
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.btn .btn-icon {
+  width: 14px;
+  height: 14px;
+  stroke: currentColor;
 }
 
 .btn-outline-primary {

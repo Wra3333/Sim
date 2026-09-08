@@ -19,7 +19,7 @@ export function useCrud(fetchFn, createFn, updateFn, deleteFn) {
       return data;
     } catch (err) {
       error.value = err;
-      console.error('❌ Error loading:', err);
+      console.error('Error loading:', err);
       throw err;
     } finally {
       loading.value = false;

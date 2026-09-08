@@ -4,9 +4,6 @@ module.exports = {
   name: 'templates',
 
   actions: {
-    // ============================================
-    // CREATE - создание шаблона
-    // ============================================
     create: {
       params: {
         title: { type: 'string', min: 1, max: 255 },
@@ -37,7 +34,7 @@ module.exports = {
           });
 
           if (existingEquipment.length !== equipmentIds.length) {
-            throw new Error('❌ Некоторое оборудование не найдено');
+            throw new Error('Некоторое оборудование не найдено');
           }
 
           const invalidEquipment = existingEquipment.filter(eq =>
@@ -50,17 +47,17 @@ module.exports = {
             const names = invalidEquipment
               .map(e => `${e.name} (статус: ${e.working_status}, списание: ${e.write_off_status})`)
               .join(', ');
-            throw new Error(`❌ Оборудование не может быть использовано в шаблоне: ${names}`);
+            throw new Error(`Оборудование не может быть использовано в шаблоне: ${names}`);
           }
         }
+
+        data.created_by = ctx.meta.user?.id;
+        data.updated_by = ctx.meta.user?.id;
 
         return await Template.create(data);
       }
     },
 
-    // ============================================
-    // LIST - список шаблонов
-    // ============================================
     list: {
       params: {
         is_active: { type: 'boolean', optional: true }
@@ -79,9 +76,6 @@ module.exports = {
       }
     },
 
-    // ============================================
-    // GET - получение шаблона
-    // ============================================
     get: {
       params: {
         id: { type: 'number', integer: true, positive: true, convert: true }
@@ -95,9 +89,6 @@ module.exports = {
       }
     },
 
-    // ============================================
-    // UPDATE - обновление шаблона с проверкой занятий
-    // ============================================
     update: {
       params: {
         id: { type: 'number', required: true, integer: true, positive: true, convert: true },
@@ -124,12 +115,10 @@ module.exports = {
         const template = await Template.findByPk(id);
         if (!template) throw new Error('Шаблон не найден');
 
-        // ✅ Сохраняем старый equipment_list для сравнения
         const oldEquipmentList = template.equipment_list 
           ? JSON.parse(JSON.stringify(template.equipment_list)) 
           : [];
 
-        // ✅ Проверяем оборудование (если передано)
         if (data.equipment_list && data.equipment_list.length > 0) {
           const equipmentIds = data.equipment_list.map(item => item.equipment_id);
           const existingEquipment = await Equipment.findAll({
@@ -137,7 +126,7 @@ module.exports = {
           });
 
           if (existingEquipment.length !== equipmentIds.length) {
-            throw new Error('❌ Некоторое оборудование не найдено');
+            throw new Error('Некоторое оборудование не найдено');
           }
 
           const invalidEquipment = existingEquipment.filter(eq =>
@@ -150,20 +139,17 @@ module.exports = {
             const names = invalidEquipment
               .map(e => `${e.name} (статус: ${e.working_status}, списание: ${e.write_off_status})`)
               .join(', ');
-            throw new Error(`❌ Оборудование не может быть использовано в шаблоне: ${names}`);
+            throw new Error(`Оборудование не может быть использовано в шаблоне: ${names}`);
           }
         }
 
-        // ✅ Обновляем шаблон
+        data.updated_by = ctx.meta.user?.id;
         await template.update(data);
 
-        // ✅ Проверяем, изменился ли equipment_list
         const equipmentChanged = data.equipment_list !== undefined && 
           JSON.stringify(data.equipment_list) !== JSON.stringify(oldEquipmentList);
 
-        // ✅ Если оборудование изменилось - проверяем занятия
         if (equipmentChanged) {
-          // Находим все занятия, использующие этот шаблон
           const lessons = await Lesson.findAll({
             where: { 
               template_id: id,
@@ -172,7 +158,6 @@ module.exports = {
           });
 
           if (lessons.length > 0) {
-            // ✅ Возвращаем информацию о том, что есть занятия, использующие шаблон
             return {
               success: true,
               template: template,
@@ -198,9 +183,6 @@ module.exports = {
       }
     },
 
-    // ============================================
-    // DELETE - удаление шаблона
-    // ============================================
     delete: {
       params: {
         id: { type: 'number', integer: true, positive: true, convert: true }
@@ -209,7 +191,6 @@ module.exports = {
         const template = await Template.findByPk(ctx.params.id);
         if (!template) throw new Error('Шаблон не найден');
 
-        // Отвязываем занятия
         await Lesson.update(
           { template_id: null },
           { where: { template_id: ctx.params.id } }
@@ -220,9 +201,6 @@ module.exports = {
       }
     },
 
-    // ============================================
-    // ADD EQUIPMENT - добавление оборудования в шаблон
-    // ============================================
     addEquipment: {
       params: {
         id: { type: 'number', integer: true, positive: true, convert: true },
@@ -237,11 +215,11 @@ module.exports = {
         if (!equipment) throw new Error('Оборудование не найдено');
 
         if (equipment.working_status !== 'Исправен') {
-          throw new Error(`❌ Оборудование "${equipment.name}" не может быть добавлено: статус "${equipment.working_status}"`);
+          throw new Error(`Оборудование "${equipment.name}" не может быть добавлено: статус "${equipment.working_status}"`);
         }
 
         if (equipment.write_off_status === 'На списание' || equipment.write_off_status === 'Списан') {
-          throw new Error(`❌ Оборудование "${equipment.name}" не может быть добавлено: статус списания "${equipment.write_off_status}"`);
+          throw new Error(`Оборудование "${equipment.name}" не может быть добавлено: статус списания "${equipment.write_off_status}"`);
         }
 
         let equipmentList = template.equipment_list || [];
@@ -266,9 +244,6 @@ module.exports = {
       }
     },
 
-    // ============================================
-    // REMOVE EQUIPMENT - удаление оборудования из шаблона
-    // ============================================
     removeEquipment: {
       params: {
         id: { type: 'number', integer: true, positive: true, convert: true },
@@ -288,9 +263,6 @@ module.exports = {
       }
     },
 
-    // ============================================
-    // ✅ НОВЫЙ МЕТОД: Синхронизация занятий с шаблоном
-    // ============================================
     syncLessons: {
       params: {
         templateId: { type: 'number', required: true, integer: true, positive: true },
@@ -299,11 +271,9 @@ module.exports = {
       handler: async function(ctx) {
         const { templateId, lessonIds } = ctx.params;
 
-        // Находим шаблон
         const template = await Template.findByPk(templateId);
-        if (!template) throw new Error('❌ Шаблон не найден');
+        if (!template) throw new Error('Шаблон не найден');
 
-        // Получаем оборудование из шаблона
         let newEquipmentList = template.equipment_list;
         if (typeof newEquipmentList === 'string') {
           try {
@@ -314,10 +284,9 @@ module.exports = {
         }
 
         if (!newEquipmentList || newEquipmentList.length === 0) {
-          throw new Error('❌ В шаблоне нет оборудования');
+          throw new Error('В шаблоне нет оборудования');
         }
 
-        // Находим занятия для обновления
         const where = { template_id: templateId };
         if (lessonIds && lessonIds.length > 0) {
           where.id = lessonIds;
@@ -329,7 +298,7 @@ module.exports = {
         });
 
         if (lessons.length === 0) {
-          throw new Error('❌ Нет занятий для обновления');
+          throw new Error('Нет занятий для обновления');
         }
 
         let updated = 0;
@@ -337,16 +306,15 @@ module.exports = {
         const errors = [];
 
         for (const lesson of lessons) {
-          // ✅ Не обновляем проведенные занятия (у них есть WorkTime)
           if (lesson.status === 'Проведено') {
             skipped++;
             continue;
           }
 
-          // ✅ Обновляем оборудование
           try {
             await lesson.update({
-              equipment_list: newEquipmentList
+              equipment_list: newEquipmentList,
+              updated_by: ctx.meta.user?.id
             });
             updated++;
           } catch (err) {

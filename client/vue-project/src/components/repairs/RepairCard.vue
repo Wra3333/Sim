@@ -1,7 +1,117 @@
+<template>
+  <div class="repair-item" :class="{ 'repair-resolved': isResolved, 'repair-impossible': isImpossible }">
+    <div class="repair-header">
+      <div class="repair-id">
+        <IconTag class="id-icon" />
+        Заявка #{{ repairId }}
+      </div>
+      <div class="repair-status">
+        <span class="badge" :class="statusClass">
+          <IconCheck v-if="isResolved" class="badge-icon" />
+          <IconAlert v-else class="badge-icon" />
+          {{ statusText }}
+        </span>
+        <span v-if="isResolved && hasResolution" class="repair-date">
+          <IconCalendar class="date-icon" />
+          {{ resolutionDate }}
+        </span>
+      </div>
+    </div>
+
+    <div class="repair-body">
+      <div class="repair-equipment">
+        <IconEquipment class="eq-icon" />
+        <strong>{{ equipmentName }}</strong>
+        <span class="inv-number">
+          <IconTag class="inv-icon" />
+          Инв. № {{ inventoryNumber }}
+        </span>
+        <span v-if="isImpossible" class="badge badge-danger">
+          <IconTrash class="badge-icon" />
+          Списан
+        </span>
+      </div>
+      <div class="repair-description">
+        <IconFileText class="desc-icon" />
+        {{ malfunction }}
+      </div>
+      <div class="repair-meta">
+        <span>
+          <IconCalendar class="meta-icon" />
+          {{ detectionDate }}
+        </span>
+        <span>
+          <IconUser class="meta-icon" />
+          {{ detectedBy }}
+        </span>
+        <span v-if="hasResolver">
+          <IconCheck class="meta-icon" />
+          {{ resolvedBy }}
+        </span>
+        <span v-else-if="isResolved" class="text-muted">
+          <IconUser class="meta-icon" />
+        </span>
+      </div>
+      <div v-if="isImpossible && writeOffReason" class="write-off-reason">
+        <IconAlert class="wo-icon" />
+        <strong>Причина списания:</strong> {{ writeOffReason }}
+      </div>
+    </div>
+
+    <div class="repair-actions">
+      <button 
+        v-if="!isResolved" 
+        class="btn btn-sm btn-success" 
+        @click="$emit('resolve', repair)"
+      >
+        <IconCheck class="btn-icon" />
+        Устранить
+      </button>
+      
+      <button 
+        v-if="isResolved" 
+        class="btn btn-sm btn-outline-secondary" 
+        @click="$emit('editResolvedBy', repair)"
+      >
+        <IconUser class="btn-icon" />
+        Кто устранил
+      </button>
+
+      <button 
+        class="btn btn-sm btn-outline-primary" 
+        @click="$emit('edit', repair)"
+        v-if="!isResolved" 
+      >
+        <IconEdit class="btn-icon" />
+        Редактировать
+      </button>
+      
+      <button 
+        class="btn btn-sm btn-outline-danger" 
+        @click="$emit('delete', repair.id)"
+      >
+        <IconTrash class="btn-icon" />
+        Удалить
+      </button>
+    </div>
+  </div>
+</template>
+
 <script setup>
 import { computed } from 'vue';
 import { useFormatters } from '../../composables/useFormatters';
 import { useStatusClasses } from '../../composables/useStatusClasses';
+import {
+  IconTag,
+  IconCheck,
+  IconAlert,
+  IconCalendar,
+  IconEquipment,
+  IconTrash,
+  IconFileText,
+  IconUser,
+  IconEdit
+} from '../icons';
 
 const props = defineProps({
   repair: { type: Object, required: true }
@@ -29,75 +139,6 @@ const hasResolver = computed(() => !!props.repair.resolved_by);
 const isImpossible = computed(() => props.repair.resolution_status === 'impossible');
 const writeOffReason = computed(() => props.repair.write_off_reason);
 </script>
-
-<template>
-  <div class="repair-item" :class="{ 'repair-resolved': isResolved, 'repair-impossible': isImpossible }">
-    <div class="repair-header">
-      <div class="repair-id">Заявка #{{ repairId }}</div>
-      <div class="repair-status">
-        <span class="badge" :class="statusClass">
-          {{ statusText }}
-        </span>
-        <span v-if="isResolved && hasResolution" class="repair-date">
-          {{ resolutionDate }}
-        </span>
-      </div>
-    </div>
-
-    <div class="repair-body">
-      <div class="repair-equipment">
-        <strong>{{ equipmentName }}</strong>
-        <span class="inv-number">Инв. № {{ inventoryNumber }}</span>
-        <span v-if="isImpossible" class="badge badge-danger">
-          🗑️ Списан
-        </span>
-      </div>
-      <div class="repair-description">{{ malfunction }}</div>
-      <div class="repair-meta">
-        <span>📅 {{ detectionDate }}</span>
-        <span>👤 {{ detectedBy }}</span>
-        <span v-if="hasResolver">✅ {{ resolvedBy }}</span>
-        <span v-else-if="isResolved" class="text-muted">(не указан)</span>
-      </div>
-      <div v-if="isImpossible && writeOffReason" class="write-off-reason">
-        <strong>Причина списания:</strong> {{ writeOffReason }}
-      </div>
-    </div>
-
-    <div class="repair-actions">
-      <button 
-        v-if="!isResolved" 
-        class="btn btn-sm btn-success" 
-        @click="$emit('resolve', repair)"
-      >
-        Устранить
-      </button>
-      
-      <button 
-        v-if="isResolved" 
-        class="btn btn-sm btn-outline-secondary" 
-        @click="$emit('editResolvedBy', repair)"
-      >
-       Кто устранил
-      </button>
-
-      <button 
-        class="btn btn-sm btn-outline-primary" 
-        @click="$emit('edit', repair)"
-        v-if="!isResolved" 
-      >
-        Редактировать
-      </button>
-      
-      <button 
-        class="btn btn-sm btn-outline-danger" 
-        @click="$emit('delete', repair.id)"
-      >
-        Удалить
-      </button>
-    </div>
-  </div>
-</template>
 
 <style scoped>
 .repair-item {
@@ -139,6 +180,15 @@ const writeOffReason = computed(() => props.repair.write_off_reason);
   font-weight: 600;
   color: #0d6efd;
   font-size: 14px;
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.repair-id .id-icon {
+  width: 14px;
+  height: 14px;
+  stroke: #0d6efd;
 }
 
 .repair-status {
@@ -150,6 +200,15 @@ const writeOffReason = computed(() => props.repair.write_off_reason);
 .repair-date {
   font-size: 12px;
   color: #6c757d;
+  display: flex;
+  align-items: center;
+  gap: 2px;
+}
+
+.repair-date .date-icon {
+  width: 14px;
+  height: 14px;
+  stroke: #6c757d;
 }
 
 .repair-body {
@@ -164,9 +223,24 @@ const writeOffReason = computed(() => props.repair.write_off_reason);
   flex-wrap: wrap;
 }
 
+.repair-equipment .eq-icon {
+  width: 16px;
+  height: 16px;
+  stroke: #444;
+}
+
 .repair-equipment .inv-number {
   font-size: 12px;
   color: #6c757d;
+  display: inline-flex;
+  align-items: center;
+  gap: 2px;
+}
+
+.repair-equipment .inv-number .inv-icon {
+  width: 12px;
+  height: 12px;
+  stroke: #6c757d;
 }
 
 .repair-description {
@@ -176,6 +250,17 @@ const writeOffReason = computed(() => props.repair.write_off_reason);
   padding: 10px 14px;
   background: #f8f9fa;
   border-radius: 6px;
+  display: flex;
+  align-items: flex-start;
+  gap: 6px;
+}
+
+.repair-description .desc-icon {
+  width: 16px;
+  height: 16px;
+  stroke: #444;
+  flex-shrink: 0;
+  margin-top: 2px;
 }
 
 .repair-meta {
@@ -186,6 +271,18 @@ const writeOffReason = computed(() => props.repair.write_off_reason);
   flex-wrap: wrap;
 }
 
+.repair-meta span {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.repair-meta .meta-icon {
+  width: 14px;
+  height: 14px;
+  stroke: #6c757d;
+}
+
 .write-off-reason {
   margin-top: 8px;
   padding: 8px 12px;
@@ -193,6 +290,17 @@ const writeOffReason = computed(() => props.repair.write_off_reason);
   border-radius: 6px;
   font-size: 13px;
   color: #721c24;
+  display: flex;
+  align-items: flex-start;
+  gap: 6px;
+}
+
+.write-off-reason .wo-icon {
+  width: 16px;
+  height: 16px;
+  stroke: #721c24;
+  flex-shrink: 0;
+  margin-top: 1px;
 }
 
 .write-off-reason strong {
@@ -209,6 +317,9 @@ const writeOffReason = computed(() => props.repair.write_off_reason);
 .text-muted {
   color: #adb5bd;
   font-style: italic;
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
 }
 
 .badge {
@@ -216,6 +327,15 @@ const writeOffReason = computed(() => props.repair.write_off_reason);
   border-radius: 12px;
   font-size: 12px;
   font-weight: 500;
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.badge .badge-icon {
+  width: 14px;
+  height: 14px;
+  stroke: currentColor;
 }
 
 .badge-success {
@@ -240,6 +360,15 @@ const writeOffReason = computed(() => props.repair.write_off_reason);
   font-size: 14px;
   cursor: pointer;
   transition: all 0.15s;
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.btn .btn-icon {
+  width: 14px;
+  height: 14px;
+  stroke: currentColor;
 }
 
 .btn-success {

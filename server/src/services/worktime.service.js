@@ -1,4 +1,3 @@
-// src/services/worktime.service.js
 const { WorkTime, Equipment, Lesson } = require('../models');
 const { Op } = require('sequelize');
 
@@ -19,35 +18,34 @@ module.exports = {
         const end = new Date(ctx.params.end_time);
 
         if (isNaN(start.getTime()) || isNaN(end.getTime())) {
-          throw new Error('❌ Невалидная дата');
+          throw new Error(' Невалидная дата');
         }
 
         if (start >= end) {
-          throw new Error('❌ Время начала не может быть позже времени окончания');
+          throw new Error(' Время начала не может быть позже времени окончания');
         }
 
         const totalHours = (end - start) / (1000 * 60 * 60);
         if (totalHours <= 0) {
-          throw new Error('❌ Продолжительность должна быть больше 0');
+          throw new Error(' Продолжительность должна быть больше 0');
         }
 
-        // ✅ Проверяем, что оборудование существует
         const equipment = await Equipment.findByPk(ctx.params.equipment_id);
         if (!equipment) {
-          throw new Error('❌ Оборудование не найдено');
+          throw new Error(' Оборудование не найдено');
         }
 
-        // ✅ Если lesson_id передан - проверяем его существование
         if (ctx.params.lesson_id) {
           const lesson = await Lesson.findByPk(ctx.params.lesson_id);
           if (!lesson) {
-            throw new Error('❌ Занятие не найдено');
+            throw new Error(' Занятие не найдено');
           }
         }
 
         return await WorkTime.create({
           ...ctx.params,
-          total_hours: parseFloat(totalHours.toFixed(2))
+          total_hours: parseFloat(totalHours.toFixed(2)),
+          created_by: ctx.meta.user?.id
         });
       }
     },
@@ -94,11 +92,11 @@ module.exports = {
         const endDate = new Date(end);
 
         if (isNaN(startDate.getTime()) || isNaN(endDate.getTime())) {
-          throw new Error('❌ Невалидная дата');
+          throw new Error(' Невалидная дата');
         }
 
         if (startDate > endDate) {
-          throw new Error('❌ Дата начала не может быть позже даты окончания');
+          throw new Error(' Дата начала не может быть позже даты окончания');
         }
 
         const where = {
@@ -136,14 +134,13 @@ module.exports = {
         const endDate = new Date(end);
 
         if (isNaN(startDate.getTime()) || isNaN(endDate.getTime())) {
-          throw new Error('❌ Невалидная дата');
+          throw new Error(' Невалидная дата');
         }
 
         if (startDate > endDate) {
-          throw new Error('❌ Дата начала не может быть позже даты окончания');
+          throw new Error(' Дата начала не может быть позже даты окончания');
         }
 
-        // ✅ Прямой запрос к БД
         const reports = await WorkTime.findAll({
           where: {
             equipment_id: equipmentId,

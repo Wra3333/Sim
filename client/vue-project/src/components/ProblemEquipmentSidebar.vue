@@ -1,38 +1,46 @@
-<!-- components/ProblemEquipmentSidebar.vue -->
 <template>
   <div class="problem-sidebar">
-    <!-- Статистика проблем -->
-    <div class="sidebar-card stats-card">
-      <h4>📊 Дашборд</h4>
+    <!-- Статистика проблем - показываем ТОЛЬКО если есть проблемы -->
+    <div v-if="hasProblems" class="sidebar-card stats-card">
       <div class="stats-list">
         <div class="stat-item" @click="goToLessons">
-          <span class="stat-icon">⚠️</span>
+          <div class="stat-icon">
+            <IconAlert class="stat-icon-svg" />
+          </div>
           <div class="stat-info">
             <span class="stat-value">{{ problemLessons.length }}</span>
             <span class="stat-label">Некорректных занятия</span>
           </div>
+          <IconChevronRight class="stat-arrow" />
         </div>
         <div class="stat-item" @click="goToTemplates">
-          <span class="stat-icon">📋</span>
+          <div class="stat-icon">
+            <IconTemplates class="stat-icon-svg" />
+          </div>
           <div class="stat-info">
             <span class="stat-value">{{ problemTemplates.length }}</span>
             <span class="stat-label">Некорректных шаблонов</span>
           </div>
+          <IconChevronRight class="stat-arrow" />
         </div>
       </div>
     </div>
 
-    <!-- Проблемное оборудование -->
-    <div v-if="problemEquipment.length > 0" class="sidebar-card warning">
+    <!-- Проблемное оборудование - показываем ТОЛЬКО если есть -->
+    <div v-if="problemEquipment.length > 0" class="sidebar-card">
       <div class="card-header">
-        <h4>🔧 Неисправное оборудование</h4>
+        <h4>
+          <IconRepairs class="h-icon" />
+          Неисправное оборудование
+        </h4>
         <span class="badge-count">{{ problemEquipment.length }}</span>
         <button 
           v-if="problemEquipment.length > limit"
           class="btn btn-sm toggle-btn"
           @click="toggleExpand('equipment')"
         >
-          {{ expanded.equipment ? '−' : '+' }}
+          <IconPlus v-if="!expanded.equipment" class="toggle-icon" />
+          <IconClose v-else class="toggle-icon" />
         </button>
       </div>
       <div class="problem-list" :class="{ expanded: expanded.equipment }">
@@ -43,6 +51,7 @@
         >
           <span class="problem-name">{{ eq.name }}</span>
           <span class="problem-status" :class="eq.working_status === 'В ремонте' ? 'status-bad' : 'status-warn'">
+            <IconAlert class="status-icon" />
             {{ eq.working_status }}
           </span>
         </div>
@@ -57,6 +66,14 @@
 <script setup>
 import { ref, computed } from 'vue';
 import { useRouter } from 'vue-router';
+import {
+  IconAlert,
+  IconTemplates,
+  IconRepairs,
+  IconPlus,
+  IconClose,
+  IconChevronRight
+} from './icons';
 
 const router = useRouter();
 
@@ -106,7 +123,7 @@ const goToTemplates = () => {
   router.push('/templates');
 };
 
-// ✅ Получить статус оборудования
+//  Получить статус оборудования
 const getEquipmentStatus = (id) => {
   const eq = props.equipmentList.find(e => e.id === id);
   if (!eq) return 'Неизвестно';
@@ -114,7 +131,7 @@ const getEquipmentStatus = (id) => {
   return eq.working_status;
 };
 
-// ✅ Проверить, есть ли у занятия проблемное оборудование
+//  Проверить, есть ли у занятия проблемное оборудование
 const isLessonProblem = (lesson) => {
   if (!lesson.equipment_list || lesson.equipment_list.length === 0) return false;
   if (lesson.status !== 'Запланировано') return false;
@@ -126,7 +143,7 @@ const isLessonProblem = (lesson) => {
   return false;
 };
 
-// ✅ ПРОБЛЕМНЫЕ ЗАНЯТИЯ
+//  ПРОБЛЕМНЫЕ ЗАНЯТИЯ
 const problemLessons = computed(() => {
   return props.lessons.filter(lesson => isLessonProblem(lesson));
 });
@@ -147,6 +164,11 @@ const problemTemplates = computed(() => {
     const eqIds = t.equipment_list.map(item => item.equipment_id);
     return eqIds.some(id => problemIds.includes(id));
   });
+});
+
+//  ЕСТЬ ЛИ КАКИЕ-ЛИБО ПРОБЛЕМЫ
+const hasProblems = computed(() => {
+  return problemLessons.value.length > 0 || problemTemplates.value.length > 0;
 });
 </script>
 
@@ -171,39 +193,28 @@ const problemTemplates = computed(() => {
   overflow: hidden;
 }
 
-.sidebar-card h4 {
-  font-size: 14px;
-  font-weight: 600;
-  margin: 0 0 12px 0;
-  color: #212529;
-}
-
 .sidebar-card.stats-card {
-  background: #f8f9fa;
-  border-color: #dee2e6;
-}
-
-.sidebar-card.warning {
-  border-color: #ffc107;
-  background: #fff9e6;
+  background: white;
+  border-color: #e9ecef;
+  padding: 12px 16px;
 }
 
 /* Статистика - в столбик */
 .stats-list {
   display: flex;
   flex-direction: column;
-  gap: 6px;
+  gap: 4px;
   width: 100%;
 }
 
 .stat-item {
   display: flex;
   align-items: center;
-  gap: 10px;
+  gap: 12px;
   padding: 8px 12px;
   background: white;
   border-radius: 6px;
-  border: 1px solid #e9ecef;
+  border: 1px solid #f1f3f5;
   cursor: pointer;
   transition: all 0.15s;
   width: 100%;
@@ -211,16 +222,24 @@ const problemTemplates = computed(() => {
 }
 
 .stat-item:hover {
-  transform: translateX(4px);
-  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.08);
-  border-color: #0d6efd;
+  background: #f8f9fa;
+  border-color: #dee2e6;
 }
 
 .stat-item .stat-icon {
-  font-size: 20px;
-  flex-shrink: 0;
   width: 32px;
-  text-align: center;
+  height: 32px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  color: #6c757d;
+}
+
+.stat-item .stat-icon .stat-icon-svg {
+  width: 20px;
+  height: 20px;
+  stroke: currentColor;
 }
 
 .stat-item .stat-info {
@@ -233,7 +252,7 @@ const problemTemplates = computed(() => {
 }
 
 .stat-item .stat-value {
-  font-size: 18px;
+  font-size: 16px;
   font-weight: 700;
   color: #212529;
   line-height: 1.2;
@@ -242,6 +261,13 @@ const problemTemplates = computed(() => {
 .stat-item .stat-label {
   font-size: 13px;
   color: #6c757d;
+}
+
+.stat-item .stat-arrow {
+  width: 16px;
+  height: 16px;
+  stroke: #ced4da;
+  flex-shrink: 0;
 }
 
 /* Заголовок карточки с бейджем */
@@ -259,13 +285,24 @@ const problemTemplates = computed(() => {
   font-size: 13px;
   flex: 1;
   min-width: 0;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  color: #495057;
+  font-weight: 600;
+}
+
+.card-header h4 .h-icon {
+  width: 16px;
+  height: 16px;
+  stroke: #495057;
 }
 
 .badge-count {
-  background: #ffc107;
-  color: #212529;
+  background: #f1f3f5;
+  color: #495057;
   font-size: 11px;
-  padding: 1px 8px;
+  padding: 1px 10px;
   border-radius: 10px;
   font-weight: 600;
   flex-shrink: 0;
@@ -281,10 +318,21 @@ const problemTemplates = computed(() => {
   color: #6c757d;
   cursor: pointer;
   flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 20px;
+  height: 20px;
 }
 
 .toggle-btn:hover {
   background: #f8f9fa;
+}
+
+.toggle-btn .toggle-icon {
+  width: 12px;
+  height: 12px;
+  stroke: #6c757d;
 }
 
 /* Списки проблем */
@@ -326,7 +374,7 @@ const problemTemplates = computed(() => {
   gap: 6px;
   padding: 4px 0;
   border-bottom: 1px solid #f0f0f0;
-  font-size: 12px;
+  font-size: 13px;
   min-width: 0;
   overflow: hidden;
 }
@@ -347,24 +395,34 @@ const problemTemplates = computed(() => {
 
 .problem-status {
   font-size: 10px;
-  padding: 1px 6px;
+  padding: 1px 10px;
   border-radius: 10px;
   white-space: nowrap;
   flex-shrink: 0;
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  font-weight: 500;
+}
+
+.problem-status .status-icon {
+  width: 10px;
+  height: 10px;
+  stroke: currentColor;
 }
 
 .problem-status.status-warn {
-  background: #fff3cd;
-  color: #856404;
+  background: #f1f3f5;
+  color: #6c757d;
 }
 
 .problem-status.status-bad {
-  background: #f8d7da;
-  color: #721c24;
+  background: #f1f3f5;
+  color: #dc3545;
 }
 
 .show-more {
-  font-size: 11px;
+  font-size: 12px;
   color: #0d6efd;
   padding: 4px 0;
   text-align: center;

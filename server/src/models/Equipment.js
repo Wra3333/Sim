@@ -21,16 +21,27 @@ const Equipment = sequelize.define('Equipment', {
     allowNull: false
   },
   year_of_release: {
-    type: DataTypes.INTEGER
+    type: DataTypes.INTEGER,
+    allowNull: true,
+    set(value) {
+      if (value === '' || value === null || value === undefined || isNaN(Number(value))) {
+        this.setDataValue('year_of_release', null);
+      } else {
+        this.setDataValue('year_of_release', Number(value));
+      }
+    }
   },
   description: {
-    type: DataTypes.TEXT
+    type: DataTypes.TEXT,
+    allowNull: true
   },
   photo: {
-    type: DataTypes.STRING(500)
+    type: DataTypes.STRING(500),
+    allowNull: true
   },
   purchase_basis: {
-    type: DataTypes.STRING(255)
+    type: DataTypes.STRING(255),
+    allowNull: true
   },
   working_status: {
     type: DataTypes.STRING(50),
@@ -46,11 +57,16 @@ const Equipment = sequelize.define('Equipment', {
       isIn: [['На балансе', 'На списание', 'Списан']]
     }
   },
-
-  // 🆕 Новые необязательные поля
   price: {
     type: DataTypes.DECIMAL(10, 2),
-    allowNull: true
+    allowNull: true,
+    set(value) {
+      if (value === '' || value === null || value === undefined || isNaN(Number(value))) {
+        this.setDataValue('price', null);
+      } else {
+        this.setDataValue('price', Number(value));
+      }
+    }
   },
   country: {
     type: DataTypes.STRING(100),
@@ -64,10 +80,34 @@ const Equipment = sequelize.define('Equipment', {
     type: DataTypes.STRING(255),
     allowNull: true
   },
-
-  // 🆕 Класс реалистичности (строка)
   realism_class: {
     type: DataTypes.STRING(50),
+    allowNull: true
+  },
+  created_by: {
+    type: DataTypes.INTEGER,
+    allowNull: true
+  },
+  updated_by: {
+    type: DataTypes.INTEGER,
+    allowNull: true
+  },
+  is_archived: {
+    type: DataTypes.BOOLEAN,
+    defaultValue: false
+  },
+  archived_at: {
+    type: DataTypes.DATE,
+    allowNull: true
+  },
+  tags: {
+    type: DataTypes.ARRAY(DataTypes.STRING),
+    defaultValue: [],
+    allowNull: true
+  },
+  additional_files: {
+    type: DataTypes.JSONB,
+    defaultValue: [],
     allowNull: true
   }
 }, {

@@ -51,6 +51,16 @@ const Lesson = sequelize.define('Lesson', {
   },
   notes: {
     type: DataTypes.TEXT
+  },
+  
+  // ДОБАВЛЯЕМ
+  created_by: {
+    type: DataTypes.INTEGER,
+    allowNull: true
+  },
+  updated_by: {
+    type: DataTypes.INTEGER,
+    allowNull: true
   }
 }, {
   tableName: 'lessons',

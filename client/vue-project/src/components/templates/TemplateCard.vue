@@ -1,5 +1,60 @@
+<template>
+  <div class="template-item">
+    <div class="template-info">
+      <h3>
+        <IconTemplates class="title-icon" />
+        {{ title }}
+      </h3>
+      <div class="meta">
+        <span>
+          <IconBook class="meta-icon" />
+          {{ discipline }}
+        </span>
+        <span v-if="hasModule">
+          <IconFolder class="meta-icon" />
+          {{ module }}
+        </span>
+      </div>
+      <div class="equipment-preview" v-if="hasEquipmentPreview">
+        <span class="badge badge-secondary" v-for="(item, index) in equipmentPreview" :key="index">
+          <IconEquipment class="badge-icon" />
+          {{ item }}
+        </span>
+        <span v-if="hasMoreEquipment" class="badge badge-more">
+          +{{ previewCount - 3 }}
+        </span>
+      </div>
+      <span class="badge" :class="statusClass">
+        <IconCheck v-if="isActive" class="badge-icon" />
+        <IconAlert v-else class="badge-icon" />
+        {{ statusText }}
+      </span>
+    </div>
+    <div class="template-actions">
+      <button class="btn btn-sm btn-outline-primary" @click="$emit('edit', template)">
+        <IconEdit class="btn-icon" />
+        Редактировать
+      </button>
+      <button class="btn btn-sm btn-outline-danger" @click="$emit('delete', template.id)">
+        <IconTrash class="btn-icon" />
+        Удалить
+      </button>
+    </div>
+  </div>
+</template>
+
 <script setup>
 import { computed } from 'vue';
+import {
+  IconTemplates,
+  IconBook,
+  IconFolder,
+  IconEquipment,
+  IconCheck,
+  IconAlert,
+  IconEdit,
+  IconTrash
+} from '../icons';
 
 const props = defineProps({
   template: { 
@@ -25,10 +80,10 @@ const statusClass = computed(() =>
 );
 
 const statusText = computed(() => 
-  isActive.value ? '✅ Активен' : '⛔ Неактивен'
+  isActive.value ? 'Активен' : 'Неактивен'
 );
 
-// ✅ Получить полное название оборудования (inventory_name + инвентарный номер)
+// Получить полное название оборудования
 const getEquipmentFullName = (id) => {
   const eq = props.equipmentList.find(e => e.id === id);
   if (!eq) return `Оборудование #${id}`;
@@ -60,29 +115,6 @@ const previewCount = computed(() => {
 
 const hasMoreEquipment = computed(() => previewCount.value > 3);
 </script>
-<template>
-  <div class="template-item">
-    <div class="template-info">
-      <h3>{{ title }}</h3>
-      <div class="meta">
-        <span>📚 {{ discipline }}</span>
-        <span v-if="hasModule">📂 {{ module }}</span>
-      </div>
-      <div class="equipment-preview" v-if="hasEquipmentPreview">
-        <span class="badge badge-secondary" v-for="(item, index) in equipmentPreview" :key="index">
-          {{ item }}
-        </span>
-      </div>
-      <span class="badge" :class="statusClass">
-        {{ statusText }}
-      </span>
-    </div>
-    <div class="template-actions">
-      <button class="btn btn-sm btn-outline-primary" @click="$emit('edit', template)">Редактировать</button>
-      <button class="btn btn-sm btn-outline-danger" @click="$emit('delete', template.id)">Удалить</button>
-    </div>
-  </div>
-</template>
 
 <style scoped>
 .template-item {
@@ -107,6 +139,15 @@ const hasMoreEquipment = computed(() => previewCount.value > 3);
   font-size: 16px;
   font-weight: 600;
   color: #212529;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.template-info h3 .title-icon {
+  width: 18px;
+  height: 18px;
+  stroke: #212529;
 }
 
 .template-info .meta {
@@ -118,6 +159,18 @@ const hasMoreEquipment = computed(() => previewCount.value > 3);
   flex-wrap: wrap;
 }
 
+.template-info .meta span {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.template-info .meta .meta-icon {
+  width: 14px;
+  height: 14px;
+  stroke: #6c757d;
+}
+
 .equipment-preview {
   display: flex;
   gap: 6px;
@@ -125,18 +178,20 @@ const hasMoreEquipment = computed(() => previewCount.value > 3);
   flex-wrap: wrap;
 }
 
-.template-actions {
-  display: flex;
-  gap: 6px;
-  flex-shrink: 0;
-}
-
 .badge {
   padding: 2px 10px;
   border-radius: 12px;
   font-size: 11px;
   font-weight: 500;
-  display: inline-block;
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.badge .badge-icon {
+  width: 12px;
+  height: 12px;
+  stroke: currentColor;
 }
 
 .badge-success {
@@ -149,6 +204,18 @@ const hasMoreEquipment = computed(() => previewCount.value > 3);
   color: #41464b;
 }
 
+.badge-more {
+  background: #e9ecef;
+  color: #41464b;
+  font-weight: 600;
+}
+
+.template-actions {
+  display: flex;
+  gap: 6px;
+  flex-shrink: 0;
+}
+
 .btn {
   padding: 6px 16px;
   border: 1px solid transparent;
@@ -156,6 +223,15 @@ const hasMoreEquipment = computed(() => previewCount.value > 3);
   font-size: 14px;
   cursor: pointer;
   transition: all 0.15s;
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.btn .btn-icon {
+  width: 14px;
+  height: 14px;
+  stroke: currentColor;
 }
 
 .btn-outline-primary {

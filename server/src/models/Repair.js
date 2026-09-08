@@ -27,7 +27,8 @@ const Repair = sequelize.define('Repair', {
     type: DataTypes.STRING(50),
     defaultValue: 'Самостоятельно',
     validate: {
-      isIn: [['Самостоятельно', 'Требуется сервисный инженер']]
+      // ИСПРАВЛЕНО - добавлено "Не подлежит ремонту"
+      isIn: [['Самостоятельно', 'Требуется сервисный инженер', 'Не подлежит ремонту']]
     }
   },
   is_resolved: {
@@ -40,7 +41,6 @@ const Repair = sequelize.define('Repair', {
   resolved_by: {
     type: DataTypes.STRING(255)
   },
-  // ✅ НОВЫЕ ПОЛЯ (внутри объекта модели)
   resolution_status: {
     type: DataTypes.STRING(50),
     defaultValue: 'resolved',
@@ -50,6 +50,10 @@ const Repair = sequelize.define('Repair', {
   },
   write_off_reason: {
     type: DataTypes.TEXT,
+    allowNull: true
+  },
+  created_by: {
+    type: DataTypes.INTEGER,
     allowNull: true
   }
 }, {

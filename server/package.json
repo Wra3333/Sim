@@ -12,9 +12,13 @@
     "test:setup": "cross-env NODE_ENV=test node scripts/create-test-db.js"
   },
   "dependencies": {
+    "bcryptjs": "^3.0.3",
+    "cookie-parser": "^1.4.7",
     "cors": "^2.8.5",
     "dotenv": "^16.3.1",
     "exceljs": "^4.4.0",
+    "fs-extra": "^11.4.0",
+    "jsonwebtoken": "^9.0.3",
     "moleculer": "^0.14.33",
     "moleculer-web": "^0.10.7",
     "multer": "^2.2.0",

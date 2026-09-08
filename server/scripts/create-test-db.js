@@ -23,7 +23,7 @@ try {
 async function createTestDatabase() {
   // Проверяем, что это тестовая среда
   if (process.env.NODE_ENV !== 'test') {
-    console.error('❌ ЭТОТ СКРИПТ ТОЛЬКО ДЛЯ ТЕСТОВОЙ СРЕДЫ!');
+    console.error('ЭТОТ СКРИПТ ТОЛЬКО ДЛЯ ТЕСТОВОЙ СРЕДЫ!');
     console.error('   Запустите: npm run test:setup');
     process.exit(1);
   }
@@ -53,10 +53,10 @@ async function createTestDatabase() {
 
     // Создаем новую БД
     await client.query(`CREATE DATABASE ${config.database}`);
-    console.log(`✅ Тестовая БД "${config.database}" создана!`);
+    console.log(`Тестовая БД "${config.database}" создана!`);
     console.log(`📝 Используйте ее для запуска тестов: npm test`);
   } catch (error) {
-    console.error('❌ Ошибка создания БД:', error.message);
+    console.error('Ошибка создания БД:', error.message);
     console.error('   Проверьте:');
     console.error('   - Запущен ли PostgreSQL?');
     console.error(`   - Правильный ли пароль в .env? (DB_PASSWORD=${config.password})`);

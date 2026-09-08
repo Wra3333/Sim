@@ -1,4 +1,3 @@
-// src/services/lessons.service.js
 const { Lesson, Template, WorkTime, Equipment } = require('../models');
 const { Op } = require('sequelize');
 
@@ -8,9 +7,6 @@ module.exports = {
   name: 'lessons',
 
   actions: {
-    // ============================================
-    // CREATE - создание занятия
-    // ============================================
     create: {
       params: {
         title: { type: 'string', required: true, min: 1, max: 255 },
@@ -38,14 +34,13 @@ module.exports = {
       handler: async function(ctx) {
         const data = ctx.params;
 
-        // ✅ Проверяем, что шаблон активен (если передан)
         if (data.template_id) {
           const template = await Template.findByPk(data.template_id);
           if (!template) {
-            throw new Error('❌ Шаблон не найден');
+            throw new Error('Шаблон не найден');
           }
           if (!template.is_active) {
-            throw new Error('❌ Шаблон неактивен и не может быть использован');
+            throw new Error('Шаблон неактивен и не может быть использован');
           }
         }
 
@@ -53,7 +48,7 @@ module.exports = {
         const endTime = data.end_time.substring(0, 5);
 
         if (startTime >= endTime) {
-          throw new Error('❌ Время начала не может быть позже времени окончания');
+          throw new Error('Время начала не может быть позже времени окончания');
         }
 
         if (data.equipment_list && data.equipment_list.length > 0) {
@@ -72,12 +67,14 @@ module.exports = {
             const names = invalid
               .map(e => `${e.name} (статус: ${e.working_status}, списание: ${e.write_off_status})`)
               .join(', ');
-            throw new Error(`❌ Оборудование не может быть использовано в занятии: ${names}`);
+            throw new Error(`Оборудование не может быть использовано в занятии: ${names}`);
           }
         }
 
         data.start_time = startTime;
         data.end_time = endTime;
+        data.created_by = ctx.meta.user?.id;
+        data.updated_by = ctx.meta.user?.id;
 
         const lesson = await Lesson.create(data);
 
@@ -88,7 +85,8 @@ module.exports = {
               lesson_id: lesson.id,
               start_time: `${data.date} ${data.start_time}`,
               end_time: `${data.date} ${data.end_time}`,
-              students_count: data.students_count || 0
+              students_count: data.students_count || 0,
+              created_by: ctx.meta.user?.id
             });
           }
         }
@@ -97,9 +95,6 @@ module.exports = {
       }
     },
 
-    // ============================================
-    // LIST - список занятий
-    // ============================================
     list: {
       params: {
         status: { type: 'enum', values: VALID_LESSON_STATUSES, optional: true },
@@ -123,29 +118,22 @@ module.exports = {
       }
     },
 
-    // ============================================
-    // GET - получение занятия
-    // ============================================
     get: {
       params: {
         id: { type: 'number', required: true, integer: true, positive: true, convert: true }
       },
       handler: async function(ctx) {
-        // ✅ ИСПРАВЛЕНО: добавляем проверку
         const lesson = await Lesson.findByPk(ctx.params.id, {
           include: [
             { model: Template, as: 'template' },
             { model: WorkTime, as: 'workTimes', include: [{ model: Equipment, as: 'equipment' }] }
           ]
         });
-        if (!lesson) throw new Error('❌ Занятие не найдено');
+        if (!lesson) throw new Error('Занятие не найдено');
         return lesson;
       }
     },
 
-    // ============================================
-    // UPDATE - обновление занятия
-    // ============================================
     update: {
       params: {
         id: { type: 'number', required: true, integer: true, positive: true, convert: true },
@@ -177,23 +165,20 @@ module.exports = {
           include: [{ model: WorkTime, as: 'workTimes' }]
         });
         
-        if (!lesson) throw new Error('❌ Занятие не найдено');
+        if (!lesson) throw new Error('Занятие не найдено');
 
-        // ✅ Сохраняем старый статус
         const oldStatus = lesson.status;
 
-        // ✅ Проверяем, что шаблон активен (если передан)
         if (data.template_id) {
           const template = await Template.findByPk(data.template_id);
           if (!template) {
-            throw new Error('❌ Шаблон не найден');
+            throw new Error('Шаблон не найден');
           }
           if (!template.is_active) {
-            throw new Error('❌ Шаблон неактивен и не может быть использован');
+            throw new Error('Шаблон неактивен и не может быть использован');
           }
         }
 
-        // ✅ Сохраняем старые данные для сравнения
         const oldData = {
           date: lesson.date,
           start_time: lesson.start_time,
@@ -204,7 +189,6 @@ module.exports = {
           status: lesson.status
         };
 
-        // ✅ Нормализуем время
         let startTime = data.start_time;
         let endTime = data.end_time;
 
@@ -218,10 +202,9 @@ module.exports = {
         }
 
         if (startTime && endTime && startTime >= endTime) {
-          throw new Error('❌ Время начала не может быть позже времени окончания');
+          throw new Error('Время начала не может быть позже времени окончания');
         }
 
-        // ✅ Проверяем оборудование (если передано)
         const equipmentList = data.equipment_list;
         if (equipmentList !== undefined && Array.isArray(equipmentList) && equipmentList.length > 0) {
           const ids = equipmentList.map(item => item.equipment_id);
@@ -239,21 +222,15 @@ module.exports = {
             const names = invalid
               .map(e => `${e.name} (статус: ${e.working_status}, списание: ${e.write_off_status})`)
               .join(', ');
-            throw new Error(`❌ Оборудование не может быть использовано в занятии: ${names}`);
+            throw new Error(`Оборудование не может быть использовано в занятии: ${names}`);
           }
         }
 
-        // ✅ Обновляем занятие
+        data.updated_by = ctx.meta.user?.id;
         await lesson.update(data);
 
-        // ✅ Получаем новый статус
         const newStatus = data.status || lesson.status;
 
-        // ============================================
-        // ✅ ЛОГИКА УПРАВЛЕНИЯ WORKTIME
-        // ============================================
-
-        // 1️⃣ Если статус стал "Отменено" - УДАЛЯЕМ WorkTime
         if (newStatus === 'Отменено') {
           await WorkTime.destroy({
             where: { lesson_id: lesson.id }
@@ -263,16 +240,13 @@ module.exports = {
           });
         }
 
-        // 2️⃣ Если статус стал "Проведено" (было не проведено) - СОЗДАЕМ WorkTime
         if (newStatus === 'Проведено' && oldStatus !== 'Проведено') {
           const finalEquipmentList = equipmentList !== undefined ? equipmentList : (lesson.equipment_list || []);
           
-          // Удаляем старые (если были)
           await WorkTime.destroy({
             where: { lesson_id: lesson.id }
           });
 
-          // Создаем новые
           if (finalEquipmentList.length > 0) {
             const finalDate = data.date || lesson.date;
             const finalStart = data.start_time || lesson.start_time;
@@ -285,7 +259,8 @@ module.exports = {
                 lesson_id: lesson.id,
                 start_time: `${finalDate} ${finalStart}`,
                 end_time: `${finalDate} ${finalEnd}`,
-                students_count: finalStudents || 0
+                students_count: finalStudents || 0,
+                created_by: ctx.meta.user?.id
               });
             }
           }
@@ -294,7 +269,6 @@ module.exports = {
           });
         }
 
-        // 3️⃣ Если статус "Запланировано" и был "Проведено" - УДАЛЯЕМ WorkTime
         if (newStatus === 'Запланировано' && oldStatus === 'Проведено') {
           await WorkTime.destroy({
             where: { lesson_id: lesson.id }
@@ -304,7 +278,6 @@ module.exports = {
           });
         }
 
-        // 4️⃣ Если занятие проведено и изменилось время/оборудование
         if (newStatus === 'Проведено') {
           const finalEquipmentList = equipmentList !== undefined ? equipmentList : (lesson.equipment_list || []);
           const finalDate = data.date || lesson.date;
@@ -323,7 +296,6 @@ module.exports = {
 
           const templateChanged = data.template_id !== undefined && data.template_id !== oldData.template_id;
 
-          // ✅ Если были изменения - пересоздаем WorkTime
           if (timeChanged || equipmentChanged || templateChanged) {
             await WorkTime.destroy({
               where: { lesson_id: lesson.id }
@@ -336,7 +308,8 @@ module.exports = {
                   lesson_id: lesson.id,
                   start_time: `${finalDate} ${finalStart}`,
                   end_time: `${finalDate} ${finalEnd}`,
-                  students_count: finalStudents || 0
+                  students_count: finalStudents || 0,
+                  created_by: ctx.meta.user?.id
                 });
               }
             }
@@ -349,19 +322,16 @@ module.exports = {
       }
     },
 
-    // ============================================
-    // COMPLETE - завершение занятия
-    // ============================================
     complete: {
       params: {
         id: { type: 'number', required: true, integer: true, positive: true, convert: true }
       },
       handler: async function(ctx) {
         const lesson = await Lesson.findByPk(ctx.params.id);
-        if (!lesson) throw new Error('❌ Занятие не найдено');
+        if (!lesson) throw new Error('Занятие не найдено');
 
         if (lesson.status === 'Проведено') {
-          throw new Error('❌ Занятие уже проведено');
+          throw new Error('Занятие уже проведено');
         }
 
         const equipments = lesson.equipment_list
@@ -384,7 +354,7 @@ module.exports = {
             const names = invalid
               .map(e => `${e.name} (статус: ${e.working_status}, списание: ${e.write_off_status})`)
               .join(', ');
-            throw new Error(`❌ Оборудование не может быть использовано в занятии: ${names}`);
+            throw new Error(`Оборудование не может быть использовано в занятии: ${names}`);
           }
 
           const startTime = lesson.start_time ? lesson.start_time.substring(0, 5) : lesson.start_time;
@@ -396,29 +366,30 @@ module.exports = {
               lesson_id: lesson.id,
               start_time: `${lesson.date} ${startTime}`,
               end_time: `${lesson.date} ${endTime}`,
-              students_count: lesson.students_count || 0
+              students_count: lesson.students_count || 0,
+              created_by: ctx.meta.user?.id
             });
           }
         }
 
-        await lesson.update({ status: 'Проведено' });
+        await lesson.update({ 
+          status: 'Проведено',
+          updated_by: ctx.meta.user?.id
+        });
         return lesson;
       }
     },
 
-    // ============================================
-    // DELETE - удаление занятия
-    // ============================================
     delete: {
       params: {
         id: { type: 'number', required: true, integer: true, positive: true, convert: true }
       },
       handler: async function(ctx) {
         const lesson = await Lesson.findByPk(ctx.params.id);
-        if (!lesson) throw new Error('❌ Занятие не найдено');
+        if (!lesson) throw new Error('Занятие не найдено');
 
         if (lesson.status === 'Проведено') {
-          throw new Error('❌ Нельзя удалить проведенное занятие');
+          throw new Error('Нельзя удалить проведенное занятие');
         }
 
         await lesson.destroy();

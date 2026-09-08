@@ -21,7 +21,7 @@ export function useStatusClasses() {
   };
 
   const getRepairStatusText = (resolved) => {
-    return resolved ? '✅ Устранена' : '⚠️ Новая';
+    return resolved ? ' Устранена' : 'Новая';
   };
 
   // Класс статуса оборудования

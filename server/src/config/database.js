@@ -29,10 +29,10 @@ const sequelize = new Sequelize(
 if (env !== 'test') {
   sequelize.authenticate()
     .then(() => {
-      console.log(`✅ Connected to PostgreSQL: ${config.database} (${env})`);
+      console.log(`Connected to PostgreSQL: ${config.database} (${env})`);
     })
     .catch(err => {
-      console.error('❌ PostgreSQL connection error:', err);
+      console.error('PostgreSQL connection error:', err);
     });
 }
 

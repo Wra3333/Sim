@@ -1,15 +1,217 @@
+<template>
+  <div 
+    class="equipment-card" 
+    :class="{ 'archived': equipment.is_archived }"
+    @contextmenu.prevent="handleContextMenu"
+  >
+    <div class="card-image" @click="handlePhotoClick">
+      <img v-if="photo" :src="photoUrl" alt="Фото оборудования" />
+      <div v-else class="image-placeholder">
+        <IconEquipment class="placeholder-icon" />
+      </div>
+      <div v-if="equipment.is_archived" class="archived-badge">
+        <IconArchive class="archived-icon" />
+        В архиве
+      </div>
+    </div>
+    <div class="card-body">
+      <div class="card-header">
+        <span class="inventory-number">
+          <IconTag class="inventory-icon" />
+          {{ inventoryNumber }}
+        </span>
+        <span class="badge" :class="statusClass">
+          <IconCheck v-if="workingStatus === 'Исправен'" class="badge-icon" />
+          <IconAlert v-else class="badge-icon" />
+          {{ workingStatus }}
+        </span>
+      </div>
+      <h3 class="title">
+        <IconEquipment class="title-icon" />
+        {{ equipmentName }}
+      </h3>
+      <p class="subtitle">{{ inventoryName }}</p>
+      
+      <p class="description" v-if="description || hasExtraData">
+        <IconList class="desc-icon" />
+        <span class="description-text">
+          <template v-if="description">{{ description }}</template>
+          <template v-if="description && hasExtraData">. </template>
+          <template v-if="hasExtraData">
+            <template v-if="showCountry">Страна - {{ showCountry }}</template>
+            <template v-if="showCountry && (showManufacturer || showPrice || showRealismClass || showOriginalName)">, </template>
+            <template v-if="showManufacturer">Фирма - {{ showManufacturer }}</template>
+            <template v-if="showManufacturer && (showPrice || showRealismClass || showOriginalName)">, </template>
+            <template v-if="showPrice">Стоимость - {{ showPrice }} ₽</template>
+            <template v-if="showPrice && (showRealismClass || showOriginalName)">, </template>
+            <template v-if="showRealismClass">Класс реалистичности - {{ showRealismClass }}</template>
+            <template v-if="showRealismClass && showOriginalName">, </template>
+            <template v-if="showOriginalName">Оригинальное название - {{ showOriginalName }}</template>
+          </template>
+        </span>
+      </p>
+      
+      <div class="meta">
+        <span>
+          <IconCalendar class="meta-icon" />
+          Год закупки: {{ yearOfRelease }}
+        </span>
+        <span class="badge" :class="writeOffClass">
+          <IconCheck v-if="writeOffStatus === 'На балансе'" class="badge-icon" />
+          <IconAlert v-else class="badge-icon" />
+          {{ writeOffStatus }}
+        </span>
+      </div>
+      
+      <p class="purchase-basis" v-if="purchaseBasis">
+        <IconReceipt class="purchase-icon" />
+        Основание закупки: {{ purchaseBasis }}
+      </p>
+      
+      <div class="actions" @click.stop>
+        <template v-if="equipment.is_archived">
+          <button class="btn btn-sm btn-success" @click="$emit('restore', equipment.id)">
+            <IconRestore class="btn-icon" />
+            Восстановить
+          </button>
+          <button class="btn btn-sm btn-outline-secondary" @click="$emit('history', equipment)">
+            <IconHistory class="btn-icon" />
+            История
+          </button>
+          <button class="btn btn-sm btn-danger btn-full-width" @click="$emit('deletePermanent', equipment.id)">
+            <IconTrash class="btn-icon" />
+            Удалить навсегда
+          </button>
+        </template>
+        
+        <template v-else>
+          <button class="btn btn-sm btn-outline-primary" @click="$emit('edit', equipment)">
+            <IconEdit class="btn-icon" />
+            Редактировать
+          </button>
+          <button class="btn btn-sm btn-outline-danger" @click="$emit('delete', equipment.id)">
+            <IconArchive class="btn-icon" />
+            В архив
+          </button>
+          <button class="btn btn-sm btn-outline-secondary btn-history" @click="$emit('history', equipment)">
+            <IconHistory class="btn-icon" />
+            История поломок
+          </button>
+        </template>
+      </div>
+    </div>
+
+    <!-- КОНТЕКСТНОЕ МЕНЮ -->
+    <ContextMenu
+      :visible="contextMenuVisible"
+      :position-x="contextMenuX"
+      :position-y="contextMenuY"
+      :files="additionalFiles"
+      :equipment-id="equipment.id"
+      @close="closeContextMenu"
+      @delete="handleDeleteFromContext"
+    />
+  </div>
+</template>
+
 <script setup>
-import { computed } from 'vue';
+import { ref, computed, onMounted, onBeforeUnmount } from 'vue';
 import { useStatusClasses } from '../../composables/useStatusClasses';
+import ContextMenu from './ContextMenu.vue';
+import {
+  IconEquipment,
+  IconTag,
+  IconCheck,
+  IconAlert,
+  IconCalendar,
+  IconList,
+  IconReceipt,
+  IconEdit,
+  IconTrash,
+  IconHistory,
+  IconArchive,
+  IconRestore
+} from '../icons';
 
 const props = defineProps({
   equipment: { type: Object, required: true }
 });
 
-const emit = defineEmits(['edit', 'delete', 'view', 'history']);
+const emit = defineEmits([
+  'edit', 'delete', 'deletePermanent', 
+  'view', 'history', 'restore', 'photoClick',
+  'deleteFile'
+]);
 
 const { getEquipmentStatusClass, getWriteOffClass } = useStatusClasses();
 
+// ============================================
+// КОНТЕКСТНОЕ МЕНЮ
+// ============================================
+const contextMenuVisible = ref(false);
+const contextMenuX = ref(0);
+const contextMenuY = ref(0);
+
+const additionalFiles = computed(() => {
+  const files = props.equipment.additional_files || [];
+  if (Array.isArray(files) && files.length > 0 && typeof files[0] === 'object') {
+    return files;
+  }
+  return [];
+});
+
+const handleContextMenu = (event) => {
+  event.preventDefault();
+  
+  // Если меню уже открыто - закрываем его
+  if (contextMenuVisible.value) {
+    closeContextMenu();
+    return;
+  }
+  
+  // Иначе открываем
+  let x = event.clientX;
+  let y = event.clientY;
+  
+  const menuWidth = 380;
+  const menuHeight = 420;
+  
+  if (x + menuWidth > window.innerWidth) {
+    x = window.innerWidth - menuWidth - 10;
+  }
+  if (y + menuHeight > window.innerHeight) {
+    y = window.innerHeight - menuHeight - 10;
+  }
+  if (x < 10) x = 10;
+  if (y < 10) y = 10;
+  
+  contextMenuX.value = x;
+  contextMenuY.value = y;
+  contextMenuVisible.value = true;
+};
+
+const closeContextMenu = () => {
+  contextMenuVisible.value = false;
+};
+
+// ✅ ОБРАБОТЧИК УДАЛЕНИЯ ИЗ КОНТЕКСТНОГО МЕНЮ
+const handleDeleteFromContext = ({ equipmentId, fileId }) => {
+  emit('deleteFile', { equipmentId, fileId });
+  closeContextMenu();
+};
+
+// ============================================
+// KEYDOWN HANDLER (ESC)
+// ============================================
+const handleKeydown = (event) => {
+  if (event.key === 'Escape' && contextMenuVisible.value) {
+    closeContextMenu();
+  }
+};
+
+// ============================================
+// ОСТАЛЬНЫЕ COMPUTED
+// ============================================
 const statusClass = computed(() => getEquipmentStatusClass(props.equipment.working_status));
 const writeOffClass = computed(() => getWriteOffClass(props.equipment.write_off_status));
 const yearOfRelease = computed(() => props.equipment.year_of_release || '—');
@@ -22,64 +224,39 @@ const description = computed(() => props.equipment.description);
 const photo = computed(() => props.equipment.photo);
 const purchaseBasis = computed(() => props.equipment.purchase_basis);
 
-// 🆕 НОВЫЕ ПОЛЯ: Если пустое, не показываем
 const showOriginalName = computed(() => props.equipment.original_name);
 const showManufacturer = computed(() => props.equipment.manufacturer);
 const showCountry = computed(() => props.equipment.country);
 const showPrice = computed(() => props.equipment.price);
 const showRealismClass = computed(() => props.equipment.realism_class);
 
-const API_URL = 'http://localhost:3000/uploads/';
+const hasExtraData = computed(() => {
+  return !!(showOriginalName.value || showManufacturer.value || 
+            showCountry.value || showPrice.value || showRealismClass.value);
+});
 
 const photoUrl = computed(() => {
   if (!props.equipment.photo) return null;
-  return `${API_URL}${props.equipment.photo}`;
+  if (props.equipment.photo.startsWith('http')) return props.equipment.photo;
+  return `http://localhost:3000/uploads/${props.equipment.photo}`;
+});
+
+const handlePhotoClick = (e) => {
+  e.stopPropagation();
+  emit('photoClick', props.equipment);
+};
+
+// ============================================
+// LIFECYCLE
+// ============================================
+onMounted(() => {
+  document.addEventListener('keydown', handleKeydown);
+});
+
+onBeforeUnmount(() => {
+  document.removeEventListener('keydown', handleKeydown);
 });
 </script>
-
-<template>
-  <div class="equipment-card">
-    <div class="card-image">
-      <img v-if="photo" :src="photoUrl" alt="Фото оборудования" />
-      <div v-else class="image-placeholder">📷</div>
-    </div>
-    <div class="card-body">
-      <div class="card-header">
-        <span class="inventory-number">{{ inventoryNumber }}</span>
-        <span class="badge" :class="statusClass">{{ workingStatus }}</span>
-      </div>
-      <h3 class="title">{{ equipmentName }}</h3>
-      <p class="subtitle">{{ inventoryName }}</p>
-      <div class="meta">
-        <span>Год закупки: {{ yearOfRelease }}</span>
-        <span class="badge" :class="writeOffClass">{{ writeOffStatus }}</span>
-      </div>
-      <p class="description" v-if="description">{{ description }}</p>
-      
-      <!-- 🆕 БЛОК НОВЫХ ПОЛЕЙ (показываем только если есть данные) -->
-      <div class="details" v-if="showOriginalName || showManufacturer || showCountry || showPrice || showRealismClass">
-        <p v-if="showRealismClass"><strong>Класс реалистичности:</strong> {{ showRealismClass }}</p>
-        <p v-if="showOriginalName"><strong>Оригинальное название:</strong> {{ showOriginalName }}</p>
-        <p v-if="showManufacturer"><strong>Производитель:</strong> {{ showManufacturer }}</p>
-        <p v-if="showCountry"><strong>Страна:</strong> {{ showCountry }}</p>
-        <p v-if="showPrice"><strong>Стоимость:</strong> {{ showPrice }} ₽</p>
-      </div>
-      
-      <p class="purchase-basis" v-if="purchaseBasis">Основание закупки: {{ purchaseBasis }}</p>
-      <div class="actions">
-        <button class="btn btn-sm btn-outline-primary" @click="$emit('edit', equipment)">
-           Редактировать
-        </button>
-        <button class="btn btn-sm btn-outline-danger" @click="$emit('delete', equipment.id)">
-           Удалить
-        </button>
-        <button class="btn btn-sm btn-outline-secondary btn-history" @click="$emit('history', equipment)">
-           История поломок
-        </button>
-      </div>
-    </div>
-  </div>
-</template>
 
 <style scoped>
 .equipment-card {
@@ -91,11 +268,14 @@ const photoUrl = computed(() => {
   transition: all 0.2s;
   display: flex;
   flex-direction: column;
+  position: relative;
+  cursor: default;
 }
 
-.equipment-card:hover {
-  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.1);
-  transform: translateY(-2px);
+.equipment-card.archived {
+  opacity: 0.75;
+  border-color: #ffc107;
+  background: #fffdf5;
 }
 
 .card-image {
@@ -105,6 +285,13 @@ const photoUrl = computed(() => {
   align-items: center;
   justify-content: center;
   overflow: hidden;
+  position: relative;
+  cursor: pointer;
+  transition: opacity 0.2s;
+}
+
+.card-image:hover {
+  opacity: 0.85;
 }
 
 .card-image img {
@@ -114,8 +301,38 @@ const photoUrl = computed(() => {
 }
 
 .image-placeholder {
-  font-size: 48px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
   opacity: 0.3;
+}
+
+.image-placeholder .placeholder-icon {
+  width: 48px;
+  height: 48px;
+  stroke: #6c757d;
+}
+
+.archived-badge {
+  position: absolute;
+  top: 8px;
+  right: 8px;
+  background: #ffc107;
+  color: #212529;
+  padding: 4px 10px;
+  border-radius: 12px;
+  font-size: 11px;
+  font-weight: 600;
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  box-shadow: 0 2px 8px rgba(255, 193, 7, 0.3);
+}
+
+.archived-badge .archived-icon {
+  width: 14px;
+  height: 14px;
+  stroke: #212529;
 }
 
 .card-body {
@@ -139,6 +356,15 @@ const photoUrl = computed(() => {
   background: #eef2ff;
   padding: 2px 10px;
   border-radius: 4px;
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.inventory-number .inventory-icon {
+  width: 12px;
+  height: 12px;
+  stroke: #4361ee;
 }
 
 .title {
@@ -146,12 +372,44 @@ const photoUrl = computed(() => {
   font-weight: 600;
   margin: 0 0 2px 0;
   color: #1a1a2e;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.title .title-icon {
+  width: 16px;
+  height: 16px;
+  stroke: #1a1a2e;
 }
 
 .subtitle {
   font-size: 13px;
   color: #888;
+  margin: 0 0 6px 0;
+}
+
+.description {
+  font-size: 13px;
+  color: #444;
   margin: 0 0 8px 0;
+  display: flex;
+  align-items: flex-start;
+  gap: 4px;
+  line-height: 1.5;
+  flex: 1;
+}
+
+.description .desc-icon {
+  width: 14px;
+  height: 14px;
+  stroke: #666;
+  flex-shrink: 0;
+  margin-top: 2px;
+}
+
+.description .description-text {
+  word-break: break-word;
 }
 
 .meta {
@@ -162,45 +420,63 @@ const photoUrl = computed(() => {
   color: #666;
   padding-top: 8px;
   border-top: 1px solid #f0f0f0;
-  flex-grow: 1;
 }
 
-.description {
-  font-size: 13px;
-  color: #666;
-  margin: 8px 0 4px 0;
-  flex: 1;
+.meta span {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
 }
 
-.details {
-  font-size: 12px;
-  color: #666;
-  margin: 8px 0;
-  border-top: 1px dashed #eee;
-  padding-top: 8px;
-  flex: 1;
-}
-
-.details p {
-  margin: 2px 0;
+.meta .meta-icon {
+  width: 14px;
+  height: 14px;
+  stroke: #666;
 }
 
 .purchase-basis {
   font-size: 12px;
   color: #888;
-  margin: 4px 0 8px 0;
+  margin: 4px 0 6px 0;
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.purchase-basis .purchase-icon {
+  width: 14px;
+  height: 14px;
+  stroke: #888;
 }
 
 .actions {
   display: flex;
   flex-wrap: wrap;
   gap: 8px;
-  margin-top: 12px;
+  margin-top: 8px;
 }
 
 .actions .btn {
   flex: 1;
   min-width: 60px;
+  justify-content: center;
+}
+
+.btn-full-width {
+  flex: 1 1 100% !important;
+  background: #dc3545 !important;
+  color: white !important;
+  border: 1.5px solid #dc3545 !important;
+  justify-content: center;
+}
+
+.btn-full-width:hover {
+  background: #c82333 !important;
+  border-color: #bd2130 !important;
+}
+
+.btn-full-width .btn-icon {
+  stroke: white;
 }
 
 .btn-history {
@@ -208,6 +484,7 @@ const photoUrl = computed(() => {
   background: #6c757d !important;
   color: white !important;
   border: 1.5px solid #ced4da !important;
+  justify-content: center;
 }
 
 .btn-history:hover {
@@ -222,7 +499,16 @@ const photoUrl = computed(() => {
   font-weight: 500;
   cursor: pointer;
   transition: all 0.2s;
-  font-weight: 500;
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  justify-content: center;
+}
+
+.btn .btn-icon {
+  width: 14px;
+  height: 14px;
+  stroke: currentColor;
 }
 
 .btn-sm {
@@ -233,24 +519,32 @@ const photoUrl = computed(() => {
 
 .btn-outline-primary {
   background: transparent;
-  color: #4361ee;
-  border: 1.5px solid #4361ee;
+  color: #0077c8;
+  border: 1.5px solid #0077c8;
 }
 
 .btn-outline-primary:hover {
-  background: #4361ee;
+  background: #0077c8;
   color: white;
+}
+
+.btn-outline-primary:hover .btn-icon {
+  stroke: white;
 }
 
 .btn-outline-danger {
   background: transparent;
-  color: #ef476f;
-  border: 1.5px solid #ef476f;
+  color: #dc3545;
+  border: 1.5px solid #dc3545;
 }
 
 .btn-outline-danger:hover {
-  background: #ef476f;
+  background: #dc3545;
   color: white;
+}
+
+.btn-outline-danger:hover .btn-icon {
+  stroke: white;
 }
 
 .btn-outline-secondary {
@@ -264,11 +558,54 @@ const photoUrl = computed(() => {
   color: white;
 }
 
+.btn-outline-secondary:hover .btn-icon {
+  stroke: white;
+}
+
+.btn-success {
+  background: #28a745;
+  color: white;
+  border: 1.5px solid #28a745;
+}
+
+.btn-success:hover {
+  background: #218838;
+  border-color: #1e7e34;
+}
+
+.btn-success .btn-icon {
+  stroke: white;
+}
+
+.btn-danger {
+  background: #dc3545;
+  color: white;
+  border: 1.5px solid #dc3545;
+}
+
+.btn-danger:hover {
+  background: #c82333;
+  border-color: #bd2130;
+}
+
+.btn-danger .btn-icon {
+  stroke: white;
+}
+
 .badge {
   font-size: 11px;
   padding: 3px 10px;
   border-radius: 12px;
   font-weight: 500;
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.badge .badge-icon {
+  width: 12px;
+  height: 12px;
+  stroke: currentColor;
 }
 
 .badge-success {
@@ -284,5 +621,60 @@ const photoUrl = computed(() => {
 .badge-danger {
   background: #fce4ec;
   color: #ef476f;
+}
+
+/* Адаптивность */
+@media (max-width: 768px) {
+  .card-image {
+    height: 120px;
+  }
+  
+  .card-body {
+    padding: 12px;
+  }
+  
+  .title {
+    font-size: 14px;
+  }
+  
+  .actions .btn {
+    font-size: 11px;
+    padding: 3px 8px;
+  }
+  
+  .btn .btn-icon {
+    width: 12px;
+    height: 12px;
+  }
+}
+
+@media (max-width: 480px) {
+  .card-image {
+    height: 100px;
+  }
+  
+  .card-header {
+    flex-wrap: wrap;
+    gap: 4px;
+  }
+  
+  .inventory-number {
+    font-size: 10px;
+  }
+  
+  .badge {
+    font-size: 10px;
+    padding: 2px 8px;
+  }
+  
+  .description {
+    font-size: 12px;
+  }
+  
+  .meta {
+    font-size: 12px;
+    flex-wrap: wrap;
+    gap: 4px;
+  }
 }
 </style>

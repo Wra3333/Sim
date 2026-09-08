@@ -1,8 +1,15 @@
 const ApiGateway = require('moleculer-web');
 const path = require('path');
 const fs = require('fs');
-const upload = require('../middlewares/upload'); // ✅ существующий
-const uploadExcel = require('../middlewares/uploadExcel'); // 🆕 новый
+const jwt = require('jsonwebtoken');
+const { UnAuthorizedError } = ApiGateway.Errors;
+
+// ✅ ИМПОРТИРУЕМ МИДЛВЭРЫ
+const uploadPhoto = require('../middlewares/uploadPhoto');
+const uploadExcel = require('../middlewares/uploadExcel');
+const uploadAdditionalFile = require('../middlewares/uploadAdditionalFile');
+
+const JWT_SECRET = process.env.JWT_SECRET || 'your-very-secret-key-change-this-in-production-12345';
 
 module.exports = {
   name: 'api-gateway',
@@ -11,72 +18,39 @@ module.exports = {
   settings: {
     port: process.env.PORT || 3000,
     host: '0.0.0.0',
-    // ✅ Встроенный CORS moleculer-web
     cors: {
       origin: '*',
       methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
       allowedHeaders: ['Content-Type', 'Authorization'],
-      credentials: false,
+      credentials: true,
       maxAge: 86400
     },
 
     routes: [
       // ============================================
-      // РАЗДАЧА ФОТО (с поддержкой кириллицы)
+      // ПУБЛИЧНЫЙ API
       // ============================================
       {
-        path: '/uploads',
+        path: '/api/auth',
         cors: true,
-        use: [
-          // ✅ Декодируем URL для поддержки русских символов
-          (req, res, next) => {
-            if (req.url) {
-              try {
-                req.url = decodeURIComponent(req.url);
-                console.log('📸 Декодированный URL:', req.url);
-              } catch (e) {
-                console.warn('⚠️ Ошибка декодирования URL:', req.url);
-              }
-            }
-            next();
-          },
-          // ✅ Отдача файлов
-          (req, res) => {
-            const uploadDir = path.join(__dirname, '../../uploads');
-            // Убираем начальный слэш если есть
-            let fileName = req.url;
-            if (fileName.startsWith('/')) {
-              fileName = fileName.slice(1);
-            }
-            
-            const filePath = path.join(uploadDir, fileName);
-            console.log('📂 Ищем файл:', filePath);
-            
-            if (fs.existsSync(filePath)) {
-              const ext = path.extname(filePath).toLowerCase();
-              const mimeTypes = {
-                '.png': 'image/png',
-                '.jpg': 'image/jpeg',
-                '.jpeg': 'image/jpeg',
-                '.gif': 'image/gif',
-                '.webp': 'image/webp'
-              };
-              // ✅ Добавляем CORS для фото
-              res.writeHead(200, { 
-                'Content-Type': mimeTypes[ext] || 'application/octet-stream',
-                'Access-Control-Allow-Origin': '*'
-              });
-              fs.createReadStream(filePath).pipe(res);
-            } else {
-              console.log('❌ Файл не найден:', filePath);
-              res.writeHead(404, { 
-                'Content-Type': 'application/json',
-                'Access-Control-Allow-Origin': '*'
-              });
-              res.end(JSON.stringify({ error: 'Файл не найден' }));
-            }
-          }
-        ]
+        authentication: false,
+        whitelist: [
+          'auth.login',
+          'auth.refresh',
+          'auth.logout',
+          'auth.validateToken'
+        ],
+        aliases: {
+          'POST /login': 'auth.login',
+          'POST /refresh': 'auth.refresh',
+          'POST /logout': 'auth.logout',
+          'GET /validate': 'auth.validateToken',
+          'GET /me/:userId': 'auth.me'
+        },
+        bodyParsers: {
+          json: true,
+          urlencoded: { extended: true }
+        }
       },
 
       // ============================================
@@ -85,101 +59,44 @@ module.exports = {
       {
         path: '/api',
         cors: true,
+        authentication: true,
         whitelist: [
           'equipment.*',
           'repairs.*',
           'templates.*',
           'lessons.*',
-          'worktime.*'
+          'worktime.*',
+          'logs.*',
+          'auth.register'
         ],
-
-        // ✅ ПЕРЕХВАТ ЗАГРУЗКИ ФОТО ДО bodyParsers
-        use: [
-          (req, res, next) => {
-            const match = req.url.match(/^\/equipment\/(\d+)\/photo$/);
-            if (req.method === 'POST' && match) {
-              const id = match[1];
-
-              upload.single('photo')(req, res, (err) => {
-                if (err) {
-                  res.writeHead(400, {
-                    'Content-Type': 'application/json',
-                    'Access-Control-Allow-Origin': '*'
-                  });
-                  res.end(JSON.stringify({ error: err.message }));
-                  return;
-                }
-                req.$service.broker.call('equipment.uploadPhoto', {
-                  id: Number(id),
-                  file: req.file
-                })
-                .then(result => {
-                  res.writeHead(200, {
-                    'Content-Type': 'application/json',
-                    'Access-Control-Allow-Origin': '*'
-                  });
-                  res.end(JSON.stringify(result));
-                })
-                .catch(err => {
-                  res.writeHead(500, {
-                    'Content-Type': 'application/json',
-                    'Access-Control-Allow-Origin': '*'
-                  });
-                  res.end(JSON.stringify({ error: err.message }));
-                });
-              });
-            } else {
-              next();
-            }
-          },
-
-          // 🆕 ПЕРЕХВАТ ЗАГРУЗКИ EXCEL
-          (req, res, next) => {
-            const match = req.url.match(/^\/equipment\/import-excel$/);
-            if (req.method === 'POST' && match) {
-              uploadExcel.single('file')(req, res, (err) => {
-                if (err) {
-                  res.writeHead(400, {
-                    'Content-Type': 'application/json',
-                    'Access-Control-Allow-Origin': '*'
-                  });
-                  res.end(JSON.stringify({ error: err.message }));
-                  return;
-                }
-                req.$service.broker.call('equipment.importExcel', {
-                  file: req.file
-                })
-                .then(result => {
-                  res.writeHead(200, {
-                    'Content-Type': 'application/json',
-                    'Access-Control-Allow-Origin': '*'
-                  });
-                  res.end(JSON.stringify(result));
-                })
-                .catch(err => {
-                  res.writeHead(500, {
-                    'Content-Type': 'application/json',
-                    'Access-Control-Allow-Origin': '*'
-                  });
-                  res.end(JSON.stringify({ error: err.message }));
-                });
-              });
-            } else {
-              next();
-            }
-          }
-        ],
-
+        bodyParsers: {
+          json: true,
+          urlencoded: { extended: true }
+        },
         aliases: {
+          // AUTH
+          'POST /auth/register': 'auth.register',
+          
+          // EQUIPMENT
           'GET /equipment': 'equipment.list',
           'GET /equipment/:id': 'equipment.get',
           'POST /equipment': 'equipment.create',
           'PUT /equipment/:id': 'equipment.update',
           'DELETE /equipment/:id': 'equipment.delete',
+          'DELETE /equipment/:id/permanent': 'equipment.deletePermanent',
+          'POST /equipment/:id/restore': 'equipment.restore',
+          'POST /equipment/archive-problematics': 'equipment.archiveProblematics',
+          'GET /equipment/tags': 'equipment.getTags',
+          'PUT /equipment/:id/tags': 'equipment.updateTags',
           'DELETE /equipment/:id/photo': 'equipment.deletePhoto',
-          'POST /equipment/import-excel': 'equipment.importExcel', // 🆕 Импорт
-          'POST /equipment/export-excel': 'equipment.exportExcel', // 🆕 Экспорт
+          'POST /equipment/import-excel': 'equipment.importExcel',
+          'POST /equipment/export-excel': 'equipment.exportExcel',
+          
+          // ✅ ДОПОЛНИТЕЛЬНЫЕ ФАЙЛЫ
+          'POST /equipment/:id/additional-file': 'equipment.uploadAdditionalFiles',
+          'DELETE /equipment/:id/additional-file/:file_id': 'equipment.deleteAdditionalFile',
 
+          // REPAIRS
           'GET /repairs': 'repairs.list',
           'GET /repairs/equipment/:equipmentId': 'repairs.getByEquipment',
           'POST /repairs': 'repairs.create',
@@ -188,6 +105,7 @@ module.exports = {
           'PATCH /repairs/:id/resolved-by': 'repairs.updateResolvedBy',
           'DELETE /repairs/:id': 'repairs.delete',
           
+          // TEMPLATES
           'GET /templates': 'templates.list',
           'GET /templates/:id': 'templates.get',
           'POST /templates': 'templates.create',
@@ -195,6 +113,7 @@ module.exports = {
           'DELETE /templates/:id': 'templates.delete',
           'POST /templates/:id/sync-lessons': 'templates.syncLessons',
 
+          // LESSONS
           'GET /lessons': 'lessons.list',
           'GET /lessons/:id': 'lessons.get',
           'POST /lessons': 'lessons.create',
@@ -202,28 +121,148 @@ module.exports = {
           'PUT /lessons/:id/complete': 'lessons.complete',
           'DELETE /lessons/:id': 'lessons.delete',
 
+          // WORKTIME
           'GET /worktime': 'worktime.list',
           'GET /worktime/equipment/:equipmentId': 'worktime.getByEquipment',
           'GET /worktime/report': 'worktime.report',
           'GET /worktime/summary/:equipmentId': 'worktime.summary',
-          'POST /worktime': 'worktime.create'
-        },
+          'POST /worktime': 'worktime.create',
 
-        bodyParsers: {
-          json: true,
-          urlencoded: { extended: true }
-        }
+          // LOGS
+          'GET /logs': 'logs.list',
+          'GET /logs/user/:userId': 'logs.getByUser',
+          'GET /logs/entity/:entity/:entityId': 'logs.getByEntity',
+          'GET /logs/stats': 'logs.getStats',
+          'DELETE /logs/cleanup': 'logs.cleanup'
+        },
+        
+        // ✅ ИСПОЛЬЗУЕМ ВЫНЕСЕННЫЕ МИДЛВЭРЫ
+        use: [
+          // 🔍 ГЛОБАЛЬНОЕ ЛОГИРОВАНИЕ ВСЕХ ЗАПРОСОВ
+          (req, res, next) => {
+            console.log('🔍 [GATEWAY] ===== НОВЫЙ ЗАПРОС =====');
+            console.log('🔍 [GATEWAY] Метод:', req.method);
+            console.log('🔍 [GATEWAY] URL:', req.url);
+            console.log('🔍 [GATEWAY] Content-Type:', req.headers['content-type']);
+            console.log('🔍 [GATEWAY] Authorization:', req.headers['authorization'] ? 'ЕСТЬ' : 'НЕТ');
+            next();
+          },
+          uploadPhoto,
+          uploadExcel,
+          uploadAdditionalFile
+        ]
+      },
+
+      // ============================================
+      // РАЗДАЧА ФАЙЛОВ
+      // ============================================
+      {
+        path: '/uploads',
+        cors: true,
+        authentication: false,
+        use: [
+          (req, res, next) => {
+            if (req.url) {
+              try {
+                req.url = decodeURIComponent(req.url);
+              } catch (e) {}
+            }
+            next();
+          },
+          (req, res) => {
+            const uploadDir = path.join(__dirname, '../../uploads');
+            let fileName = req.url;
+            if (fileName.startsWith('/')) {
+              fileName = fileName.slice(1);
+            }
+            
+            const filePath = path.join(uploadDir, fileName);
+            
+            console.log('📁 [uploads] Запрос файла:', fileName);
+            console.log('📁 [uploads] Полный путь:', filePath);
+            
+            if (fs.existsSync(filePath)) {
+              const ext = path.extname(filePath).toLowerCase();
+              const mimeTypes = {
+                '.png': 'image/png',
+                '.jpg': 'image/jpeg',
+                '.jpeg': 'image/jpeg',
+                '.gif': 'image/gif',
+                '.webp': 'image/webp',
+                '.svg': 'image/svg+xml',
+                '.pdf': 'application/pdf',
+                '.doc': 'application/msword',
+                '.docx': 'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+                '.xls': 'application/vnd.ms-excel',
+                '.xlsx': 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+                '.txt': 'text/plain',
+                '.zip': 'application/zip',
+                '.rar': 'application/x-rar-compressed'
+              };
+              console.log('✅ [uploads] Файл найден, отправляем');
+              res.writeHead(200, { 
+                'Content-Type': mimeTypes[ext] || 'application/octet-stream',
+                'Access-Control-Allow-Origin': '*',
+                'Cache-Control': 'public, max-age=31536000'
+              });
+              fs.createReadStream(filePath).pipe(res);
+            } else {
+              console.error('❌ [uploads] Файл НЕ НАЙДЕН:', filePath);
+              res.writeHead(404, { 
+                'Content-Type': 'application/json',
+                'Access-Control-Allow-Origin': '*'
+              });
+              res.end(JSON.stringify({ error: 'Файл не найден' }));
+            }
+          }
+        ]
       }
     ]
   },
 
+  methods: {
+    async authenticate(ctx, route, req, res) {
+      const auth = req.headers["authorization"];
+      
+      if (!auth || !auth.startsWith("Bearer ")) {
+        console.log('❌ [authenticate] Нет токена');
+        throw new UnAuthorizedError("NO_TOKEN", "Требуется авторизация");
+      }
+
+      const token = auth.split(" ")[1];
+      console.log('🔑 [authenticate] Токен получен, проверяем...');
+
+      try {
+        const decoded = jwt.verify(token, JWT_SECRET);
+        console.log('✅ [authenticate] Токен валиден, пользователь:', decoded.email);
+
+        ctx.meta.user = {
+          id: decoded.id,
+          email: decoded.email,
+          name: decoded.name
+        };
+
+        return ctx.meta.user;
+      } catch (err) {
+        console.error('❌ [authenticate] Ошибка:', err.message);
+        if (err.name === 'TokenExpiredError') {
+          throw new UnAuthorizedError("TOKEN_EXPIRED", "Срок действия токена истек");
+        }
+        throw new UnAuthorizedError("INVALID_TOKEN", "Невалидный токен");
+      }
+    }
+  },
+
   onError(req, res, err) {
+    console.error('❌ [onError] Ошибка:', err.message);
     res.setHeader('Content-Type', 'application/json');
     res.setHeader('Access-Control-Allow-Origin', '*');
+    
     res.writeHead(err.code || 500);
     res.end(JSON.stringify({
-      error: err.message,
+      success: false,
+      message: err.message || 'Внутренняя ошибка сервера',
       code: err.code || 500
-    }));
+    }, null, 2));
   }
 };

@@ -125,7 +125,7 @@ describe('WorkTime Service Tests', () => {
       });
       localEquipmentId = equipment.id;
 
-      // ✅ СОЗДАЕМ УРОКИ ПЕРЕД ИСПОЛЬЗОВАНИЕМ
+      // СОЗДАЕМ УРОКИ ПЕРЕД ИСПОЛЬЗОВАНИЕМ
       lesson1 = await Lesson.create({
         title: 'Занятие 1 для LIST',
         group: 'Группа 401',
@@ -195,7 +195,7 @@ describe('WorkTime Service Tests', () => {
       });
       localEquipmentId = equipment.id;
 
-      // ✅ СОЗДАЕМ УРОК
+      // СОЗДАЕМ УРОК
       lesson = await Lesson.create({
         title: 'Занятие для GET',
         group: 'Группа 403',
@@ -246,7 +246,7 @@ describe('WorkTime Service Tests', () => {
       });
       localEquipmentId = equipment.id;
 
-      // ✅ СОЗДАЕМ УРОК
+      // СОЗДАЕМ УРОК
       lesson = await Lesson.create({
         title: 'Занятие для REPORT',
         group: 'Группа 404',
@@ -323,7 +323,7 @@ describe('WorkTime Service Tests', () => {
       });
       localEquipmentId = equipment.id;
 
-      // ✅ СОЗДАЕМ УРОКИ
+      // СОЗДАЕМ УРОКИ
       lesson1 = await Lesson.create({
         title: 'Занятие 1 для SUMMARY',
         group: 'Группа 405',

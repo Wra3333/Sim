@@ -1,4 +1,51 @@
+<template>
+  <Teleport to="body">
+    <div v-if="visible" class="modal-overlay" @click.self="close">
+      <div class="modal modal-confirm">
+        <div class="modal-header">
+          <h3>
+            <IconAlert v-if="confirmVariant === 'danger'" class="header-icon danger" />
+            <IconCheck v-else-if="confirmVariant === 'success'" class="header-icon success" />
+            <IconAlert v-else class="header-icon warning" />
+            {{ title }}
+          </h3>
+          <button class="btn-close" @click="close">×</button>
+        </div>
+
+        <div class="modal-body">
+          <p>{{ message }}</p>
+        </div>
+
+        <div class="form-actions">
+          <button class="btn btn-sm btn-outline-secondary" @click="close">
+            <IconClose class="btn-icon" />
+            {{ cancelText }}
+          </button>
+          <button 
+            class="btn btn-sm" 
+            :class="`btn-${confirmVariant}`" 
+            @click="confirm"
+          >
+            <IconCheck v-if="confirmVariant === 'success'" class="btn-icon" />
+            <IconTrash v-else-if="confirmVariant === 'danger'" class="btn-icon" />
+            <IconSave v-else class="btn-icon" />
+            {{ confirmText }}
+          </button>
+        </div>
+      </div>
+    </div>
+  </Teleport>
+</template>
+
 <script setup>
+import {
+  IconAlert,
+  IconCheck,
+  IconClose,
+  IconTrash,
+  IconSave
+} from './icons'; //  ПРАВИЛЬНЫЙ ПУТЬ
+
 const props = defineProps({
   visible: { type: Boolean, default: false },
   title: { type: String, default: 'Подтверждение' },
@@ -21,36 +68,6 @@ const confirm = () => {
 };
 </script>
 
-<template>
-  <Teleport to="body">
-    <div v-if="visible" class="modal-overlay" @click.self="close">
-      <div class="modal modal-confirm">
-        <div class="modal-header">
-          <h3>{{ title }}</h3>
-          <button class="btn-close" @click="close">×</button>
-        </div>
-
-        <div class="modal-body">
-          <p>{{ message }}</p>
-        </div>
-
-        <div class="form-actions">
-          <button class="btn btn-sm btn-outline-secondary" @click="close">
-            {{ cancelText }}
-          </button>
-          <button 
-            class="btn btn-sm" 
-            :class="`btn-${confirmVariant}`" 
-            @click="confirm"
-          >
-            {{ confirmText }}
-          </button>
-        </div>
-      </div>
-    </div>
-  </Teleport>
-</template>
-
 <style scoped>
 .modal-overlay {
   position: fixed;
@@ -62,7 +79,7 @@ const confirm = () => {
   display: flex;
   align-items: center;
   justify-content: center;
-  z-index: 9999;
+  z-index: 1999;
 }
 
 .modal-confirm {
@@ -90,6 +107,27 @@ const confirm = () => {
   font-weight: 600;
   margin: 0;
   color: #212529;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.modal-header h3 .header-icon {
+  width: 20px;
+  height: 20px;
+  stroke: currentColor;
+}
+
+.modal-header h3 .header-icon.danger {
+  color: #dc3545;
+}
+
+.modal-header h3 .header-icon.success {
+  color: #198754;
+}
+
+.modal-header h3 .header-icon.warning {
+  color: #ffc107;
 }
 
 .btn-close {
@@ -126,6 +164,15 @@ const confirm = () => {
   font-weight: 500;
   cursor: pointer;
   transition: all 0.15s;
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.btn .btn-icon {
+  width: 14px;
+  height: 14px;
+  stroke: currentColor;
 }
 
 .btn-sm {

@@ -16,7 +16,7 @@ export function useGroupedPagination(items, options = {}) {
     defaultGroup = 'Без группы'
   } = options;
 
-  // ✅ Уникальные группы
+  //  Уникальные группы
   const uniqueGroups = computed(() => {
     const groups = items.value
       .map(item => item[groupBy])
@@ -24,12 +24,12 @@ export function useGroupedPagination(items, options = {}) {
     return [...new Set(groups)].sort();
   });
 
-  // ✅ Количество элементов в группе
+  //  Количество элементов в группе
   const getGroupCount = (groupName) => {
     return items.value.filter(item => item[groupBy] === groupName).length;
   };
 
-  // ✅ Группировка элементов
+  //  Группировка элементов
   const groupedItems = computed(() => {
     const groups = {};
 
@@ -48,10 +48,10 @@ export function useGroupedPagination(items, options = {}) {
     }));
   });
 
-  // ✅ Состояние пагинации для каждой группы
+  //  Состояние пагинации для каждой группы
   const groupPaginationState = ref({});
 
-  // ✅ Получить или создать состояние пагинации для группы
+  //  Получить или создать состояние пагинации для группы
   const getGroupState = (groupName) => {
     if (!groupPaginationState.value[groupName]) {
       groupPaginationState.value[groupName] = {
@@ -62,7 +62,7 @@ export function useGroupedPagination(items, options = {}) {
     return groupPaginationState.value[groupName];
   };
 
-  // ✅ Получить пагинированные элементы для группы
+  //  Получить пагинированные элементы для группы
   const getPaginatedGroupItems = (group) => {
     const state = getGroupState(group.group);
     const start = (state.currentPage - 1) * pageSize;
@@ -70,35 +70,35 @@ export function useGroupedPagination(items, options = {}) {
     return group.items.slice(start, end);
   };
 
-  // ✅ Получить общее количество страниц для группы
+  //  Получить общее количество страниц для группы
   const getGroupTotalPages = (group) => {
     return Math.ceil(group.items.length / pageSize);
   };
 
-  // ✅ Получить текущую страницу группы
+  //  Получить текущую страницу группы
   const getGroupPage = (groupName) => {
     return getGroupState(groupName).currentPage;
   };
 
-  // ✅ Установить страницу группы
+  //  Установить страницу группы
   const setGroupPage = (groupName, page) => {
     const state = getGroupState(groupName);
     state.currentPage = page;
   };
 
-  // ✅ Показать пагинацию для группы
+  //  Показать пагинацию для группы
   const getGroupShowPagination = (group) => {
     return group.items.length > pageSize;
   };
 
-  // ✅ Сбросить все страницы групп
+  //  Сбросить все страницы групп
   const resetGroupPages = () => {
     for (const key in groupPaginationState.value) {
       groupPaginationState.value[key].currentPage = 1;
     }
   };
 
-  // ✅ Сбросить состояние групп
+  //  Сбросить состояние групп
   const resetGroups = () => {
     groupPaginationState.value = {};
   };
