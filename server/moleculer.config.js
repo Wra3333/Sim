@@ -2,6 +2,7 @@ require('dotenv').config();
 const CustomValidator = require('./src/validators/custom.validator.js');
 const { sequelize } = require('./src/models');
 const loggerMiddleware = require('./src/middlewares/logger.middleware');
+const bcrypt = require('bcryptjs');
 
 module.exports = {
   namespace: 'simulation-center',
@@ -40,13 +41,14 @@ module.exports = {
 
   async created() {
     await sequelize.authenticate();
-    console.log('Connected to PostgreSQL');
-    console.log('Tables synced');
+    await sequelize.sync({ alter: true });
+    console.log('✅ Connected to PostgreSQL');
+    console.log('✅ Tables synced');
     console.log('📊 Models:', Object.keys(sequelize.models).join(', '));
   },
 
   async started() {
-    console.log('Сервер запущен');
+    console.log('✅ Сервер запущен');
   },
 
   async stopped() {
