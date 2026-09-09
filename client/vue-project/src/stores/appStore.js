@@ -176,6 +176,6 @@ export const useAppStore = defineStore('app', {
   persist: {
     key: 'app_state',
     storage: localStorage,
-    paths: ['sidebar', 'viewMode', 'filters', 'pagination', 'history']
+    paths: ['sidebar', 'viewMode', 'filters', 'pagination']
   }
 })

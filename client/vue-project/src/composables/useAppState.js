@@ -7,7 +7,6 @@ export function useAppState() {
   const router = useRouter()
   const store = useAppStore()
   
-  // ✅ Два флага для полного контроля
   let isUpdatingFromStore = false
   let isUpdatingFromUrl = false
   
@@ -15,10 +14,8 @@ export function useAppState() {
   // STORE → URL
   // ============================================
   const syncToUrl = () => {
-    // ✅ Если обновление из URL — пропускаем
     if (isUpdatingFromUrl) return
     
-    // ✅ Ставим флаг ДО начала
     isUpdatingFromStore = true
     
     const query = { ...route.query }
@@ -42,8 +39,10 @@ export function useAppState() {
       delete query.w
     }
     
+    // ✅ ПАГИНАЦИЯ
     query.p = store.pagination.equipment.page || 1
     
+    // ✅ ВИД ОТОБРАЖЕНИЯ
     if (store.viewMode.equipment !== 'cards') {
       query.v = store.viewMode.equipment
     } else {
@@ -213,10 +212,8 @@ export function useAppState() {
       query.t_p = store.pagination.templates.page || 1
     }
     
-    // ✅ Обновляем URL
     router.replace({ query })
     
-    // ✅ Сбрасываем флаг через nextTick (ждем завершения router.replace)
     nextTick(() => {
       isUpdatingFromStore = false
     })
@@ -226,10 +223,8 @@ export function useAppState() {
   // URL → STORE
   // ============================================
   const syncFromUrl = () => {
-    // ✅ Если обновление из store — пропускаем
     if (isUpdatingFromStore) return
     
-    // ✅ Ставим флаг ДО начала
     isUpdatingFromUrl = true
     
     const q = route.query
@@ -244,8 +239,10 @@ export function useAppState() {
     if (q.w) store.filters.equipment.write_off_status = q.w
     else store.filters.equipment.write_off_status = ''
     
+    // ✅ ПАГИНАЦИЯ
     store.pagination.equipment.page = q.p ? (parseInt(q.p, 10) || 1) : 1
     
+    // ✅ ВИД ОТОБРАЖЕНИЯ
     if (q.v && ['cards', 'table'].includes(q.v)) {
       store.viewMode.equipment = q.v
     } else {
@@ -344,7 +341,6 @@ export function useAppState() {
     }
     store.pagination.templates.page = q.t_p ? (parseInt(q.t_p, 10) || 1) : 1
     
-    // ✅ Сбрасываем флаг через nextTick
     nextTick(() => {
       isUpdatingFromUrl = false
     })
@@ -353,19 +349,15 @@ export function useAppState() {
   // ============================================
   // WATCH
   // ============================================
-  
-  // ✅ Store → URL (при изменении store)
   watch(
     () => [store.filters, store.pagination, store.viewMode, store.editing, store.history],
     () => syncToUrl(),
     { deep: true }
   )
   
-  // ✅ URL → Store (при изменении URL)
   watch(
     () => route.query,
     () => {
-      // ✅ Если обновление из store — пропускаем
       if (isUpdatingFromStore) return
       syncFromUrl()
     },
@@ -376,7 +368,6 @@ export function useAppState() {
   // LIFECYCLE
   // ============================================
   onMounted(() => {
-    // ✅ При первом монтировании загружаем из URL
     syncFromUrl()
   })
   

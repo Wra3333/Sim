@@ -79,7 +79,7 @@ const confirm = () => {
   display: flex;
   align-items: center;
   justify-content: center;
-  z-index: 1999;
+  z-index: 19919;
 }
 
 .modal-confirm {

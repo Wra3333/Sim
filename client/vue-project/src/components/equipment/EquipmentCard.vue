@@ -117,6 +117,8 @@
 <script setup>
 import { ref, computed, onMounted, onBeforeUnmount } from 'vue';
 import { useStatusClasses } from '../../composables/useStatusClasses';
+import { useEquipmentStore } from '../../stores';
+import { useToastStore } from '../../stores/toastStore';
 import ContextMenu from './ContextMenu.vue';
 import {
   IconEquipment,
@@ -137,17 +139,16 @@ const props = defineProps({
   equipment: { type: Object, required: true }
 });
 
+// ✅ ТОЛЬКО ЭТИ ЭМИТЫ (без deleteFile)
 const emit = defineEmits([
   'edit', 'delete', 'deletePermanent', 
-  'view', 'history', 'restore', 'photoClick',
-  'deleteFile'
+  'view', 'history', 'restore', 'photoClick'
 ]);
 
+const equipmentStore = useEquipmentStore();
+const toast = useToastStore();
 const { getEquipmentStatusClass, getWriteOffClass } = useStatusClasses();
 
-// ============================================
-// КОНТЕКСТНОЕ МЕНЮ
-// ============================================
 const contextMenuVisible = ref(false);
 const contextMenuX = ref(0);
 const contextMenuY = ref(0);
@@ -163,13 +164,11 @@ const additionalFiles = computed(() => {
 const handleContextMenu = (event) => {
   event.preventDefault();
   
-  // Если меню уже открыто - закрываем его
   if (contextMenuVisible.value) {
     closeContextMenu();
     return;
   }
   
-  // Иначе открываем
   let x = event.clientX;
   let y = event.clientY;
   
@@ -194,24 +193,18 @@ const closeContextMenu = () => {
   contextMenuVisible.value = false;
 };
 
-// ✅ ОБРАБОТЧИК УДАЛЕНИЯ ИЗ КОНТЕКСТНОГО МЕНЮ
-const handleDeleteFromContext = ({ equipmentId, fileId }) => {
-  emit('deleteFile', { equipmentId, fileId });
+// ✅ ОБРАБОТЧИК УДАЛЕНИЯ (ПРЯМО В СТОР)
+const handleDeleteFromContext = async ({ equipmentId, fileId }) => {
+  try {
+    await equipmentStore.deleteFile(equipmentId, fileId);
+    toast.success('Файл удален');
+  } catch (error) {
+    console.error('Ошибка удаления файла:', error);
+    toast.error(error?.response?.data?.message || "Ошибка удаления файла");
+  }
   closeContextMenu();
 };
 
-// ============================================
-// KEYDOWN HANDLER (ESC)
-// ============================================
-const handleKeydown = (event) => {
-  if (event.key === 'Escape' && contextMenuVisible.value) {
-    closeContextMenu();
-  }
-};
-
-// ============================================
-// ОСТАЛЬНЫЕ COMPUTED
-// ============================================
 const statusClass = computed(() => getEquipmentStatusClass(props.equipment.working_status));
 const writeOffClass = computed(() => getWriteOffClass(props.equipment.write_off_status));
 const yearOfRelease = computed(() => props.equipment.year_of_release || '—');
@@ -246,9 +239,12 @@ const handlePhotoClick = (e) => {
   emit('photoClick', props.equipment);
 };
 
-// ============================================
-// LIFECYCLE
-// ============================================
+const handleKeydown = (event) => {
+  if (event.key === 'Escape' && contextMenuVisible.value) {
+    closeContextMenu();
+  }
+};
+
 onMounted(() => {
   document.addEventListener('keydown', handleKeydown);
 });

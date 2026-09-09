@@ -106,6 +106,8 @@
 
 <script setup>
 import { ref, computed, onMounted, onBeforeUnmount } from 'vue';
+import { useEquipmentStore } from '../../stores';
+import { useToastStore } from '../../stores/toastStore';
 import IconImage from '../icons/IconImage.vue';
 import IconRestore from '../icons/IconRestore.vue';
 import IconTrash from '../icons/IconTrash.vue';
@@ -122,17 +124,17 @@ const props = defineProps({
   }
 });
 
+// ✅ ТОЛЬКО ЭТИ ЭМИТЫ (без deleteFile)
 const emit = defineEmits([
   'edit', 'delete', 'deletePermanent', 
-  'history', 'restore', 'rowClick',
-  'deleteFile'
+  'history', 'restore', 'rowClick'
 ]);
+
+const equipmentStore = useEquipmentStore();
+const toast = useToastStore();
 
 const API_URL = 'http://localhost:3000/uploads/';
 
-// ============================================
-// КОНТЕКСТНОЕ МЕНЮ
-// ============================================
 const contextMenuVisible = ref(false);
 const contextMenuX = ref(0);
 const contextMenuY = ref(0);
@@ -182,14 +184,18 @@ const closeContextMenu = () => {
   selectedItem.value = null;
 };
 
-const handleDeleteFile = ({ equipmentId, fileId }) => {
-  emit('deleteFile', { equipmentId, fileId });
+// ✅ ОБРАБОТЧИК УДАЛЕНИЯ ФАЙЛА (ПРЯМО В СТОР)
+const handleDeleteFile = async ({ equipmentId, fileId }) => {
+  try {
+    await equipmentStore.deleteFile(equipmentId, fileId);
+    toast.success('Файл удален');
+  } catch (error) {
+    console.error('Ошибка удаления файла:', error);
+    toast.error(error?.response?.data?.message || "Ошибка удаления файла");
+  }
   closeContextMenu();
 };
 
-// ============================================
-// ОСТАЛЬНЫЕ МЕТОДЫ
-// ============================================
 const getPhotoUrl = (photo) => {
   if (!photo) return null;
   return `${API_URL}${photo}`;
@@ -221,9 +227,6 @@ const handleRowClick = (item) => {
   emit('rowClick', item);
 };
 
-// ============================================
-// KEYDOWN HANDLER (ESC)
-// ============================================
 const handleKeydown = (event) => {
   if (event.key === 'Escape' && contextMenuVisible.value) {
     closeContextMenu();

@@ -1,13 +1,11 @@
 <template>
   <Teleport to="body">
-    <!-- ОВЕРЛЕЙ -->
     <div 
       class="drawer-overlay" 
       :class="{ 'drawer-overlay-visible': open }"
       @click="close"
     ></div>
 
-    <!-- ВЫДВИЖНАЯ ПАНЕЛЬ -->
     <div class="drawer" :class="{ 'drawer-open': open }">
       <div class="drawer-header">
         <h3>
@@ -136,6 +134,7 @@
               :equipment-id="equipmentId"
               :files="form.additional_files || []"
               @update:files="updateFiles"
+              @fileDeleted="handleFileDeleted"
             />
             <div v-else class="alert-info">
               Сохраните оборудование, чтобы загружать файлы
@@ -171,30 +170,18 @@ import {
   IconLoading
 } from '../icons';
 
-// ============================================
-//  PROPS & EMITS
-// ============================================
 const props = defineProps({
   open: { type: Boolean, default: false },
   equipment: { type: Object, default: null }
 });
-const emit = defineEmits(['close', 'save']);
+const emit = defineEmits(['close', 'save', 'update:equipment']);
 
-// ============================================
-//  STORE
-// ============================================
 const store = useEquipmentStore();
 const toast = useToastStore();
 const { items } = storeToRefs(store);
 
-// ============================================
-//  CONSTANTS
-// ============================================
 const API_URL = 'http://localhost:3000/uploads/';
 
-// ============================================
-//  STATE
-// ============================================
 const formRef = ref(null);
 const submitting = ref(false);
 const form = ref({
@@ -221,16 +208,12 @@ const previewUrl = ref('');
 const selectedFile = ref(null);
 const isFileUpload = ref(false);
 
-// ============================================
-//  COMPUTED
-// ============================================
 const equipmentId = computed(() => props.equipment?.id || null);
 
 const currentPhotoUrl = computed(() => 
   form.value.photo ? `${API_URL}${form.value.photo}` : null
 );
 
-// Все существующие теги из оборудования
 const allExistingTags = computed(() => {
   const tags = new Set();
   items.value.forEach(item => {
@@ -245,9 +228,6 @@ const allExistingTags = computed(() => {
   return Array.from(tags).sort();
 });
 
-// ============================================
-//  БЛОКИРОВКА СКРОЛЛА
-// ============================================
 const toggleBodyScroll = (disable) => {
   if (disable) {
     document.documentElement.style.overflow = 'hidden';
@@ -256,11 +236,38 @@ const toggleBodyScroll = (disable) => {
   }
 };
 
-// ============================================
-//  METHODS
-// ============================================
 const updateFiles = (files) => {
   form.value.additional_files = files;
+};
+
+// ✅ ОБРАБОТЧИК УДАЛЕНИЯ ФАЙЛА
+const handleFileDeleted = async ({ equipmentId, fileId }) => {
+  console.log('📝 [EquipmentDrawer] Файл удален, обновляем стор...');
+  
+  try {
+    await store.deleteFile(equipmentId, fileId);
+    console.log('✅ Стор обновлен');
+    
+    const updatedEquipment = store.getById(equipmentId);
+    if (updatedEquipment) {
+      form.value.additional_files = updatedEquipment.additional_files || [];
+      emit('update:equipment', updatedEquipment);
+      console.log('✅ Форма обновлена');
+      toast.success('Файл удален');
+    } else {
+      console.warn('⚠️ Оборудование не найдено в сторе');
+      // Если не найдено - перезагружаем все данные
+      await store.fetchAll();
+      const refreshedEquipment = store.getById(equipmentId);
+      if (refreshedEquipment) {
+        form.value.additional_files = refreshedEquipment.additional_files || [];
+        emit('update:equipment', refreshedEquipment);
+      }
+    }
+  } catch (error) {
+    console.error('❌ Ошибка удаления файла:', error);
+    toast.error(error?.response?.data?.message || "Ошибка удаления файла");
+  }
 };
 
 const handleFileUpload = (event) => {
@@ -315,7 +322,6 @@ const submit = async () => {
     
     const data = { ...form.value };
     
-    // Очищаем пустые значения
     const nullableFields = ['price', 'country', 'manufacturer', 'original_name', 'realism_class', 'year_of_release'];
     nullableFields.forEach(key => {
       if (!data[key] || data[key] === '') data[key] = null;
@@ -336,7 +342,6 @@ const submit = async () => {
       toast.success('Оборудование создано');
     }
 
-    // Если есть новый файл фото — загружаем
     if (selectedFile.value && equipmentId) {
       const formData = new FormData();
       formData.append('photo', selectedFile.value);
@@ -355,37 +360,26 @@ const submit = async () => {
   }
 };
 
-// ============================================
-//  ОБРАБОТКА ENTER (добавление и закрытие)
-// ============================================
 let enterPressCount = 0;
 let enterTimer = null;
 let isClosing = false;
 
 const handleKeydown = (e) => {
-  // Обработка только Enter
   if (e.key !== 'Enter' || !props.open) return;
-  
-  // Игнорируем Enter в textarea
   if (e.target.tagName === 'TEXTAREA') return;
-  
-  // Если это кнопка - не мешаем стандартному поведению
   if (e.target.tagName === 'BUTTON') return;
   
   e.preventDefault();
   
   enterPressCount++;
   
-  // Если нажали Enter второй раз в течение 300ms
   if (enterPressCount >= 2) {
-    // Сбрасываем счетчик
     enterPressCount = 0;
     if (enterTimer) {
       clearTimeout(enterTimer);
       enterTimer = null;
     }
     
-    // Закрываем панель
     if (!isClosing) {
       isClosing = true;
       close();
@@ -396,12 +390,10 @@ const handleKeydown = (e) => {
     return;
   }
   
-  // Сбрасываем счетчик через 300ms, если не было второго нажатия
   if (enterTimer) {
     clearTimeout(enterTimer);
   }
   enterTimer = setTimeout(() => {
-    // Если было только одно нажатие - отправляем форму
     if (enterPressCount === 1) {
       if (formRef.value) {
         formRef.value.dispatchEvent(new Event('submit'));
@@ -412,9 +404,6 @@ const handleKeydown = (e) => {
   }, 300);
 };
 
-// ============================================
-//  WATCH
-// ============================================
 watch(() => props.equipment, (val) => {
   if (val) {
     form.value = {
@@ -428,11 +417,9 @@ watch(() => props.equipment, (val) => {
   }
 }, { immediate: true });
 
-// Блокировка скролла при открытии/закрытии
 watch(() => props.open, (val) => {
   toggleBodyScroll(val);
   if (!val) {
-    // Сбрасываем состояние при закрытии
     enterPressCount = 0;
     if (enterTimer) {
       clearTimeout(enterTimer);
@@ -442,9 +429,6 @@ watch(() => props.open, (val) => {
   }
 }, { immediate: true });
 
-// ============================================
-//  LIFECYCLE
-// ============================================
 onBeforeUnmount(() => {
   document.removeEventListener('keydown', handleKeydown);
   toggleBodyScroll(false);
@@ -454,7 +438,6 @@ onBeforeUnmount(() => {
   }
 });
 
-// Добавляем слушатель
 document.addEventListener('keydown', handleKeydown);
 </script>
 

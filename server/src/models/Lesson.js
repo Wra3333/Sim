@@ -53,7 +53,16 @@ const Lesson = sequelize.define('Lesson', {
     type: DataTypes.TEXT
   },
   
-  // ДОБАВЛЯЕМ
+  // ✅ ПОЛЕ ДЛЯ КАТЕГОРИИ УЧАСТНИКОВ
+  participant_type: {
+    type: DataTypes.STRING(50),
+    allowNull: true,
+    defaultValue: null,
+    validate: {
+      isIn: [['student', 'intern', 'resident', 'doctor', 'nurse', null]]
+    }
+  },
+  
   created_by: {
     type: DataTypes.INTEGER,
     allowNull: true

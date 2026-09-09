@@ -166,7 +166,10 @@ export const lessonsApi = {
   create: (data) => api.post('/lessons', data),
   update: (id, data) => api.put(`/lessons/${id}`, data),
   complete: (id) => api.put(`/lessons/${id}/complete`),
-  delete: (id) => api.delete(`/lessons/${id}`)
+  delete: (id) => api.delete(`/lessons/${id}`),
+    getParticipantStats: (params = {}) => {
+    return api.get('/lessons/stats/participants', { params });
+  }
 };
 
 // ============================================

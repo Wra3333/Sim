@@ -120,6 +120,7 @@ module.exports = {
           'PUT /lessons/:id': 'lessons.update',
           'PUT /lessons/:id/complete': 'lessons.complete',
           'DELETE /lessons/:id': 'lessons.delete',
+          'GET /lessons/stats/participants': 'lessons.getParticipantStats',
 
           // WORKTIME
           'GET /worktime': 'worktime.list',

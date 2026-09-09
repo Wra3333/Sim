@@ -88,7 +88,6 @@
         class="file-item"
       >
         <div class="file-info">
-          <!-- ИКОНКА В ЗАВИСИМОСТИ ОТ ТИПА ФАЙЛА -->
           <svg v-if="file.file_type === 'image'" class="file-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
             <rect x="3" y="3" width="18" height="18" rx="2" ry="2"/>
             <circle cx="8.5" cy="8.5" r="1.5"/>
@@ -198,7 +197,7 @@ const props = defineProps({
   }
 });
 
-const emit = defineEmits(['update:files']);
+const emit = defineEmits(['update:files', 'fileDeleted']);
 
 const toast = useToastStore();
 
@@ -221,7 +220,6 @@ const fileList = computed(() => {
 
 const API_URL = 'http://localhost:3000/uploads/';
 
-// АВТООПРЕДЕЛЕНИЕ ТИПА ФАЙЛА ПО РАСШИРЕНИЮ
 const getFileTypeByExtension = (filename) => {
   if (!filename) return 'other';
   
@@ -366,12 +364,29 @@ const uploadFiles = async () => {
 };
 
 const confirmDelete = (fileId) => {
+  console.log('🗑️ [FilesManager] confirmDelete вызван, fileId:', fileId);
   deleteFileId.value = fileId;
   showDeleteModal.value = true;
 };
 
+// ✅ ИСПРАВЛЕННЫЙ МЕТОД УДАЛЕНИЯ
 const handleDelete = async () => {
-  if (!deleteFileId.value) return;
+  console.log('🗑️ [FilesManager] handleDelete вызван');
+  console.log('🗑️ deleteFileId:', deleteFileId.value);
+  console.log('🗑️ equipmentId:', props.equipmentId);
+  
+  if (!deleteFileId.value) {
+    console.error('❌ deleteFileId отсутствует');
+    return;
+  }
+
+  if (!props.equipmentId) {
+    console.error('❌ equipmentId отсутствует');
+    toast.error('Оборудование не найдено');
+    showDeleteModal.value = false;
+    deleteFileId.value = null;
+    return;
+  }
 
   try {
     await equipmentApi.deleteAdditionalFile(props.equipmentId, deleteFileId.value);
@@ -382,10 +397,17 @@ const handleDelete = async () => {
     localFiles.value = updatedFiles;
     emit('update:files', updatedFiles);
     
+    // ✅ СООБЩАЕМ РОДИТЕЛЮ, ЧТО ФАЙЛ УДАЛЕН
+    emit('fileDeleted', { 
+      equipmentId: props.equipmentId, 
+      fileId: deleteFileId.value 
+    });
+    
     toast.success('Файл удален');
   } catch (error) {
-    console.error('Ошибка удаления:', error);
-    toast.error('Ошибка удаления файла');
+    console.error('❌ Ошибка удаления файла:', error);
+    console.error('❌ Детали:', error.response?.data || error.message);
+    toast.error(error?.response?.data?.message || "Ошибка удаления файла");
   } finally {
     showDeleteModal.value = false;
     deleteFileId.value = null;

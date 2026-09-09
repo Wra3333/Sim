@@ -35,27 +35,10 @@
           <div class="form-row">
             <div class="form-group">
               <label>
-                <IconUsers class="label-icon" />
-                Курс / Группа *
-              </label>
-              <input v-model="form.group" type="text" class="form-control" placeholder="Например: ФИ-21" required />
-            </div>
-            <div class="form-group">
-              <label>
                 <IconUser class="label-icon" />
                 Преподаватель *
               </label>
               <input v-model="form.teacher" type="text" class="form-control" placeholder="Иванов И.И." required />
-            </div>
-          </div>
-
-          <div class="form-row">
-            <div class="form-group">
-              <label>
-                <IconUsers class="label-icon" />
-                Кол-во студентов
-              </label>
-              <input v-model="form.students_count" type="number" class="form-control" min="0" />
             </div>
             <div class="form-group">
               <label>
@@ -83,6 +66,54 @@
             </div>
           </div>
 
+          <!-- ГРУППА И КОЛИЧЕСТВО СТУДЕНТОВ -->
+          <div class="form-row">
+            <div class="form-group">
+              <label>
+                <IconUsers class="label-icon" />
+                Группа
+              </label>
+              <input 
+                v-model="form.group" 
+                type="text" 
+                class="form-control" 
+                placeholder="Например: ФИ-21" 
+                list="groupsList"
+              />
+              <datalist id="groupsList">
+                <option v-for="group in availableGroups" :key="group" :value="group" />
+              </datalist>
+            </div>
+            <div class="form-group">
+              <label>
+                <IconUsers class="label-icon" />
+                Кол-во студентов
+              </label>
+              <input 
+                v-model.number="form.students_count" 
+                type="number" 
+                class="form-control" 
+                min="0"
+              />
+            </div>
+          </div>
+
+          <!-- КАТЕГОРИЯ УЧАСТНИКОВ -->
+          <div class="form-group">
+            <label>
+              <IconUser class="label-icon" />
+              Категория участников
+            </label>
+            <select v-model="form.participant_type" class="form-control">
+              <option value="">Не указана</option>
+              <option value="student">Студенты</option>
+              <option value="intern">Интерны</option>
+              <option value="resident">Ординаторы</option>
+              <option value="doctor">Врачи</option>
+              <option value="nurse">Медсестры</option>
+            </select>
+          </div>
+
           <!-- Шаблон -->
           <div class="form-group">
             <label>
@@ -102,7 +133,7 @@
               </button>
             </div>
             <small class="form-text text-muted">
-              {{ form.template_id ? 'Оборудование будет скопировано из шаблона' : 'Оборудование можно добавить вручную' }}
+              {{ form.template_id ? 'Название и оборудование будет скопировано из шаблона' : 'Оборудование можно добавить вручную' }}
             </small>
           </div>
 
@@ -219,6 +250,14 @@ const { getEquipmentStatusClass } = useStatusClasses();
 const loading = ref(false);
 const equipmentList = ref([]);
 
+// ✅ ДОСТУПНЫЕ ГРУППЫ
+const availableGroups = ref([
+  'ФИ-21', 'ФИ-22', 'ФИ-23',
+  'ЛД-31', 'ЛД-32',
+  'ПЕД-41', 'ПЕД-42',
+  'СТОМ-51'
+]);
+
 const form = ref({
   title: '',
   group: '',
@@ -229,7 +268,8 @@ const form = ref({
   end_time: '',
   template_id: null,
   status: 'Запланировано',
-  notes: ''
+  notes: '',
+  participant_type: '' // ✅ ТОЛЬКО КАТЕГОРИЯ
 });
 
 // ============================================
@@ -260,13 +300,19 @@ const toggleBodyScroll = (disable) => {
 const loadTemplateEquipment = () => {
   if (form.value.template_id) {
     const template = templatesStore.getById(form.value.template_id);
-    if (template?.equipment_list) {
-      let equipList = template.equipment_list;
-      if (typeof equipList === 'string') {
-        try { equipList = JSON.parse(equipList); } catch { equipList = []; }
+    if (template) {
+      if (!props.lesson) {
+        form.value.title = template.title || '';
       }
-      equipmentList.value = equipList.map(item => item.equipment_id);
-      toast.info(`Загружено ${equipList.length} единиц оборудования из шаблона`);
+      
+      if (template?.equipment_list) {
+        let equipList = template.equipment_list;
+        if (typeof equipList === 'string') {
+          try { equipList = JSON.parse(equipList); } catch { equipList = []; }
+        }
+        equipmentList.value = equipList.map(item => item.equipment_id);
+        toast.info(`Загружено ${equipList.length} единиц оборудования из шаблона "${template.title}"`);
+      }
     }
   } else {
     equipmentList.value = [];
@@ -276,6 +322,9 @@ const loadTemplateEquipment = () => {
 const clearTemplate = () => {
   form.value.template_id = null;
   equipmentList.value = [];
+  if (!props.lesson) {
+    form.value.title = '';
+  }
   toast.info('Шаблон удален');
 };
 
@@ -290,10 +339,6 @@ const close = () => {
 const submit = async () => {
   if (!form.value.title.trim()) {
     toast.warning('Введите название занятия');
-    return;
-  }
-  if (!form.value.group.trim()) {
-    toast.warning('Введите группу');
     return;
   }
   if (!form.value.teacher.trim()) {
@@ -341,7 +386,7 @@ const submit = async () => {
 
     const data = {
       title: form.value.title,
-      group: form.value.group,
+      group: form.value.group || '',
       teacher: form.value.teacher,
       students_count: Number(form.value.students_count) || 0,
       date: form.value.date,
@@ -350,7 +395,8 @@ const submit = async () => {
       status: form.value.status,
       notes: form.value.notes || '',
       equipment_list: equipmentWithQuantity,
-      template_id: form.value.template_id
+      template_id: form.value.template_id,
+      participant_type: form.value.participant_type || '' // ✅ ТОЛЬКО КАТЕГОРИЯ
     };
 
     if (props.lesson) {
@@ -390,7 +436,8 @@ watch(() => props.lesson, (val) => {
       end_time: val.end_time || '',
       template_id: val.template_id || null,
       status: val.status || 'Запланировано',
-      notes: val.notes || ''
+      notes: val.notes || '',
+      participant_type: val.participant_type || '' // ✅ ТОЛЬКО КАТЕГОРИЯ
     };
     
     if (val.equipment_list && Array.isArray(val.equipment_list)) {
@@ -410,7 +457,8 @@ watch(() => props.lesson, (val) => {
       end_time: '11:00',
       template_id: null,
       status: 'Запланировано',
-      notes: ''
+      notes: '',
+      participant_type: '' // ✅ ТОЛЬКО КАТЕГОРИЯ
     };
     equipmentList.value = [];
   }
@@ -480,7 +528,7 @@ onBeforeUnmount(() => {
 }
 
 /* ============================================
-   ВЫДВИЖНАЯ ПАНЕЛЬ — transform вместо right
+   ВЫДВИЖНАЯ ПАНЕЛЬ
    ============================================ */
 .drawer {
   position: fixed;

@@ -147,6 +147,60 @@ export const useEquipmentStore = defineStore('equipment', {
       }
     },
     
+    // ✅ УДАЛЕНИЕ ДОПОЛНИТЕЛЬНОГО ФАЙЛА (ОБНОВЛЕН)
+    async deleteFile(equipmentId, fileId) {
+      try {
+        console.log('🗑️ [Store] Удаление файла:', { equipmentId, fileId });
+        
+        // 1. Удаляем файл через API
+        await equipmentApi.deleteAdditionalFile(equipmentId, fileId);
+        console.log('✅ [Store] Файл удален из БД');
+        
+        // 2. Обновляем конкретное оборудование в сторе
+        const index = this.allEquipment.findIndex(item => item.id === equipmentId);
+        if (index !== -1) {
+          // Получаем свежие данные с сервера для этого оборудования
+          const response = await equipmentApi.getById(equipmentId);
+          if (response.data) {
+            this.allEquipment[index] = response.data;
+            console.log('✅ [Store] Оборудование обновлено в сторе');
+          }
+        }
+        
+        // 3. Обновляем archivedItems и items (getters автоматически обновятся)
+        // Но для уверенности можно перезагрузить все данные
+        // await this.fetchAll();
+        
+        this.lastFetched = Date.now();
+        return { success: true };
+      } catch (error) {
+        console.error('❌ [Store] Ошибка удаления файла:', error);
+        this.error = error.response?.data?.message || 'Ошибка удаления файла';
+        throw error;
+      }
+    },
+    
+    // ✅ УДАЛЕНИЕ ФАЙЛА С ПЕРЕЗАГРУЗКОЙ ВСЕХ ДАННЫХ
+    async deleteFileAndReload(equipmentId, fileId) {
+      try {
+        console.log('🗑️ [Store] Удаление файла с перезагрузкой:', { equipmentId, fileId });
+        
+        await equipmentApi.deleteAdditionalFile(equipmentId, fileId);
+        console.log('✅ [Store] Файл удален из БД');
+        
+        // Перезагружаем все данные
+        await this.fetchAll();
+        console.log('✅ [Store] Все данные перезагружены');
+        
+        this.lastFetched = Date.now();
+        return { success: true };
+      } catch (error) {
+        console.error('❌ [Store] Ошибка удаления файла:', error);
+        this.error = error.response?.data?.message || 'Ошибка удаления файла';
+        throw error;
+      }
+    },
+    
     clearCache() {
       this.allEquipment = [];
       this.lastFetched = null;

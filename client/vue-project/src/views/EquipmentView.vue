@@ -31,7 +31,6 @@
           Экспорт Excel
         </button>
         
-        <!-- ПЕРЕКЛЮЧАТЕЛЬ ВИДА -->
         <ViewToggle 
           :model-value="equipmentViewMode" 
           @update:model-value="setViewMode" 
@@ -50,59 +49,59 @@
       </div>
     </div>
 
-    <!-- ОСНОВНОЙ КОНТЕНТ С ФИЛЬТРАМИ СПРАВА -->
     <div class="content-with-sidebar">
-      <!-- ОСНОВНАЯ ОБЛАСТЬ -->
       <div class="main-content">
-        <!-- ФИЛЬТРЫ (горизонтальные, сверху) -->
         <div class="filters" v-if="!showArchived">
-          <div class="filters-row">
-            <div class="filter-group">
-              <label>Статус</label>
-              <select v-model="equipmentFilters.working_status" class="form-control">
-                <option value="">Все статусы</option>
-                <option value="Исправен">Исправен</option>
-                <option value="Требует ремонта">Требует ремонта</option>
-                <option value="В ремонте">В ремонте</option>
-              </select>
+          <div class="filters-grid">
+            <!-- Первая строка: статусы + кнопка -->
+            <div class="filters-row">
+              <div class="filter-group">
+                <label>Статус</label>
+                <select v-model="equipmentFilters.working_status" class="form-control form-control-sm">
+                  <option value="">Все статусы</option>
+                  <option value="Исправен">Исправен</option>
+                  <option value="Требует ремонта">Требует ремонта</option>
+                  <option value="В ремонте">В ремонте</option>
+                </select>
+              </div>
+
+              <div class="filter-group">
+                <label>Списание</label>
+                <select v-model="equipmentFilters.write_off_status" class="form-control form-control-sm">
+                  <option value="">Все статусы</option>
+                  <option value="На балансе">На балансе</option>
+                  <option value="На списание">На списание</option>
+                  <option value="Списан">Списан</option>
+                </select>
+              </div>
+
+              <div class="filter-group filter-actions">
+                <button class="btn btn-outline-secondary btn-sm" @click="resetAllFilters">
+                  <IconReset class="btn-icon" />
+                  Сбросить
+                </button>
+              </div>
             </div>
 
-            <div class="filter-group">
-              <label>Списание</label>
-              <select v-model="equipmentFilters.write_off_status" class="form-control">
-                <option value="">Все статусы</option>
-                <option value="На балансе">На балансе</option>
-                <option value="На списание">На списание</option>
-                <option value="Списан">Списан</option>
-              </select>
-            </div>
-
-            <div class="filter-group">
-              <label>Поиск</label>
-              <input 
-                v-model="equipmentFilters.search" 
-                type="text" 
-                class="form-control" 
-                placeholder="Поиск по названию или инв. номеру..."
-              />
-            </div>
-
-            <div class="filter-group actions">
-              <button class="btn btn-outline-secondary" @click="resetAllFilters">
-                <IconReset class="btn-icon" />
-                Сбросить
-              </button>
+            <!-- Вторая строка: мультиселект -->
+            <div class="filters-row filters-row-equipment">
+              <div class="filter-group filter-group-equipment">
+                <EquipmentMultiSelect
+                  :model-value="selectedEquipmentIds"
+                  @update:model-value="handleEquipmentSelect"
+                  :equipment-options="allEquipmentForSelect"
+                  placeholder="Введите название или инв. номер..."
+                />
+              </div>
             </div>
           </div>
         </div>
 
-        <!-- СПИСОК -->
         <div v-if="loading" class="text-center">Загрузка...</div>
         <div v-else-if="filteredEquipment.length === 0" class="empty-state">
           <span>Нет оборудования</span>
         </div>
 
-        <!-- ТАБЛИЦА -->
         <EquipmentTableView
           v-else-if="equipmentViewMode === 'table'"
           :items="paginatedItems"
@@ -112,10 +111,8 @@
           @history="openHistoryModal"
           @restore="handleRestore"
           @row-click="openEditForm"
-          @deleteFile="handleDeleteFile"
         />
 
-        <!-- КАРТОЧКИ -->
         <EquipmentCardView
           v-else
           :items="paginatedItems"
@@ -125,10 +122,8 @@
           @history="openHistoryModal"
           @restore="handleRestore"
           @photo-click="openEditForm"
-          @deleteFile="handleDeleteFile"
         />
 
-        <!-- ПАГИНАЦИЯ -->
         <Pagination 
           v-if="showPagination"
           v-model:current-page="currentPage"
@@ -137,7 +132,6 @@
         />
       </div>
 
-      <!-- ПРАВАЯ ПАНЕЛЬ С РАСШИРЕННЫМИ ФИЛЬТРАМИ -->
       <div class="sidebar-filters">
         <div class="sidebar-card">
           <h4>
@@ -145,7 +139,6 @@
             Расширенные фильтры
           </h4>
           
-          <!-- Теги -->
           <div class="filter-group sidebar-filter-group">
             <label>Теги</label>
             <div class="tags-select">
@@ -165,50 +158,46 @@
             </div>
           </div>
 
-          <!-- Страна -->
           <div class="filter-group sidebar-filter-group">
             <label>Страна</label>
             <input 
               v-model="advancedFilters.country" 
               type="text" 
-              class="form-control" 
+              class="form-control form-control-sm" 
               placeholder="Например: Россия"
               @input="applyAdvancedFilters"
             />
           </div>
 
-          <!-- Производитель -->
           <div class="filter-group sidebar-filter-group">
             <label>Производитель</label>
             <input 
               v-model="advancedFilters.manufacturer" 
               type="text" 
-              class="form-control" 
+              class="form-control form-control-sm" 
               placeholder="Например: Limbs & Things"
               @input="applyAdvancedFilters"
             />
           </div>
 
-          <!-- Класс реалистичности -->
           <div class="filter-group sidebar-filter-group">
             <label>Класс реалистичности</label>
             <input 
               v-model="advancedFilters.realism_class" 
               type="text" 
-              class="form-control" 
-              placeholder="Например: A"
+              class="form-control form-control-sm" 
+              placeholder="Например: 1, 2, 3..."
               @input="applyAdvancedFilters"
             />
           </div>
 
-          <!-- Цена -->
           <div class="filter-group sidebar-filter-group">
             <label>Цена (₽)</label>
             <div class="price-inputs">
               <input 
                 v-model.number="advancedFilters.min_price" 
                 type="number" 
-                class="form-control" 
+                class="form-control form-control-sm" 
                 placeholder="От"
                 @input="applyAdvancedFilters"
               />
@@ -216,21 +205,20 @@
               <input 
                 v-model.number="advancedFilters.max_price" 
                 type="number" 
-                class="form-control" 
+                class="form-control form-control-sm" 
                 placeholder="До"
                 @input="applyAdvancedFilters"
               />
             </div>
           </div>
 
-          <!-- Год -->
           <div class="filter-group sidebar-filter-group">
             <label>Год закупки</label>
             <div class="price-inputs">
               <input 
                 v-model.number="advancedFilters.year_from" 
                 type="number" 
-                class="form-control" 
+                class="form-control form-control-sm" 
                 placeholder="От"
                 @input="applyAdvancedFilters"
               />
@@ -238,22 +226,21 @@
               <input 
                 v-model.number="advancedFilters.year_to" 
                 type="number" 
-                class="form-control" 
+                class="form-control form-control-sm" 
                 placeholder="До"
                 @input="applyAdvancedFilters"
               />
             </div>
           </div>
 
-          <button class="btn btn-outline-secondary btn-reset" @click="resetAdvancedFilters">
+          <button class="btn btn-outline-secondary btn-sm btn-reset" @click="resetAdvancedFilters">
             <IconReset class="btn-icon" />
-            Сбросить расширенные фильтры
+            Сбросить расширенные
           </button>
         </div>
       </div>
     </div>
 
-    <!-- МОДАЛКИ -->
     <EquipmentDrawer
       :open="showForm"
       :equipment="editingItem"
@@ -311,6 +298,7 @@ import HistoryModal from '../components/equipment/HistoryModal.vue';
 import Pagination from '../components/Pagination.vue';
 import ExportModal from '../components/equipment/ExportModal.vue';
 import ViewToggle from '../components/ViewToggle.vue';
+import EquipmentMultiSelect from '../components/EquipmentMultiSelect.vue';
 import {
   IconEquipment,
   IconPlus,
@@ -321,9 +309,6 @@ import {
   IconFilter
 } from '../components/icons';
 
-// ============================================
-// STORE
-// ============================================
 const route = useRoute();
 const router = useRouter();
 const appStore = useAppStore();
@@ -334,10 +319,8 @@ const { loading } = storeToRefs(equipmentStore);
 const { filters, pagination, viewMode, editing, history } = storeToRefs(appStore);
 
 // ============================================
-// СОСТОЯНИЕ ИЗ APPSTORE
+//  ФИЛЬТРЫ
 // ============================================
-
-// Фильтры для оборудования
 const equipmentFilters = computed({
   get: () => filters.value.equipment || { working_status: '', write_off_status: '', search: '', tags: [] },
   set: (val) => {
@@ -345,7 +328,32 @@ const equipmentFilters = computed({
   }
 });
 
-// Пагинация для оборудования
+// ✅ ВЫБРАННЫЕ ID ДЛЯ MULTI SELECT
+const selectedEquipmentIds = ref([]);
+
+// ✅ ВСЕ ОБОРУДОВАНИЕ ДЛЯ ВЫБОРА (ТОЛЬКО ИСПРАВНОЕ)
+const allEquipmentForSelect = computed(() => {
+  return equipmentStore.allEquipment.filter(eq => 
+    !eq.is_archived && 
+    eq.working_status === 'Исправен' && 
+    eq.write_off_status === 'На балансе'
+  );
+});
+
+// ✅ ОБРАБОТКА ВЫБОРА ОБОРУДОВАНИЯ
+const handleEquipmentSelect = (ids) => {
+  selectedEquipmentIds.value = ids;
+  const names = ids.map(id => {
+    const eq = equipmentStore.getById(id);
+    return eq?.name || '';
+  }).filter(Boolean);
+  equipmentFilters.value.search = names.join(' ');
+  resetPage();
+};
+
+// ============================================
+//  ПАГИНАЦИЯ
+// ============================================
 const equipmentPagination = computed({
   get: () => pagination.value.equipment || { page: 1, size: 7 },
   set: (val) => {
@@ -353,7 +361,6 @@ const equipmentPagination = computed({
   }
 });
 
-// Вид отображения для оборудования
 const equipmentViewMode = computed({
   get: () => viewMode.value.equipment || 'cards',
   set: (val) => {
@@ -361,7 +368,6 @@ const equipmentViewMode = computed({
   }
 });
 
-// Текущая страница
 const currentPage = computed({
   get: () => equipmentPagination.value.page || 1,
   set: (val) => {
@@ -369,7 +375,6 @@ const currentPage = computed({
   }
 });
 
-// Размер страницы
 const pageSize = computed({
   get: () => equipmentPagination.value.size || 7,
   set: (val) => {
@@ -378,7 +383,7 @@ const pageSize = computed({
 });
 
 // ============================================
-// ЛОКАЛЬНОЕ СОСТОЯНИЕ
+//  СОСТОЯНИЕ
 // ============================================
 const showArchived = ref(false);
 const showForm = ref(false);
@@ -413,9 +418,6 @@ const exportFieldLabels = {
   realism_class: 'Класс реалистичности'
 };
 
-// ============================================
-// ИСТОРИЯ ПОЛОМОК
-// ============================================
 const showHistoryModal = computed({
   get: () => !!history.value?.equipment,
   set: (val) => {
@@ -443,7 +445,7 @@ const historyEquipment = computed({
 });
 
 // ============================================
-// РАСШИРЕННЫЕ ФИЛЬТРЫ
+//  РАСШИРЕННЫЕ ФИЛЬТРЫ
 // ============================================
 const advancedFilters = ref({
   tags: [],
@@ -456,7 +458,6 @@ const advancedFilters = ref({
   year_to: null
 });
 
-// Toggle тега
 const toggleTag = (tag) => {
   const index = advancedFilters.value.tags.indexOf(tag);
   if (index > -1) {
@@ -486,7 +487,7 @@ const resetAdvancedFilters = () => {
 };
 
 // ============================================
-// ФИЛЬТРАЦИЯ
+//  КОНФИГУРАЦИЯ ФИЛЬТРОВ
 // ============================================
 const filterConfig = {
   working_status: {
@@ -504,6 +505,9 @@ const filterConfig = {
   search: {
     filterFn: (item, value) => {
       if (!value) return true;
+      if (selectedEquipmentIds.value.length > 0) {
+        return selectedEquipmentIds.value.includes(item.id);
+      }
       const search = value.toLowerCase();
       return (
         item.name?.toLowerCase().includes(search) ||
@@ -562,6 +566,9 @@ const filterConfig = {
   }
 };
 
+// ============================================
+//  ВЫЧИСЛЯЕМЫЕ ДЛЯ ФИЛЬТРАЦИИ
+// ============================================
 const filteredEquipment = computed(() => {
   let list = [];
   
@@ -591,9 +598,6 @@ const filteredEquipment = computed(() => {
   });
 });
 
-// ============================================
-// ПАГИНАЦИЯ
-// ============================================
 const totalPages = computed(() => {
   return Math.ceil(filteredEquipment.value.length / pageSize.value) || 1;
 });
@@ -612,6 +616,9 @@ const resetPage = () => {
   currentPage.value = 1;
 };
 
+// ============================================
+//  МЕТОДЫ
+// ============================================
 const setViewMode = (mode) => {
   equipmentViewMode.value = mode;
 };
@@ -625,11 +632,10 @@ const loadTags = async () => {
   }
 };
 
-// ============================================
-// МЕТОДЫ
-// ============================================
 const toggleArchived = () => {
   showArchived.value = !showArchived.value;
+  selectedEquipmentIds.value = [];
+  equipmentFilters.value.search = '';
   resetPage();
 };
 
@@ -737,6 +743,7 @@ const closeHistoryModal = () => {
 
 const resetAllFilters = () => {
   appStore.resetFilters('equipment');
+  selectedEquipmentIds.value = [];
   advancedFilters.value = {
     tags: [],
     realism_class: '',
@@ -750,21 +757,6 @@ const resetAllFilters = () => {
   resetPage();
 };
 
-// ✅ ОБРАБОТЧИК УДАЛЕНИЯ ФАЙЛА
-const handleDeleteFile = async ({ equipmentId, fileId }) => {
-  try {
-    await equipmentApi.deleteAdditionalFile(equipmentId, fileId);
-    await loadEquipment();
-    toast.success('Файл удален');
-  } catch (error) {
-    console.error('Ошибка удаления файла:', error);
-    toast.error(error?.response?.data?.message || "Ошибка удаления файла");
-  }
-};
-
-// ============================================
-// АВТОМАТИЧЕСКОЕ ОТКРЫТИЕ ИЗ URL
-// ============================================
 const openFromUrl = async () => {
   const e = route.query.e;
   const historyId = route.query.history;
@@ -814,9 +806,6 @@ const openFromUrl = async () => {
   return false;
 };
 
-// ============================================
-// ИМПОРТ/ЭКСПОРТ
-// ============================================
 const handleImportExcel = async (event) => {
   const file = event.target.files[0];
   if (!file) return;
@@ -879,10 +868,10 @@ const handleExportExcel = async (selectedFields) => {
 };
 
 // ============================================
-// WATCH
+//  WATCH
 // ============================================
 watch(
-  [() => equipmentFilters.value.working_status, () => equipmentFilters.value.write_off_status, () => equipmentFilters.value.search], 
+  [() => equipmentFilters.value.working_status, () => equipmentFilters.value.write_off_status], 
   () => {
     if (!showArchived.value) {
       resetPage();
@@ -926,7 +915,7 @@ watch(
 );
 
 // ============================================
-// LIFECYCLE
+//  LIFECYCLE
 // ============================================
 onMounted(async () => {
   await loadEquipment();
@@ -1012,7 +1001,7 @@ onActivated(() => {
 }
 
 /* ============================================
-   КОНТЕНТ С САЙДБАРОМ ФИЛЬТРОВ
+   КОНТЕНТ С САЙДБАРОМ
    ============================================ */
 .content-with-sidebar {
   display: flex;
@@ -1030,13 +1019,19 @@ onActivated(() => {
 }
 
 /* ============================================
-   ФИЛЬТРЫ (ГОРИЗОНТАЛЬНЫЕ)
+   ФИЛЬТРЫ
    ============================================ */
 .filters {
   background: #f8f9fa;
-  padding: 16px;
+  padding: 12px 16px;
   border-radius: 8px;
   margin-bottom: 20px;
+}
+
+.filters-grid {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
 }
 
 .filters-row {
@@ -1044,6 +1039,10 @@ onActivated(() => {
   gap: 12px;
   flex-wrap: wrap;
   align-items: flex-end;
+}
+
+.filters-row-equipment {
+  margin-top: 2px;
 }
 
 .filter-group {
@@ -1055,32 +1054,62 @@ onActivated(() => {
 }
 
 .filter-group label {
-  font-size: 13px;
+  font-size: 12px;
   font-weight: 500;
   color: #495057;
   margin: 0;
 }
 
-.filter-group .form-control {
-  padding: 6px 12px;
+.filter-group .form-control,
+.filter-group .form-control-sm {
+  padding: 4px 10px;
   border: 1px solid #ced4da;
-  border-radius: 6px;
-  font-size: 14px;
+  border-radius: 4px;
+  font-size: 13px;
   background: white;
   width: 100%;
+  height: 32px;
+  line-height: 1.4;
 }
 
-.filter-group .form-control:focus {
+.filter-group .form-control:focus,
+.filter-group .form-control-sm:focus {
   border-color: #80bdff;
   outline: 0;
   box-shadow: 0 0 0 0.2rem rgba(0, 123, 255, 0.25);
 }
 
-.actions {
-  flex-direction: row;
-  align-items: flex-end;
-  gap: 8px;
+.filter-actions {
   flex: 0 0 auto;
+  min-width: auto;
+  justify-content: flex-end;
+}
+
+.filter-group-equipment {
+  flex: 1;
+  min-width: 250px;
+}
+
+/* ============================================
+   MULTI SELECT В ФИЛЬТРАХ
+   ============================================ */
+.filter-group-equipment .multi-select-wrapper {
+  min-width: 200px;
+}
+
+.filter-group-equipment .multi-select-wrapper .input-wrapper input {
+  padding: 4px 10px;
+  height: 32px;
+  font-size: 13px;
+}
+
+.filter-group-equipment .multi-select-wrapper .selected-list {
+  margin-top: 4px;
+}
+
+.filter-group-equipment .multi-select-wrapper .selected-item {
+  font-size: 12px;
+  padding: 2px 8px;
 }
 
 /* ============================================
@@ -1089,15 +1118,15 @@ onActivated(() => {
 .sidebar-card {
   background: white;
   border-radius: 8px;
-  padding: 16px;
+  padding: 14px 16px;
   border: 1px solid #e9ecef;
   box-shadow: 0 1px 3px rgba(0, 0, 0, 0.06);
 }
 
 .sidebar-card h4 {
-  font-size: 14px;
+  font-size: 13px;
   font-weight: 600;
-  margin: 0 0 12px 0;
+  margin: 0 0 10px 0;
   color: #212529;
   display: flex;
   align-items: center;
@@ -1111,27 +1140,28 @@ onActivated(() => {
 }
 
 .sidebar-filter-group {
-  margin-bottom: 14px;
+  margin-bottom: 10px;
 }
 
 .sidebar-filter-group label {
   font-size: 12px;
   font-weight: 500;
   color: #495057;
-  margin-bottom: 4px;
+  margin-bottom: 3px;
   display: block;
 }
 
-.sidebar-filter-group .form-control {
-  padding: 6px 10px;
+.sidebar-filter-group .form-control-sm {
+  padding: 4px 10px;
   border: 1px solid #ced4da;
   border-radius: 4px;
   font-size: 13px;
   width: 100%;
   background: white;
+  height: 30px;
 }
 
-.sidebar-filter-group .form-control:focus {
+.sidebar-filter-group .form-control-sm:focus {
   border-color: #80bdff;
   outline: 0;
   box-shadow: 0 0 0 0.2rem rgba(0, 123, 255, 0.25);
@@ -1148,9 +1178,9 @@ onActivated(() => {
   display: inline-flex;
   align-items: center;
   gap: 4px;
-  padding: 4px 10px;
-  border-radius: 12px;
-  font-size: 12px;
+  padding: 2px 8px;
+  border-radius: 10px;
+  font-size: 11px;
   cursor: pointer;
   background: #f1f3f5;
   color: #495057;
@@ -1174,33 +1204,37 @@ onActivated(() => {
 
 .no-tags {
   color: #adb5bd;
-  font-size: 13px;
+  font-size: 12px;
 }
 
 /* Цена и год */
 .price-inputs {
   display: flex;
   align-items: center;
-  gap: 6px;
+  gap: 4px;
 }
 
-.price-inputs .form-control {
+.price-inputs .form-control-sm {
   flex: 1;
-  min-width: 60px;
-  padding: 6px 8px;
-  font-size: 13px;
+  min-width: 50px;
+  padding: 4px 8px;
+  font-size: 12px;
+  height: 30px;
 }
 
 .price-separator {
   color: #6c757d;
-  font-size: 14px;
+  font-size: 12px;
 }
 
 /* Кнопка сброса */
 .btn-reset {
   width: 100%;
-  margin-top: 4px;
+  margin-top: 2px;
   justify-content: center;
+  height: 30px;
+  font-size: 12px;
+  padding: 0 12px;
 }
 
 /* ============================================
@@ -1216,6 +1250,7 @@ onActivated(() => {
   display: inline-flex;
   align-items: center;
   gap: 6px;
+  height: 36px;
 }
 
 .btn .btn-icon {
@@ -1233,6 +1268,12 @@ onActivated(() => {
   line-height: 18px;
   min-width: 18px;
   text-align: center;
+}
+
+.btn-sm {
+  padding: 4px 12px;
+  font-size: 13px;
+  height: 32px;
 }
 
 .btn-primary {
@@ -1304,12 +1345,12 @@ onActivated(() => {
   .sidebar-card {
     display: grid;
     grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
-    gap: 12px;
+    gap: 10px;
   }
   
   .sidebar-card h4 {
     grid-column: 1 / -1;
-    margin-bottom: 4px;
+    margin-bottom: 2px;
   }
   
   .sidebar-filter-group {
@@ -1331,8 +1372,12 @@ onActivated(() => {
     min-width: 100%;
   }
   
-  .actions {
-    flex-direction: row;
+  .filter-actions {
+    flex: 1;
+  }
+  
+  .filter-group-equipment {
+    min-width: 100%;
   }
   
   .sidebar-card {
@@ -1343,8 +1388,22 @@ onActivated(() => {
     flex-wrap: wrap;
   }
   
-  .price-inputs .form-control {
-    min-width: 80px;
+  .price-inputs .form-control-sm {
+    min-width: 70px;
+  }
+  
+  .toolbar {
+    flex-direction: column;
+    align-items: stretch;
+  }
+  
+  .toolbar-left {
+    justify-content: center;
+  }
+  
+  .toolbar-right {
+    justify-content: center;
+    flex-wrap: wrap;
   }
 }
 </style>
