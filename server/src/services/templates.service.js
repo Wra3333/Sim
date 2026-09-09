@@ -8,7 +8,6 @@ module.exports = {
       params: {
         title: { type: 'string', min: 1, max: 255 },
         discipline: { type: 'string', min: 1, max: 255 },
-        module: { type: 'string', min: 1, max: 255 },
         description: { type: 'string', optional: true, max: 1000 },
         is_active: { type: 'boolean', default: true },
         equipment_list: {
@@ -60,12 +59,27 @@ module.exports = {
 
     list: {
       params: {
-        is_active: { type: 'boolean', optional: true }
+        is_active: { type: 'boolean', optional: true },
+        discipline: { type: 'string', optional: true },
+        search: { type: 'string', optional: true }
       },
       handler: async function(ctx) {
         const where = {};
+        const { Op } = require('sequelize');
+        
         if (ctx.params && ctx.params.is_active !== undefined) {
           where.is_active = ctx.params.is_active;
+        }
+        
+        if (ctx.params && ctx.params.discipline) {
+          where.discipline = ctx.params.discipline;
+        }
+        
+        if (ctx.params && ctx.params.search) {
+          where[Op.or] = [
+            { title: { [Op.like]: `%${ctx.params.search}%` } },
+            { discipline: { [Op.like]: `%${ctx.params.search}%` } }
+          ];
         }
 
         return await Template.findAll({
@@ -94,7 +108,6 @@ module.exports = {
         id: { type: 'number', required: true, integer: true, positive: true, convert: true },
         title: { type: 'string', optional: true, min: 1, max: 255 },
         discipline: { type: 'string', optional: true, min: 1, max: 255 },
-        module: { type: 'string', optional: true, min: 1, max: 255 },
         description: { type: 'string', optional: true, max: 1000 },
         is_active: { type: 'boolean', optional: true },
         equipment_list: {

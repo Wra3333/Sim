@@ -28,9 +28,6 @@
 
     <div class="hotkey-hint">
       <span>Нажмите <kbd>Enter</kbd> для открытия/закрытия формы</span>
-      <span style="margin-left: 16px; color: #0d6efd;">
-        <kbd style="background:#e7f1ff;border-color:#0d6efd;">?repair_edit=123</kbd> по URL
-      </span>
     </div>
 
     <!-- ФИЛЬТРЫ -->

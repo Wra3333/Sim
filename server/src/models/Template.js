@@ -15,9 +15,6 @@ const Template = sequelize.define('Template', {
     type: DataTypes.STRING(255),
     allowNull: false
   },
-  module: {
-    type: DataTypes.STRING(255)
-  },
   description: {
     type: DataTypes.TEXT
   },
@@ -29,8 +26,6 @@ const Template = sequelize.define('Template', {
     type: DataTypes.BOOLEAN,
     defaultValue: true
   },
-  
-  // ДОБАВЛЯЕМ
   created_by: {
     type: DataTypes.INTEGER,
     allowNull: true

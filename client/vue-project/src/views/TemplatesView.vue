@@ -19,8 +19,7 @@
           Создать шаблон
         </button>
         <span class="hotkey-hint">
-          <kbd>Enter</kbd> для открытия/закрытия &nbsp;|&nbsp;
-          <kbd style="background:#e7f1ff;border-color:#0d6efd;">?template_edit=123</kbd> по URL
+          <kbd>Enter</kbd> для открытия/закрытия формы
         </span>
       </div>
 
@@ -41,16 +40,6 @@
             <option value="">Все дисциплины</option>
             <option v-for="discipline in uniqueDisciplines" :key="discipline" :value="discipline">
               {{ discipline }}
-            </option>
-          </select>
-        </div>
-
-        <div class="filter-group">
-          <label>Модуль</label>
-          <select v-model="templatesFilters.module" class="form-control">
-            <option value="">Все модули</option>
-            <option v-for="module in uniqueModules" :key="module" :value="module">
-              {{ module }}
             </option>
           </select>
         </div>
@@ -86,7 +75,6 @@
               <th style="width: 80px;">ID</th>
               <th style="min-width: 150px;">Название</th>
               <th style="min-width: 120px;">Дисциплина</th>
-              <th style="min-width: 120px;">Модуль</th>
               <th style="min-width: 150px;">Оборудование</th>
               <th style="width: 100px;">Статус</th>
               <th style="width: 130px;">Действия</th>
@@ -104,7 +92,6 @@
                 <span v-if="template.description" class="template-desc">{{ template.description }}</span>
               </td>
               <td>{{ template.discipline || '—' }}</td>
-              <td>{{ template.module || '—' }}</td>
               <td>
                 <div class="equipment-preview">
                   <span 
@@ -211,28 +198,6 @@
           </div>
         </div>
       </div>
-
-      <div class="sidebar-card">
-        <h4>
-          <IconList class="h-icon" />
-          Модули
-        </h4>
-        <div class="filter-list">
-          <div 
-            v-for="module in uniqueModules" 
-            :key="module" 
-            class="filter-item"
-            :class="{ active: templatesFilters.module === module }"
-            @click="templatesFilters.module = module; applyFilters()"
-          >
-            <span class="filter-name">{{ module }}</span>
-            <span class="filter-count">{{ getModuleCount(module) }}</span>
-          </div>
-          <div v-if="uniqueModules.length === 0" class="filter-item empty">
-            Нет модулей
-          </div>
-        </div>
-      </div>
     </div>
   </div>
 </template>
@@ -297,7 +262,7 @@ let isUpdatingFromUrl = false;
 // ФИЛЬТРЫ ИЗ APPSTORE
 // ============================================
 const templatesFilters = computed({
-  get: () => filters.value.templates || { status: '', discipline: '', module: '', search: '' },
+  get: () => filters.value.templates || { status: '', discipline: '', search: '' },
   set: (val) => {
     filters.value.templates = val;
   }
@@ -339,19 +304,12 @@ const filterConfig = {
       return item.discipline === value;
     }
   },
-  module: {
-    filterFn: (item, value) => {
-      if (!value) return true;
-      return item.module === value;
-    }
-  },
   search: {
     filterFn: (item, value) => {
       if (!value) return true;
       const query = value.toLowerCase().trim();
       return item.title?.toLowerCase().includes(query) ||
-             item.discipline?.toLowerCase().includes(query) ||
-             item.module?.toLowerCase().includes(query);
+             item.discipline?.toLowerCase().includes(query);
     }
   }
 };
@@ -388,19 +346,8 @@ const uniqueDisciplines = computed(() => {
   return [...new Set(disciplines)].sort();
 });
 
-const uniqueModules = computed(() => {
-  const modules = templatesItems.value
-    .map(t => t.module)
-    .filter(m => m && m.trim() !== '');
-  return [...new Set(modules)].sort();
-});
-
 const getDisciplineCount = (discipline) => {
   return templatesItems.value.filter(t => t.discipline === discipline).length;
-};
-
-const getModuleCount = (module) => {
-  return templatesItems.value.filter(t => t.module === module).length;
 };
 
 // ============================================
@@ -573,7 +520,7 @@ const deleteTemplate = async (id) => {
 };
 
 // ============================================
-// ОТКРЫТИЕ ИЗ URL (С ЗАЩИТОЙ ОТ ЦИКЛОВ)
+// ОТКРЫТИЕ ИЗ URL
 // ============================================
 const openFromUrl = async () => {
   if (isUpdatingFromUrl) return false;
@@ -583,7 +530,6 @@ const openFromUrl = async () => {
   if (templateEdit) {
     const id = parseInt(templateEdit, 10);
     if (!isNaN(id) && id > 0) {
-      // ✅ Уже открыто это же шаблон? Ничего не делаем
       if (showForm.value && editingItem.value?.id === id) {
         return true;
       }
@@ -614,8 +560,7 @@ const openFromUrl = async () => {
 // WATCH
 // ============================================
 watch(
-  [() => templatesFilters.value.status, () => templatesFilters.value.discipline, 
-   () => templatesFilters.value.module, () => templatesFilters.value.search],
+  [() => templatesFilters.value.status, () => templatesFilters.value.discipline, () => templatesFilters.value.search],
   () => {
     resetPage();
   },
@@ -629,7 +574,7 @@ watch(currentPage, (newPage) => {
   router.replace({ query });
 });
 
-// ✅ Исправленный watch для URL параметра
+// Исправленный watch для URL параметра
 watch(
   () => route.query.template_edit,
   async (newVal) => {
@@ -657,7 +602,6 @@ watch(
 onMounted(async () => {
   await loadData();
   
-  // Загружаем страницу из URL
   if (route.query.t_p) {
     const page = parseInt(route.query.t_p, 10);
     if (!isNaN(page) && page > 0) {
@@ -665,7 +609,6 @@ onMounted(async () => {
     }
   }
   
-  // Открываем форму из URL
   await openFromUrl();
   
   document.addEventListener('keydown', handleKeydown);

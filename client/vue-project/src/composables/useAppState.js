@@ -9,343 +9,121 @@ export function useAppState() {
   
   let isUpdatingFromStore = false
   let isUpdatingFromUrl = false
-  
+
+  // ============================================
+  // КОНФИГУРАЦИЯ ПОЛЕЙ ДЛЯ СИНХРОНИЗАЦИИ
+  // ============================================
+  const syncConfig = {
+    // ОБОРУДОВАНИЕ
+    q: { get: () => store.filters.equipment.search, set: (v) => store.filters.equipment.search = v || '' },
+    s: { get: () => store.filters.equipment.working_status, set: (v) => store.filters.equipment.working_status = v || '' },
+    w: { get: () => store.filters.equipment.write_off_status, set: (v) => store.filters.equipment.write_off_status = v || '' },
+    p: { get: () => store.pagination.equipment.page || 1, set: (v) => store.pagination.equipment.page = parseInt(v, 10) || 1 },
+    v: { 
+      get: () => store.viewMode.equipment || 'cards', 
+      set: (v) => {
+        const mode = (v && ['cards', 'table'].includes(v)) ? v : 'cards'
+        store.viewMode.equipment = mode
+      }
+    },
+    e: { get: () => store.editing.equipment, set: (v) => store.editing.equipment = parseInt(v, 10) || null },
+    history: { get: () => store.history?.equipment, set: (v) => { if (store.history) store.history.equipment = parseInt(v, 10) || null } },
+    
+    // ЗАНЯТИЯ
+    l_status: { get: () => store.filters.lessons.status, set: (v) => store.filters.lessons.status = v || '' },
+    l_group: { get: () => store.filters.lessons.group, set: (v) => store.filters.lessons.group = v || '' },
+    l_search: { get: () => store.filters.lessons.search, set: (v) => store.filters.lessons.search = v || '' },
+    l_date_from: { get: () => store.filters.lessons.dateFrom, set: (v) => store.filters.lessons.dateFrom = v || '' },
+    l_date_to: { get: () => store.filters.lessons.dateTo, set: (v) => store.filters.lessons.dateTo = v || '' },
+    l_p: { get: () => store.pagination.lessons.page || 1, set: (v) => store.pagination.lessons.page = parseInt(v, 10) || 1 },
+    lesson_edit: { get: () => store.editing.lesson, set: (v) => store.editing.lesson = parseInt(v, 10) || null },
+    
+    // РЕМОНТЫ
+    r_status: { get: () => store.filters.repairs.status, set: (v) => store.filters.repairs.status = v || '' },
+    r_eq_ids: { 
+      get: () => store.filters.repairs.equipmentIds?.length > 0 ? JSON.stringify(store.filters.repairs.equipmentIds) : '',
+      set: (v) => { 
+        try { store.filters.repairs.equipmentIds = v ? JSON.parse(v) : [] } 
+        catch (e) { store.filters.repairs.equipmentIds = [] }
+      }
+    },
+    r_date_from: { get: () => store.filters.repairs.dateFrom, set: (v) => store.filters.repairs.dateFrom = v || '' },
+    r_date_to: { get: () => store.filters.repairs.dateTo, set: (v) => store.filters.repairs.dateTo = v || '' },
+    r_p: { get: () => store.pagination.repairs.page || 1, set: (v) => store.pagination.repairs.page = parseInt(v, 10) || 1 },
+    repair_edit: { get: () => store.editing.repair, set: (v) => store.editing.repair = parseInt(v, 10) || null },
+    
+    // ШАБЛОНЫ
+    t_status: { get: () => store.filters.templates.status, set: (v) => store.filters.templates.status = v || '' },
+    t_discipline: { get: () => store.filters.templates.discipline, set: (v) => store.filters.templates.discipline = v || '' },
+    t_module: { get: () => store.filters.templates.module, set: (v) => store.filters.templates.module = v || '' },
+    t_search: { get: () => store.filters.templates.search, set: (v) => store.filters.templates.search = v || '' },
+    t_p: { get: () => store.pagination.templates.page || 1, set: (v) => store.pagination.templates.page = parseInt(v, 10) || 1 },
+    template_edit: { get: () => store.editing.template, set: (v) => store.editing.template = parseInt(v, 10) || null },
+    
+    // АНАЛИТИКА
+    eq_ids: {
+      get: () => store.filters.analytics.equipmentIds?.length > 0 ? JSON.stringify(store.filters.analytics.equipmentIds) : '',
+      set: (v) => {
+        try { store.filters.analytics.equipmentIds = v ? JSON.parse(v) : [] }
+        catch (e) { store.filters.analytics.equipmentIds = [] }
+      }
+    },
+    date_from: { get: () => store.filters.analytics.dateFrom, set: (v) => store.filters.analytics.dateFrom = v || '' },
+    date_to: { get: () => store.filters.analytics.dateTo, set: (v) => store.filters.analytics.dateTo = v || '' },
+    a_p: { get: () => store.pagination.analytics.page || 1, set: (v) => store.pagination.analytics.page = parseInt(v, 10) || 1 }
+  }
+
   // ============================================
   // STORE → URL
   // ============================================
   const syncToUrl = () => {
     if (isUpdatingFromUrl) return
-    
     isUpdatingFromStore = true
     
     const query = { ...route.query }
     
-    // === ОБОРУДОВАНИЕ ===
-    if (store.filters.equipment.search) {
-      query.q = store.filters.equipment.search
-    } else {
-      delete query.q
-    }
-    
-    if (store.filters.equipment.working_status) {
-      query.s = store.filters.equipment.working_status
-    } else {
-      delete query.s
-    }
-    
-    if (store.filters.equipment.write_off_status) {
-      query.w = store.filters.equipment.write_off_status
-    } else {
-      delete query.w
-    }
-    
-    // ✅ ПАГИНАЦИЯ
-    query.p = store.pagination.equipment.page || 1
-    
-    // ✅ ВИД ОТОБРАЖЕНИЯ
-    if (store.viewMode.equipment !== 'cards') {
-      query.v = store.viewMode.equipment
-    } else {
-      delete query.v
-    }
-    
-    // === РЕДАКТИРОВАНИЕ ===
-    if (store.editing.equipment) {
-      query.e = store.editing.equipment
-    } else {
-      delete query.e
-    }
-    
-    if (store.editing.repair) {
-      query.repair_edit = store.editing.repair
-    } else {
-      delete query.repair_edit
-    }
-    
-    if (store.editing.lesson) {
-      query.lesson_edit = store.editing.lesson
-    } else {
-      delete query.lesson_edit
-    }
-    
-    if (store.editing.template) {
-      query.template_edit = store.editing.template
-    } else {
-      delete query.template_edit
-    }
-    
-    if (store.history?.equipment) {
-      query.history = store.history.equipment
-    } else {
-      delete query.history
-    }
-    
-    // === АНАЛИТИКА ===
-    if (store.filters.analytics) {
-      const a = store.filters.analytics
+    for (const [key, config] of Object.entries(syncConfig)) {
+      const value = config.get()
       
-      if (a.equipmentIds && a.equipmentIds.length > 0) {
-        query.eq_ids = JSON.stringify(a.equipmentIds)
+      // ✅ Всегда сохраняем v, даже если 'cards'
+      if (key === 'v' || key === 'p' || key === 'l_p' || key === 'r_p' || key === 't_p' || key === 'a_p') {
+        if (value !== undefined && value !== null) {
+          query[key] = typeof value === 'string' ? value : String(value)
+        }
+      } else if (value && value !== '' && value !== '[]') {
+        query[key] = typeof value === 'string' ? value : String(value)
       } else {
-        delete query.eq_ids
+        delete query[key]
       }
-      
-      if (a.dateFrom) {
-        query.date_from = a.dateFrom
-      } else {
-        delete query.date_from
-      }
-      
-      if (a.dateTo) {
-        query.date_to = a.dateTo
-      } else {
-        delete query.date_to
-      }
-    }
-    
-    if (store.pagination.analytics) {
-      query.a_p = store.pagination.analytics.page || 1
-    }
-    
-    // === ЗАНЯТИЯ ===
-    if (store.filters.lessons) {
-      const l = store.filters.lessons
-      
-      if (l.status) {
-        query.l_status = l.status
-      } else {
-        delete query.l_status
-      }
-      
-      if (l.group) {
-        query.l_group = l.group
-      } else {
-        delete query.l_group
-      }
-      
-      if (l.search) {
-        query.l_search = l.search
-      } else {
-        delete query.l_search
-      }
-      
-      if (l.dateFrom) {
-        query.l_date_from = l.dateFrom
-      } else {
-        delete query.l_date_from
-      }
-      
-      if (l.dateTo) {
-        query.l_date_to = l.dateTo
-      } else {
-        delete query.l_date_to
-      }
-    }
-    
-    if (store.pagination.lessons) {
-      query.l_p = store.pagination.lessons.page || 1
-    }
-    
-    // === РЕМОНТЫ ===
-    if (store.filters.repairs) {
-      const r = store.filters.repairs
-      
-      if (r.status) {
-        query.r_status = r.status
-      } else {
-        delete query.r_status
-      }
-      
-      if (r.equipmentIds && r.equipmentIds.length > 0) {
-        query.r_eq_ids = JSON.stringify(r.equipmentIds)
-      } else {
-        delete query.r_eq_ids
-      }
-      
-      if (r.dateFrom) {
-        query.r_date_from = r.dateFrom
-      } else {
-        delete query.r_date_from
-      }
-      
-      if (r.dateTo) {
-        query.r_date_to = r.dateTo
-      } else {
-        delete query.r_date_to
-      }
-    }
-    
-    if (store.pagination.repairs) {
-      query.r_p = store.pagination.repairs.page || 1
-    }
-    
-    // === ШАБЛОНЫ ===
-    if (store.filters.templates) {
-      const t = store.filters.templates
-      
-      if (t.status) {
-        query.t_status = t.status
-      } else {
-        delete query.t_status
-      }
-      
-      if (t.discipline) {
-        query.t_discipline = t.discipline
-      } else {
-        delete query.t_discipline
-      }
-      
-      if (t.module) {
-        query.t_module = t.module
-      } else {
-        delete query.t_module
-      }
-      
-      if (t.search) {
-        query.t_search = t.search
-      } else {
-        delete query.t_search
-      }
-    }
-    
-    if (store.pagination.templates) {
-      query.t_p = store.pagination.templates.page || 1
     }
     
     router.replace({ query })
-    
-    nextTick(() => {
-      isUpdatingFromStore = false
-    })
+    nextTick(() => { isUpdatingFromStore = false })
   }
-  
+
   // ============================================
   // URL → STORE
   // ============================================
   const syncFromUrl = () => {
     if (isUpdatingFromStore) return
-    
     isUpdatingFromUrl = true
     
     const q = route.query
     
-    // === ОБОРУДОВАНИЕ ===
-    if (q.q) store.filters.equipment.search = q.q
-    else store.filters.equipment.search = ''
-    
-    if (q.s) store.filters.equipment.working_status = q.s
-    else store.filters.equipment.working_status = ''
-    
-    if (q.w) store.filters.equipment.write_off_status = q.w
-    else store.filters.equipment.write_off_status = ''
-    
-    // ✅ ПАГИНАЦИЯ
-    store.pagination.equipment.page = q.p ? (parseInt(q.p, 10) || 1) : 1
-    
-    // ✅ ВИД ОТОБРАЖЕНИЯ
-    if (q.v && ['cards', 'table'].includes(q.v)) {
-      store.viewMode.equipment = q.v
-    } else {
-      store.viewMode.equipment = 'cards'
-    }
-    
-    // === РЕДАКТИРОВАНИЕ ===
-    store.editing.equipment = q.e ? (parseInt(q.e, 10) || null) : null
-    store.editing.repair = q.repair_edit ? (parseInt(q.repair_edit, 10) || null) : null
-    store.editing.lesson = q.lesson_edit ? (parseInt(q.lesson_edit, 10) || null) : null
-    store.editing.template = q.template_edit ? (parseInt(q.template_edit, 10) || null) : null
-    
-    if (q.history) {
-      if (!store.history) store.history = { equipment: null }
-      store.history.equipment = parseInt(q.history, 10) || null
-    } else {
-      if (store.history) store.history.equipment = null
-    }
-    
-    // === АНАЛИТИКА ===
-    if (!store.filters.analytics) {
-      store.filters.analytics = { equipmentIds: [], dateFrom: '', dateTo: '' }
-    }
-    
-    if (q.eq_ids) {
-      try {
-        store.filters.analytics.equipmentIds = JSON.parse(q.eq_ids)
-      } catch (e) {
-        store.filters.analytics.equipmentIds = []
+    for (const [key, config] of Object.entries(syncConfig)) {
+      if (q[key] !== undefined && q[key] !== '') {
+        config.set(q[key])
       }
-    } else {
-      store.filters.analytics.equipmentIds = []
     }
     
-    store.filters.analytics.dateFrom = q.date_from || ''
-    store.filters.analytics.dateTo = q.date_to || ''
-    
-    if (!store.pagination.analytics) {
-      store.pagination.analytics = { page: 1, size: 7 }
-    }
-    store.pagination.analytics.page = q.a_p ? (parseInt(q.a_p, 10) || 1) : 1
-    
-    // === ЗАНЯТИЯ ===
-    if (!store.filters.lessons) {
-      store.filters.lessons = { status: '', group: '', search: '', dateFrom: '', dateTo: '' }
+    // ✅ Если v нет в URL, но есть в store, сохраняем store
+    if (!q.v && store.viewMode.equipment) {
+      // уже есть в store
     }
     
-    store.filters.lessons.status = q.l_status || ''
-    store.filters.lessons.group = q.l_group || ''
-    store.filters.lessons.search = q.l_search || ''
-    store.filters.lessons.dateFrom = q.l_date_from || ''
-    store.filters.lessons.dateTo = q.l_date_to || ''
-    
-    if (!store.pagination.lessons) {
-      store.pagination.lessons = { page: 1, size: 7 }
-    }
-    store.pagination.lessons.page = q.l_p ? (parseInt(q.l_p, 10) || 1) : 1
-    
-    // === РЕМОНТЫ ===
-    if (!store.filters.repairs) {
-      store.filters.repairs = { status: '', equipmentIds: [], dateFrom: '', dateTo: '' }
-    }
-    
-    store.filters.repairs.status = q.r_status || ''
-    
-    if (q.r_eq_ids) {
-      try {
-        store.filters.repairs.equipmentIds = JSON.parse(q.r_eq_ids)
-      } catch (e) {
-        store.filters.repairs.equipmentIds = []
-      }
-    } else {
-      store.filters.repairs.equipmentIds = []
-    }
-    
-    store.filters.repairs.dateFrom = q.r_date_from || ''
-    store.filters.repairs.dateTo = q.r_date_to || ''
-    
-    if (!store.pagination.repairs) {
-      store.pagination.repairs = { page: 1, size: 7}
-    }
-    store.pagination.repairs.page = q.r_p ? (parseInt(q.r_p, 10) || 1) : 1
-    
-    // === ШАБЛОНЫ ===
-    if (!store.filters.templates) {
-      store.filters.templates = { status: '', discipline: '', module: '', search: '' }
-    }
-    
-    store.filters.templates.status = q.t_status || ''
-    store.filters.templates.discipline = q.t_discipline || ''
-    store.filters.templates.module = q.t_module || ''
-    store.filters.templates.search = q.t_search || ''
-    
-    if (!store.pagination.templates) {
-      store.pagination.templates = { page: 1, size: 7 }
-    }
-    store.pagination.templates.page = q.t_p ? (parseInt(q.t_p, 10) || 1) : 1
-    
-    nextTick(() => {
-      isUpdatingFromUrl = false
-    })
+    nextTick(() => { isUpdatingFromUrl = false })
   }
-  
+
   // ============================================
   // WATCH
   // ============================================
@@ -354,7 +132,7 @@ export function useAppState() {
     () => syncToUrl(),
     { deep: true }
   )
-  
+
   watch(
     () => route.query,
     () => {
@@ -363,13 +141,20 @@ export function useAppState() {
     },
     { deep: true }
   )
-  
+
   // ============================================
   // LIFECYCLE
   // ============================================
   onMounted(() => {
+    // ✅ Сначала загружаем из URL
     syncFromUrl()
+    
+    // ✅ Если v нет в URL, но есть в store, добавляем в URL
+    if (!route.query.v && store.viewMode.equipment) {
+      const query = { ...route.query, v: store.viewMode.equipment }
+      router.replace({ query })
+    }
   })
-  
+
   return { store, syncToUrl, syncFromUrl }
 }

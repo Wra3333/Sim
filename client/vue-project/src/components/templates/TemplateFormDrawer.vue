@@ -49,19 +49,6 @@
                   required
                 />
               </div>
-              <div class="form-group">
-                <label>
-                  <IconFolder class="label-icon" />
-                  Модуль *
-                </label>
-                <input
-                  v-model="form.module"
-                  type="text"
-                  class="form-control"
-                  placeholder="Например: Модуль 1"
-                  required
-                />
-              </div>
             </div>
 
             <div class="form-group">
@@ -141,7 +128,6 @@ import {
   IconEdit,
   IconPlus,
   IconBook,
-  IconFolder,
   IconList,
   IconEquipment,
   IconClose,
@@ -170,7 +156,6 @@ let pendingSyncTemplateId = null;
 const form = ref({
   title: '',
   discipline: '',
-  module: '',
   description: '',
   is_active: true
 });
@@ -222,10 +207,6 @@ const submit = async () => {
     toast.warning('Введите дисциплину');
     return;
   }
-  if (!form.value.module.trim()) {
-    toast.warning('Введите модуль');
-    return;
-  }
 
   if (equipmentIds.value.length === 0) {
     toast.warning('Выберите оборудование для шаблона');
@@ -243,7 +224,6 @@ const submit = async () => {
     const data = {
       title: form.value.title,
       discipline: form.value.discipline,
-      module: form.value.module,
       description: form.value.description || '',
       is_active: form.value.is_active,
       equipment_list: equipmentWithQuantity
@@ -313,7 +293,6 @@ watch(() => props.template, (val) => {
     form.value = {
       title: val.title || '',
       discipline: val.discipline || '',
-      module: val.module || '',
       description: val.description || '',
       is_active: val.is_active !== undefined ? val.is_active : true
     };
@@ -322,7 +301,6 @@ watch(() => props.template, (val) => {
     form.value = {
       title: '',
       discipline: '',
-      module: '',
       description: '',
       is_active: true
     };
@@ -331,7 +309,6 @@ watch(() => props.template, (val) => {
 }, { immediate: true });
 
 watch(() => props.visible, (val) => {
-  console.log('🎯 visible изменился на:', val);
   toggleBodyScroll(val);
 }, { immediate: true });
 

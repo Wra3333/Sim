@@ -30,7 +30,9 @@ html {
 h1, h2, h3, h4, h5 {
     color: #00447c !important;
 }
-
+kbd {
+    color: #424242 !important;
+}
 a {
     color: #0077c8;
     text-decoration: none;

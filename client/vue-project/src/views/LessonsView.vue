@@ -19,8 +19,7 @@
           Создать занятие
         </button>
         <span class="hotkey-hint">
-          <kbd>Enter</kbd> для открытия/закрытия &nbsp;|&nbsp;
-          <kbd style="background:#e7f1ff;border-color:#0d6efd;">?lesson_edit=123</kbd> по URL
+          <kbd>Enter</kbd> для открытия/закрытия формы
         </span>
       </div>
 
@@ -399,6 +398,7 @@ const toggleGroup = (group) => {
     lessonsFilters.value.group = group;
   }
   applyFilters();
+
 };
 
 // ============================================

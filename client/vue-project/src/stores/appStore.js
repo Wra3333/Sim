@@ -76,12 +76,16 @@ export const useAppStore = defineStore('app', {
     setViewMode(module, mode) {
       if (this.viewMode[module] !== undefined) {
         this.viewMode[module] = mode
+        // ✅ Сохраняем в localStorage сразу
+        this.saveToLocalStorage()
       }
     },
     
     toggleViewMode(module) {
       if (this.viewMode[module] !== undefined) {
         this.viewMode[module] = this.viewMode[module] === 'table' ? 'cards' : 'table'
+        // ✅ Сохраняем в localStorage сразу
+        this.saveToLocalStorage()
       }
     },
     
@@ -89,6 +93,7 @@ export const useAppStore = defineStore('app', {
     setFilter(module, key, value) {
       if (this.filters[module]) {
         this.filters[module][key] = value
+        this.saveToLocalStorage()
       }
     },
     
@@ -102,6 +107,7 @@ export const useAppStore = defineStore('app', {
       }
       if (defaults[module]) {
         this.filters[module] = { ...defaults[module] }
+        this.saveToLocalStorage()
       }
     },
     
@@ -113,12 +119,14 @@ export const useAppStore = defineStore('app', {
         templates: { status: '', discipline: '', module: '', search: '' },
         analytics: { equipmentIds: [], dateFrom: '', dateTo: '' }
       }
+      this.saveToLocalStorage()
     },
     
     // ============ ПАГИНАЦИЯ ============
     setPage(module, page) {
       if (this.pagination[module]) {
         this.pagination[module].page = page
+        this.saveToLocalStorage()
       }
     },
     
@@ -126,12 +134,14 @@ export const useAppStore = defineStore('app', {
       if (this.pagination[module]) {
         this.pagination[module].size = size
         this.pagination[module].page = 1
+        this.saveToLocalStorage()
       }
     },
     
     resetPage(module) {
       if (this.pagination[module]) {
         this.pagination[module].page = 1
+        this.saveToLocalStorage()
       }
     },
     
@@ -139,11 +149,13 @@ export const useAppStore = defineStore('app', {
     openEdit(module, id) {
       if (this.editing[module] !== undefined) {
         this.editing[module] = id
+        this.saveToLocalStorage()
       }
     },
     closeEdit(module) {
       if (this.editing[module] !== undefined) {
         this.editing[module] = null
+        this.saveToLocalStorage()
       }
     },
     isEditing(module, id) {
@@ -154,11 +166,13 @@ export const useAppStore = defineStore('app', {
     openHistory(module, id) {
       if (this.history[module] !== undefined) {
         this.history[module] = id
+        this.saveToLocalStorage()
       }
     },
     closeHistory(module) {
       if (this.history[module] !== undefined) {
         this.history[module] = null
+        this.saveToLocalStorage()
       }
     },
     isHistoryOpen(module, id) {
@@ -169,6 +183,38 @@ export const useAppStore = defineStore('app', {
         this.history[module] = null
       } else {
         this.history[module] = id
+      }
+      this.saveToLocalStorage()
+    },
+    
+    // ============ СОХРАНЕНИЕ В LOCALSTORAGE ============
+    saveToLocalStorage() {
+      try {
+        const data = {
+          sidebar: this.sidebar,
+          viewMode: this.viewMode,
+          filters: this.filters,
+          pagination: this.pagination,
+          editing: this.editing,
+          history: this.history
+        }
+        localStorage.setItem('app_state', JSON.stringify(data))
+      } catch (e) {
+        console.error('Ошибка сохранения в localStorage:', e)
+      }
+    },
+    
+    // ============ ЗАГРУЗКА ИЗ LOCALSTORAGE ============
+    loadFromLocalStorage() {
+      try {
+        const data = localStorage.getItem('app_state')
+        if (data) {
+          const parsed = JSON.parse(data)
+          Object.assign(this.$state, parsed)
+          console.log('✅ Данные загружены из localStorage')
+        }
+      } catch (e) {
+        console.error('Ошибка загрузки из localStorage:', e)
       }
     }
   },

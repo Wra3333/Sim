@@ -10,10 +10,6 @@
           <IconBook class="meta-icon" />
           {{ discipline }}
         </span>
-        <span v-if="hasModule">
-          <IconFolder class="meta-icon" />
-          {{ module }}
-        </span>
       </div>
       <div class="equipment-preview" v-if="hasEquipmentPreview">
         <span class="badge badge-secondary" v-for="(item, index) in equipmentPreview" :key="index">
@@ -48,7 +44,6 @@ import { computed } from 'vue';
 import {
   IconTemplates,
   IconBook,
-  IconFolder,
   IconEquipment,
   IconCheck,
   IconAlert,
@@ -71,8 +66,6 @@ const emit = defineEmits(['edit', 'delete']);
 
 const title = computed(() => props.template.title);
 const discipline = computed(() => props.template.discipline);
-const module = computed(() => props.template.module);
-const hasModule = computed(() => !!props.template.module);
 const isActive = computed(() => props.template.is_active);
 
 const statusClass = computed(() => 
