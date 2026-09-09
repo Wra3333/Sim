@@ -1,36 +1,25 @@
-version: '3.8'
-
 services:
   postgres:
     image: postgres:16-alpine
     container_name: simulation-postgres
     restart: unless-stopped
     environment:
-      POSTGRES_USER: root
-      POSTGRES_PASSWORD: root
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
       POSTGRES_DB: simulation_center
     ports:
       - "5432:5432"
     volumes:
       - postgres-data:/var/lib/postgresql/data
-    networks:
-      - simulation-network
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U root -d simulation_center"]
-      interval: 10s
+      test: ["CMD-SHELL", "pg_isready -U postgres"]
+      interval: 5s
       timeout: 5s
       retries: 5
-
-  nats:
-    image: nats:latest
-    container_name: simulation-nats
-    restart: unless-stopped
-    ports:
-      - "4222:4222"
     networks:
       - simulation-network
 
-  api-gateway:
+  api:
     build:
       context: ./server
       dockerfile: Dockerfile
@@ -40,12 +29,11 @@ services:
       NODE_ENV: production
       PORT: 3000
       DB_HOST: postgres
-      DB_USER: root
-      DB_PASSWORD: root
+      DB_USER: postgres
+      DB_PASSWORD: postgres
       DB_NAME: simulation_center
       DB_PORT: 5432
-      NATS_URL: nats://nats:4222
-      SERVICES: api-gateway
+      JWT_SECRET: simulation_secret_key_2026
     ports:
       - "3000:3000"
     volumes:
@@ -53,123 +41,6 @@ services:
     depends_on:
       postgres:
         condition: service_healthy
-      nats:
-        condition: service_started
-    networks:
-      - simulation-network
-
-  equipment-service:
-    build:
-      context: ./server
-      dockerfile: Dockerfile
-    container_name: simulation-equipment
-    restart: unless-stopped
-    environment:
-      NODE_ENV: production
-      DB_HOST: postgres
-      DB_USER: root
-      DB_PASSWORD: root
-      DB_NAME: simulation_center
-      DB_PORT: 5432
-      NATS_URL: nats://nats:4222
-      SERVICES: equipment
-    depends_on:
-      postgres:
-        condition: service_healthy
-      nats:
-        condition: service_started
-    networks:
-      - simulation-network
-
-  lessons-service:
-    build:
-      context: ./server
-      dockerfile: Dockerfile
-    container_name: simulation-lessons
-    restart: unless-stopped
-    environment:
-      NODE_ENV: production
-      DB_HOST: postgres
-      DB_USER: root
-      DB_PASSWORD: root
-      DB_NAME: simulation_center
-      DB_PORT: 5432
-      NATS_URL: nats://nats:4222
-      SERVICES: lessons
-    depends_on:
-      postgres:
-        condition: service_healthy
-      nats:
-        condition: service_started
-    networks:
-      - simulation-network
-
-  templates-service:
-    build:
-      context: ./server
-      dockerfile: Dockerfile
-    container_name: simulation-templates
-    restart: unless-stopped
-    environment:
-      NODE_ENV: production
-      DB_HOST: postgres
-      DB_USER: root
-      DB_PASSWORD: root
-      DB_NAME: simulation_center
-      DB_PORT: 5432
-      NATS_URL: nats://nats:4222
-      SERVICES: templates
-    depends_on:
-      postgres:
-        condition: service_healthy
-      nats:
-        condition: service_started
-    networks:
-      - simulation-network
-
-  repairs-service:
-    build:
-      context: ./server
-      dockerfile: Dockerfile
-    container_name: simulation-repairs
-    restart: unless-stopped
-    environment:
-      NODE_ENV: production
-      DB_HOST: postgres
-      DB_USER: root
-      DB_PASSWORD: root
-      DB_NAME: simulation_center
-      DB_PORT: 5432
-      NATS_URL: nats://nats:4222
-      SERVICES: repairs
-    depends_on:
-      postgres:
-        condition: service_healthy
-      nats:
-        condition: service_started
-    networks:
-      - simulation-network
-
-  worktime-service:
-    build:
-      context: ./server
-      dockerfile: Dockerfile
-    container_name: simulation-worktime
-    restart: unless-stopped
-    environment:
-      NODE_ENV: production
-      DB_HOST: postgres
-      DB_USER: root
-      DB_PASSWORD: root
-      DB_NAME: simulation_center
-      DB_PORT: 5432
-      NATS_URL: nats://nats:4222
-      SERVICES: worktime
-    depends_on:
-      postgres:
-        condition: service_healthy
-      nats:
-        condition: service_started
     networks:
       - simulation-network
 
@@ -183,7 +54,7 @@ services:
       - ./client/dist:/usr/share/nginx/html
       - ./nginx.conf:/etc/nginx/nginx.conf:ro
     depends_on:
-      - api-gateway
+      - api
     networks:
       - simulation-network
 
