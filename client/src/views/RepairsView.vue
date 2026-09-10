@@ -349,9 +349,6 @@ const openEditForm = (repair) => {
 
 const closeForm = () => {
   showForm.value = false;
-  setTimeout(() => {
-    editingRepair.value = null;
-  }, 500);
   appStore.closeEdit('repair');
 };
 

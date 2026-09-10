@@ -184,6 +184,7 @@ const API_URL = 'http://localhost:3000/uploads/';
 
 const formRef = ref(null);
 const submitting = ref(false);
+
 const form = ref({
   inventory_number: '',
   inventory_name: '',
@@ -210,7 +211,7 @@ const isFileUpload = ref(false);
 
 const equipmentId = computed(() => props.equipment?.id || null);
 
-const currentPhotoUrl = computed(() => 
+const currentPhotoUrl = computed(() =>
   form.value.photo ? `${API_URL}${form.value.photo}` : null
 );
 
@@ -228,6 +229,9 @@ const allExistingTags = computed(() => {
   return Array.from(tags).sort();
 });
 
+// ============================================
+//  СКРОЛЛ
+// ============================================
 const toggleBodyScroll = (disable) => {
   if (disable) {
     document.documentElement.style.overflow = 'hidden';
@@ -236,27 +240,65 @@ const toggleBodyScroll = (disable) => {
   }
 };
 
+// ============================================
+//  СБРОС ФОРМЫ
+// ============================================
+const resetForm = () => {
+  form.value = {
+    inventory_number: '',
+    inventory_name: '',
+    name: '',
+    photo: '',
+    year_of_release: '',
+    description: '',
+    purchase_basis: '',
+    working_status: 'Исправен',
+    write_off_status: 'На балансе',
+    price: '',
+    country: '',
+    manufacturer: '',
+    original_name: '',
+    realism_class: '',
+    tags: [],
+    additional_files: []
+  };
+  previewUrl.value = '';
+  selectedFile.value = null;
+  isFileUpload.value = false;
+  isAccordionOpen.value = false;
+};
+
+// ============================================
+//  ЗАПОЛНЕНИЕ ИЗ EQUIPMENT
+// ============================================
+const fillForm = (val) => {
+  form.value = {
+    ...val,
+    tags: val.tags || [],
+    additional_files: val.additional_files || []
+  };
+  previewUrl.value = '';
+  selectedFile.value = null;
+  isFileUpload.value = false;
+};
+
+// ============================================
+//  ФАЙЛЫ
+// ============================================
 const updateFiles = (files) => {
   form.value.additional_files = files;
 };
 
-// ✅ ОБРАБОТЧИК УДАЛЕНИЯ ФАЙЛА
 const handleFileDeleted = async ({ equipmentId, fileId }) => {
-  console.log('📝 [EquipmentDrawer] Файл удален, обновляем стор...');
-  
   try {
     await store.deleteFile(equipmentId, fileId);
-    console.log('✅ Стор обновлен');
-    
+
     const updatedEquipment = store.getById(equipmentId);
     if (updatedEquipment) {
       form.value.additional_files = updatedEquipment.additional_files || [];
       emit('update:equipment', updatedEquipment);
-      console.log('✅ Форма обновлена');
       toast.success('Файл удален');
     } else {
-      console.warn('⚠️ Оборудование не найдено в сторе');
-      // Если не найдено - перезагружаем все данные
       await store.fetchAll();
       const refreshedEquipment = store.getById(equipmentId);
       if (refreshedEquipment) {
@@ -265,7 +307,6 @@ const handleFileDeleted = async ({ equipmentId, fileId }) => {
       }
     }
   } catch (error) {
-    console.error('❌ Ошибка удаления файла:', error);
     toast.error(error?.response?.data?.message || "Ошибка удаления файла");
   }
 };
@@ -316,17 +357,17 @@ const close = () => {
 
 const submit = async () => {
   if (submitting.value) return;
-  
+
   try {
     submitting.value = true;
-    
+
     const data = { ...form.value };
-    
+
     const nullableFields = ['price', 'country', 'manufacturer', 'original_name', 'realism_class', 'year_of_release'];
     nullableFields.forEach(key => {
       if (!data[key] || data[key] === '') data[key] = null;
     });
-    
+
     if (!data.tags || data.tags.length === 0) data.tags = [];
     if (!data.additional_files || data.additional_files.length === 0) data.additional_files = [];
 
@@ -360,6 +401,9 @@ const submit = async () => {
   }
 };
 
+// ============================================
+//  ENTER
+// ============================================
 let enterPressCount = 0;
 let enterTimer = null;
 let isClosing = false;
@@ -368,18 +412,18 @@ const handleKeydown = (e) => {
   if (e.key !== 'Enter' || !props.open) return;
   if (e.target.tagName === 'TEXTAREA') return;
   if (e.target.tagName === 'BUTTON') return;
-  
+
   e.preventDefault();
-  
+
   enterPressCount++;
-  
+
   if (enterPressCount >= 2) {
     enterPressCount = 0;
     if (enterTimer) {
       clearTimeout(enterTimer);
       enterTimer = null;
     }
-    
+
     if (!isClosing) {
       isClosing = true;
       close();
@@ -389,7 +433,7 @@ const handleKeydown = (e) => {
     }
     return;
   }
-  
+
   if (enterTimer) {
     clearTimeout(enterTimer);
   }
@@ -404,21 +448,12 @@ const handleKeydown = (e) => {
   }, 300);
 };
 
-watch(() => props.equipment, (val) => {
-  if (val) {
-    form.value = {
-      ...val,
-      tags: val.tags || [],
-      additional_files: val.additional_files || []
-    };
-    previewUrl.value = '';
-    selectedFile.value = null;
-    isFileUpload.value = false;
-  }
-}, { immediate: true });
-
+// ============================================
+//  WATCH: open
+// ============================================
 watch(() => props.open, (val) => {
   toggleBodyScroll(val);
+
   if (!val) {
     enterPressCount = 0;
     if (enterTimer) {
@@ -426,9 +461,32 @@ watch(() => props.open, (val) => {
       enterTimer = null;
     }
     isClosing = false;
+    return;
   }
-}, { immediate: true });
 
+  if (props.equipment) {
+    fillForm(props.equipment);
+  } else {
+    resetForm();
+  }
+}, { immediate: false });
+
+// ============================================
+//  WATCH: equipment (когда drawer уже открыт)
+// ============================================
+watch(() => props.equipment, (val) => {
+  if (!props.open) return;
+
+  if (val) {
+    fillForm(val);
+  } else {
+    resetForm();
+  }
+});
+
+// ============================================
+//  LIFECYCLE
+// ============================================
 onBeforeUnmount(() => {
   document.removeEventListener('keydown', handleKeydown);
   toggleBodyScroll(false);

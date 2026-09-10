@@ -418,9 +418,6 @@ const openEditForm = (template) => {
 const closeForm = () => {
   isUpdatingFromUrl = true;
   showForm.value = false;
-  setTimeout(() => {
-    editingItem.value = null;
-  }, 500);
   appStore.closeEdit('template');
   const query = { ...route.query };
   if (query.template_edit) {
@@ -526,7 +523,6 @@ watch(
         isUpdatingFromUrl = true;
         showForm.value = false;
         setTimeout(() => {
-          editingItem.value = null;
           isUpdatingFromUrl = false;
         }, 500);
         appStore.closeEdit('template');

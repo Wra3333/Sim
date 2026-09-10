@@ -449,9 +449,6 @@ const openEditForm = (lesson) => {
 const closeForm = () => {
   isUpdatingFromUrl = true;
   showForm.value = false;
-  setTimeout(() => {
-    editingItem.value = null;
-  }, 500);
   appStore.closeEdit('lesson');
   const query = { ...route.query };
   if (query.lesson_edit) {
@@ -573,7 +570,6 @@ watch(
         isUpdatingFromUrl = true;
         showForm.value = false;
         setTimeout(() => {
-          editingItem.value = null;
           isUpdatingFromUrl = false;
         }, 500);
         appStore.closeEdit('lesson');

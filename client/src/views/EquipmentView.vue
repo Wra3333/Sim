@@ -706,7 +706,6 @@ const openEditForm = (item) => {
 
 const closeForm = () => {
   showForm.value = false
-  editingItem.value = null
   store.closeEdit('equipment')
 }
 

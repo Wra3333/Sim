@@ -144,9 +144,6 @@ const toast = useToastStore();
 const loading = ref(false);
 const equipmentIds = ref([]);
 
-// ============================================
-//  СОСТОЯНИЕ ДЛЯ МОДАЛКИ СИНХРОНИЗАЦИИ
-// ============================================
 const showSyncModal = ref(false);
 const linkedLessons = ref([]);
 const syncing = ref(false);
@@ -164,7 +161,7 @@ const allEquipment = computed(() => {
 });
 
 // ============================================
-//  БЛОКИРОВКА СКРОЛЛА
+//  СКРОЛЛ
 // ============================================
 const toggleBodyScroll = (disable) => {
   if (disable) {
@@ -195,6 +192,32 @@ const normalizeEquipmentList = (data) => {
     }
   }
   return [];
+};
+
+// ============================================
+//  СБРОС ФОРМЫ
+// ============================================
+const resetForm = () => {
+  form.value = {
+    title: '',
+    discipline: '',
+    description: '',
+    is_active: true
+  };
+  equipmentIds.value = [];
+};
+
+// ============================================
+//  ЗАПОЛНЕНИЕ ИЗ TEMPLATE
+// ============================================
+const fillForm = (val) => {
+  form.value = {
+    title: val.title || '',
+    discipline: val.discipline || '',
+    description: val.description || '',
+    is_active: val.is_active !== undefined ? val.is_active : true
+  };
+  equipmentIds.value = normalizeEquipmentList(val.equipment_list);
 };
 
 // ============================================
@@ -238,7 +261,6 @@ const submit = async () => {
       if (response?.hasLinkedLessons) {
         pendingTemplateId = props.template.id;
 
-        // ✅ Оставляем только НЕ проведённые
         const notCompleted = (response.linkedLessons || []).filter(
           l => l.status !== 'Проведено'
         );
@@ -317,35 +339,35 @@ const resetSyncState = () => {
 };
 
 // ============================================
-//  WATCH
+//  WATCH: visible
 // ============================================
-watch(() => props.template, (val) => {
-  if (val) {
-    form.value = {
-      title: val.title || '',
-      discipline: val.discipline || '',
-      description: val.description || '',
-      is_active: val.is_active !== undefined ? val.is_active : true
-    };
-    equipmentIds.value = normalizeEquipmentList(val.equipment_list);
-  } else {
-    form.value = {
-      title: '',
-      discipline: '',
-      description: '',
-      is_active: true
-    };
-    equipmentIds.value = [];
-  }
-}, { immediate: true });
-
 watch(() => props.visible, (val) => {
   toggleBodyScroll(val);
 
   if (!val) {
     resetSyncState();
+    return;
   }
-}, { immediate: true });
+
+  if (props.template) {
+    fillForm(props.template);
+  } else {
+    resetForm();
+  }
+}, { immediate: false });
+
+// ============================================
+//  WATCH: template (когда drawer уже открыт)
+// ============================================
+watch(() => props.template, (val) => {
+  if (!props.visible) return;
+
+  if (val) {
+    fillForm(val);
+  } else {
+    resetForm();
+  }
+});
 
 // ============================================
 //  LIFECYCLE

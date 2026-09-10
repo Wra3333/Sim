@@ -221,9 +221,6 @@ import {
   IconLoading
 } from '../icons';
 
-// ============================================
-//  PROPS & EMITS
-// ============================================
 const props = defineProps({
   visible: { type: Boolean, default: false },
   lesson: { type: Object, default: null }
@@ -231,26 +228,16 @@ const props = defineProps({
 
 const emit = defineEmits(['close', 'save']);
 
-// ============================================
-//  STORE
-// ============================================
 const equipmentStore = useEquipmentStore();
 const templatesStore = useTemplatesStore();
 const toast = useToastStore();
 
-// ============================================
-//  КОМПОЗАБЛЫ
-// ============================================
 const { formatDate } = useFormatters();
 const { getEquipmentStatusClass } = useStatusClasses();
 
-// ============================================
-//  СОСТОЯНИЕ
-// ============================================
 const loading = ref(false);
 const equipmentList = ref([]);
 
-// ✅ ДОСТУПНЫЕ ГРУППЫ
 const availableGroups = ref([
   'ФИ-21', 'ФИ-22', 'ФИ-23',
   'ЛД-31', 'ЛД-32',
@@ -269,29 +256,71 @@ const form = ref({
   template_id: null,
   status: 'Запланировано',
   notes: '',
-  participant_type: '' // ✅ ТОЛЬКО КАТЕГОРИЯ
+  participant_type: ''
 });
 
-// ============================================
-//  ВЫЧИСЛЯЕМЫЕ
-// ============================================
 const activeTemplates = computed(() => {
   return templatesStore.items.filter(t => t.is_active === true);
 });
 
-// ✅ Берём ВСЁ оборудование (включая архивированные/неисправные)
 const allEquipment = computed(() => {
   return equipmentStore.allEquipment || [];
 });
 
 // ============================================
-//  БЛОКИРОВКА СКРОЛЛА
+//  СКРОЛЛ
 // ============================================
 const toggleBodyScroll = (disable) => {
   if (disable) {
     document.documentElement.style.overflow = 'hidden';
   } else {
     document.documentElement.style.overflow = '';
+  }
+};
+
+// ============================================
+//  СБРОС ФОРМЫ
+// ============================================
+const resetForm = () => {
+  const today = new Date().toISOString().split('T')[0];
+  form.value = {
+    title: '',
+    group: '',
+    teacher: '',
+    students_count: 0,
+    date: today,
+    start_time: '09:00',
+    end_time: '11:00',
+    template_id: null,
+    status: 'Запланировано',
+    notes: '',
+    participant_type: ''
+  };
+  equipmentList.value = [];
+};
+
+// ============================================
+//  ЗАПОЛНЕНИЕ ИЗ LESSON
+// ============================================
+const fillForm = (val) => {
+  form.value = {
+    title: val.title || '',
+    group: val.group || '',
+    teacher: val.teacher || '',
+    students_count: val.students_count || 0,
+    date: val.date || '',
+    start_time: val.start_time || '',
+    end_time: val.end_time || '',
+    template_id: val.template_id || null,
+    status: val.status || 'Запланировано',
+    notes: val.notes || '',
+    participant_type: val.participant_type || ''
+  };
+
+  if (val.equipment_list && Array.isArray(val.equipment_list)) {
+    equipmentList.value = val.equipment_list.map(item => item.equipment_id);
+  } else {
+    equipmentList.value = [];
   }
 };
 
@@ -305,7 +334,7 @@ const loadTemplateEquipment = () => {
       if (!props.lesson) {
         form.value.title = template.title || '';
       }
-      
+
       if (template?.equipment_list) {
         let equipList = template.equipment_list;
         if (typeof equipList === 'string') {
@@ -364,7 +393,6 @@ const submit = async () => {
     return;
   }
 
-  // ✅ Проверяем, что выбрано только исправное оборудование
   const invalidEquipment = [];
   for (const id of equipmentList.value) {
     const eq = equipmentStore.getById(id);
@@ -424,54 +452,32 @@ const submit = async () => {
 };
 
 // ============================================
-//  WATCH
-// ============================================
-watch(() => props.lesson, (val) => {
-  if (val) {
-    form.value = {
-      title: val.title || '',
-      group: val.group || '',
-      teacher: val.teacher || '',
-      students_count: val.students_count || 0,
-      date: val.date || '',
-      start_time: val.start_time || '',
-      end_time: val.end_time || '',
-      template_id: val.template_id || null,
-      status: val.status || 'Запланировано',
-      notes: val.notes || '',
-      participant_type: val.participant_type || ''
-    };
-    
-    if (val.equipment_list && Array.isArray(val.equipment_list)) {
-      equipmentList.value = val.equipment_list.map(item => item.equipment_id);
-    } else {
-      equipmentList.value = [];
-    }
-  } else {
-    const today = new Date().toISOString().split('T')[0];
-    form.value = {
-      title: '',
-      group: '',
-      teacher: '',
-      students_count: 0,
-      date: today,
-      start_time: '09:00',
-      end_time: '11:00',
-      template_id: null,
-      status: 'Запланировано',
-      notes: '',
-      participant_type: ''
-    };
-    equipmentList.value = [];
-  }
-}, { immediate: true });
-
-// ============================================
-//  БЛОКИРОВКА СКРОЛЛА ПРИ ОТКРЫТИИ/ЗАКРЫТИИ
+//  WATCH: visible
 // ============================================
 watch(() => props.visible, (val) => {
   toggleBodyScroll(val);
-}, { immediate: true });
+
+  if (!val) return;
+
+  if (props.lesson) {
+    fillForm(props.lesson);
+  } else {
+    resetForm();
+  }
+}, { immediate: false });
+
+// ============================================
+//  WATCH: lesson (когда drawer уже открыт)
+// ============================================
+watch(() => props.lesson, (val) => {
+  if (!props.visible) return;
+
+  if (val) {
+    fillForm(val);
+  } else {
+    resetForm();
+  }
+});
 
 // ============================================
 //  ОБРАБОТЧИКИ
@@ -495,10 +501,9 @@ const handleKeydown = (e) => {
 onMounted(async () => {
   await Promise.all([
     templatesStore.fetchAll(),
-    // ✅ Загружаем ВСЁ оборудование
     equipmentStore.fetchAll()
   ]);
-  
+
   document.addEventListener('keydown', handleKeydown);
 });
 

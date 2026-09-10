@@ -1,5 +1,17 @@
-<script>
+<script setup>
+import { onMounted } from 'vue';
+import { useAuthStore } from './stores/auth.store';
+import { useTabSync } from './composables/useTabSync';
+
+const authStore = useAuthStore();
+
+useTabSync();
+
+onMounted(async () => {
+  await authStore.init();
+});
 </script>
+
 <template>
   <router-view />
 </template>

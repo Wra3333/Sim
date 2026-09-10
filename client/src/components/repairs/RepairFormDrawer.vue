@@ -139,16 +139,13 @@ const form = ref({
 // ============================================
 //  ДАТА
 // ============================================
-
-// Текущая дата+время в формате для <input type="datetime-local">
 const getCurrentDateTimeLocal = () => {
   const now = new Date();
   const offset = now.getTimezoneOffset();
   const local = new Date(now.getTime() - offset * 60 * 1000);
-  return local.toISOString().slice(0, 16);   // "YYYY-MM-DDTHH:MM"
+  return local.toISOString().slice(0, 16);
 };
 
-// Конвертация даты из БД → формат для <input type="datetime-local">
 const toDateTimeLocal = (dateValue) => {
   if (!dateValue) return getCurrentDateTimeLocal();
 
@@ -156,11 +153,9 @@ const toDateTimeLocal = (dateValue) => {
     let date;
 
     if (typeof dateValue === 'string') {
-      // ISO с 'Z' или '+03:00' — парсим как UTC/ISO
       if (dateValue.includes('Z') || /[+-]\d{2}:\d{2}$/.test(dateValue)) {
         date = new Date(dateValue);
       } else {
-        // Строка без таймзоны — считаем локальной
         date = new Date(dateValue.length === 16 ? dateValue + ':00' : dateValue);
       }
     } else if (dateValue instanceof Date) {
@@ -175,8 +170,7 @@ const toDateTimeLocal = (dateValue) => {
 
     const offset = date.getTimezoneOffset();
     const local = new Date(date.getTime() - offset * 60 * 1000);
-    return local.toISOString().slice(0, 16);   // "YYYY-MM-DDTHH:MM"
-
+    return local.toISOString().slice(0, 16);
   } catch (e) {
     return getCurrentDateTimeLocal();
   }
@@ -199,58 +193,55 @@ const toggleBodyScroll = (disable) => {
 const fillForm = (data) => {
   if (!data) return;
 
-  console.log('🔍 [fillForm] data.detection_date (raw):', data.detection_date);
-
-  const converted = toDateTimeLocal(data.detection_date);
-  console.log('🔍 [fillForm] → toDateTimeLocal:', converted);
-
   form.value = {
     equipment_ids: data.equipment_ids || (data.equipment_id ? [data.equipment_id] : []),
-    detection_date: converted,
+    detection_date: toDateTimeLocal(data.detection_date),
     nature_of_malfunction: data.nature_of_malfunction || '',
     detected_by: data.detected_by || '',
     repair_possibility: data.repair_possibility || 'Самостоятельно'
   };
-
-  console.log('🔍 [fillForm] form.detection_date:', form.value.detection_date);
 };
 
 // ============================================
-//  WATCH: props.repair
+//  СБРОС ФОРМЫ
 // ============================================
-watch(() => props.repair, (val) => {
-  if (val) {
-    fillForm(val);
-  }
-}, { immediate: true });
+const resetForm = () => {
+  form.value = {
+    equipment_ids: props.equipmentId ? [props.equipmentId] : [],
+    detection_date: getCurrentDateTimeLocal(),
+    nature_of_malfunction: '',
+    detected_by: '',
+    repair_possibility: 'Самостоятельно'
+  };
+};
 
 // ============================================
-//  WATCH: props.visible
+//  WATCH: visible
 // ============================================
 watch(() => props.visible, (val) => {
-  if (val && props.repair) {
-    fillForm(props.repair);
-  }
-  if (val && !props.repair) {
-    form.value = {
-      equipment_ids: props.equipmentId ? [props.equipmentId] : [],
-      detection_date: getCurrentDateTimeLocal(),
-      nature_of_malfunction: '',
-      detected_by: '',
-      repair_possibility: 'Самостоятельно'
-    };
-  }
   toggleBodyScroll(val);
-}, { immediate: true });
+
+  if (!val) return;
+
+  if (props.repair) {
+    fillForm(props.repair);
+  } else {
+    resetForm();
+  }
+}, { immediate: false });
 
 // ============================================
-//  WATCH: props.equipmentId
+//  WATCH: repair (когда drawer уже открыт)
 // ============================================
-watch(() => props.equipmentId, (val) => {
-  if (val && !props.repair) {
-    form.value.equipment_ids = [val];
+watch(() => props.repair, (val) => {
+  if (!props.visible) return;
+
+  if (val) {
+    fillForm(val);
+  } else {
+    resetForm();
   }
-}, { immediate: true });
+});
 
 // ============================================
 //  ЗАГРУЗКА ОБОРУДОВАНИЯ
@@ -297,7 +288,6 @@ const submit = async () => {
   try {
     loading.value = true;
 
-    // Добавляем секунды для бэкенда: "YYYY-MM-DDTHH:MM:SS"
     const detectionDate = form.value.detection_date.length === 16
       ? form.value.detection_date + ':00'
       : form.value.detection_date;
