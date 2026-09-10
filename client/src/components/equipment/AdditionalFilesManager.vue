@@ -160,6 +160,11 @@ const confirmDelete = (fileId) => {
 
 const handleDelete = async () => {
   if (!deleteFileId.value) return;
+  console.log('handleDelete called', {
+    deleteFileId: deleteFileId.value,
+    equipmentId: props.equipmentId,
+    time: performance.now(),
+  });
 
   try {
     await equipmentApi.deleteAdditionalFile(props.equipmentId, deleteFileId.value);

@@ -134,7 +134,6 @@
               :equipment-id="equipmentId"
               :files="form.additional_files || []"
               @update:files="updateFiles"
-              @fileDeleted="handleFileDeleted"
             />
             <div v-else class="alert-info">
               Сохраните оборудование, чтобы загружать файлы
@@ -287,28 +286,6 @@ const fillForm = (val) => {
 // ============================================
 const updateFiles = (files) => {
   form.value.additional_files = files;
-};
-
-const handleFileDeleted = async ({ equipmentId, fileId }) => {
-  try {
-    await store.deleteFile(equipmentId, fileId);
-
-    const updatedEquipment = store.getById(equipmentId);
-    if (updatedEquipment) {
-      form.value.additional_files = updatedEquipment.additional_files || [];
-      emit('update:equipment', updatedEquipment);
-      toast.success('Файл удален');
-    } else {
-      await store.fetchAll();
-      const refreshedEquipment = store.getById(equipmentId);
-      if (refreshedEquipment) {
-        form.value.additional_files = refreshedEquipment.additional_files || [];
-        emit('update:equipment', refreshedEquipment);
-      }
-    }
-  } catch (error) {
-    toast.error(error?.response?.data?.message || "Ошибка удаления файла");
-  }
 };
 
 const handleFileUpload = (event) => {
