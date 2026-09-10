@@ -9,7 +9,7 @@
 
       <ProblemTemplatesAlert 
         :templates="templatesItems" 
-        :equipment-list="equipmentItems" 
+        :equipment-list="allEquipment" 
         :on-edit-click="openEditForm" 
       />
 
@@ -19,7 +19,7 @@
           Создать шаблон
         </button>
         <span class="hotkey-hint">
-          <kbd>Enter</kbd> для открытия/закрытия формы
+          Нажмите <kbd>Enter</kbd> для открытия/закрытия формы
         </span>
       </div>
 
@@ -46,7 +46,12 @@
 
         <div class="filter-group">
           <label>Поиск</label>
-          <input v-model="templatesFilters.search" type="text" class="form-control" placeholder="Поиск по названию..." />
+          <input 
+            v-model="templatesFilters.search" 
+            type="text" 
+            class="form-control" 
+            placeholder="Поиск по названию..." 
+          />
         </div>
 
         <div class="filter-group actions">
@@ -81,58 +86,15 @@
             </tr>
           </thead>
           <tbody>
-            <tr 
+            <TemplateCard 
               v-for="template in paginatedItems" 
-              :key="template.id"
-              @click="handleRowClick(template)"
-            >
-              <td class="template-id">#{{ template.id }}</td>
-              <td>
-                <strong>{{ template.title }}</strong>
-                <span v-if="template.description" class="template-desc">{{ template.description }}</span>
-              </td>
-              <td>{{ template.discipline || '—' }}</td>
-              <td>
-                <div class="equipment-preview">
-                  <span 
-                    v-for="(item, index) in getEquipmentPreview(template)" 
-                    :key="index"
-                    class="equipment-tag"
-                  >
-                    {{ item }}
-                  </span>
-                  <span v-if="getEquipmentCount(template) > 3" class="equipment-tag more">
-                    +{{ getEquipmentCount(template) - 3 }}
-                  </span>
-                  <span v-if="getEquipmentCount(template) === 0" class="no-equipment">—</span>
-                </div>
-              </td>
-              <td>
-                <span class="badge" :class="template.is_active ? 'badge-success' : 'badge-secondary'">
-                  <IconCheck v-if="template.is_active" class="badge-icon" />
-                  <IconAlert v-else class="badge-icon" />
-                  {{ template.is_active ? 'Активен' : 'Неактивен' }}
-                </span>
-              </td>
-              <td @click.stop>
-                <div class="table-actions">
-                  <button 
-                    class="btn btn-sm btn-outline-primary" 
-                    @click="openEditForm(template)" 
-                    title="Редактировать"
-                  >
-                    <IconEdit class="btn-icon" />
-                  </button>
-                  <button 
-                    class="btn btn-sm btn-outline-danger" 
-                    @click="deleteTemplate(template.id)" 
-                    title="Удалить"
-                  >
-                    <IconTrash class="btn-icon" />
-                  </button>
-                </div>
-              </td>
-            </tr>
+              :key="template.id" 
+              :template="template"
+              :all-equipment="allEquipment" 
+              @row-click="handleRowClick" 
+              @edit="openEditForm" 
+              @delete="deleteTemplate" 
+            />
           </tbody>
         </table>
       </div>
@@ -153,15 +115,15 @@
         @save="onSaved" 
       />
 
-      <ConfirmModal
-        v-model:visible="show"
-        :title="config.title"
+      <ConfirmModal 
+        v-model:visible="show" 
+        :title="config.title" 
         :message="config.message"
-        :confirm-text="config.confirmText"
-        :cancel-text="config.cancelText"
+        :confirm-text="config.confirmText" 
+        :cancel-text="config.cancelText" 
         :confirm-variant="config.confirmVariant"
-        @confirm="onConfirm"
-        @cancel="onCancel"
+        @confirm="onConfirm" 
+        @cancel="onCancel" 
       />
     </div>
 
@@ -169,7 +131,7 @@
       <ProblemEquipmentSidebar 
         :lessons="lessonsItems" 
         :templates="templatesItems" 
-        :equipment-list="equipmentItems" 
+        :equipment-list="allEquipment"
         :limit="3" 
         :show-actions="false" 
         :on-lesson-click="(id) => router.push(`/lessons/${id}`)"
@@ -188,7 +150,7 @@
             :key="discipline" 
             class="filter-item"
             :class="{ active: templatesFilters.discipline === discipline }"
-            @click="templatesFilters.discipline = discipline; applyFilters()"
+            @click="toggleDiscipline(discipline)"
           >
             <span class="filter-name">{{ discipline }}</span>
             <span class="filter-count">{{ getDisciplineCount(discipline) }}</span>
@@ -211,6 +173,7 @@ import { useAppStore } from '../stores/appStore';
 import { useToastStore } from '../stores/toastStore';
 import { useConfirm } from '../composables/useConfirm';
 import TemplateFormDrawer from '../components/templates/TemplateFormDrawer.vue';
+import TemplateCard from '../components/templates/TemplateCard.vue';
 import ConfirmModal from '../components/ConfirmModal.vue';
 import ProblemEquipmentSidebar from '../components/ProblemEquipmentSidebar.vue';
 import ProblemTemplatesAlert from '../components/ProblemTemplatesAlert.vue';
@@ -220,12 +183,7 @@ import {
   IconPlus,
   IconReset,
   IconList,
-  IconLoading,
-  IconCheck,
-  IconAlert,
-  IconEdit,
-  IconTrash,
-  IconUsers
+  IconLoading
 } from '../components/icons';
 
 // ============================================
@@ -247,8 +205,8 @@ const { show, config, confirm, onConfirm, onCancel } = useConfirm();
 
 const { items: templatesItems } = storeToRefs(templatesStore);
 const { items: lessonsItems } = storeToRefs(lessonsStore);
-const { items: equipmentItems } = storeToRefs(equipmentStore);
-const { filters, pagination, editing } = storeToRefs(appStore);
+const { allEquipment } = storeToRefs(equipmentStore);
+const { filters, pagination } = storeToRefs(appStore);
 
 // ============================================
 // СОСТОЯНИЕ
@@ -278,7 +236,6 @@ const templatesPagination = computed({
   }
 });
 
-// Текущая страница
 const currentPage = computed({
   get: () => templatesPagination.value.page || 1,
   set: (val) => {
@@ -309,7 +266,7 @@ const filterConfig = {
       if (!value) return true;
       const query = value.toLowerCase().trim();
       return item.title?.toLowerCase().includes(query) ||
-             item.discipline?.toLowerCase().includes(query);
+        item.discipline?.toLowerCase().includes(query);
     }
   }
 };
@@ -317,7 +274,7 @@ const filterConfig = {
 const filteredTemplates = computed(() => {
   const list = [...templatesItems.value];
   const allFilters = { ...templatesFilters.value };
-  
+
   return list.filter(item => {
     let result = true;
     for (const [key, config] of Object.entries(filterConfig)) {
@@ -350,30 +307,14 @@ const getDisciplineCount = (discipline) => {
   return templatesItems.value.filter(t => t.discipline === discipline).length;
 };
 
-// ============================================
-// ОБОРУДОВАНИЕ В ШАБЛОНЕ
-// ============================================
-const getEquipmentList = (template) => {
-  if (!template.equipment_list) return [];
-  try {
-    return typeof template.equipment_list === 'string' 
-      ? JSON.parse(template.equipment_list) 
-      : template.equipment_list;
-  } catch {
-    return [];
+// ✅ TOGGLE: клик по дисциплине — если уже выбрана, снимаем
+const toggleDiscipline = (discipline) => {
+  if (templatesFilters.value.discipline === discipline) {
+    templatesFilters.value = { ...templatesFilters.value, discipline: '' };
+  } else {
+    templatesFilters.value = { ...templatesFilters.value, discipline };
   }
-};
-
-const getEquipmentCount = (template) => {
-  return getEquipmentList(template).length;
-};
-
-const getEquipmentPreview = (template) => {
-  const list = getEquipmentList(template);
-  return list.slice(0, 3).map(item => {
-    const eq = equipmentItems.value.find(e => e.id === item.equipment_id);
-    return eq ? eq.name : 'Оборудование #' + item.equipment_id;
-  });
+  applyFilters();
 };
 
 // ============================================
@@ -524,9 +465,9 @@ const deleteTemplate = async (id) => {
 // ============================================
 const openFromUrl = async () => {
   if (isUpdatingFromUrl) return false;
-  
+
   const templateEdit = route.query.template_edit;
-  
+
   if (templateEdit) {
     const id = parseInt(templateEdit, 10);
     if (!isNaN(id) && id > 0) {
@@ -567,19 +508,17 @@ watch(
   { deep: true }
 );
 
-// При изменении страницы - сохраняем в URL
 watch(currentPage, (newPage) => {
   const query = { ...route.query };
   query.t_p = newPage || 1;
   router.replace({ query });
 });
 
-// Исправленный watch для URL параметра
 watch(
   () => route.query.template_edit,
   async (newVal) => {
     if (isUpdatingFromUrl) return;
-    
+
     if (newVal) {
       await openFromUrl();
     } else {
@@ -601,16 +540,16 @@ watch(
 // ============================================
 onMounted(async () => {
   await loadData();
-  
+
   if (route.query.t_p) {
     const page = parseInt(route.query.t_p, 10);
     if (!isNaN(page) && page > 0) {
       currentPage.value = page;
     }
   }
-  
+
   await openFromUrl();
-  
+
   document.addEventListener('keydown', handleKeydown);
 });
 
@@ -733,33 +672,6 @@ p {
   color: white;
 }
 
-.btn-sm {
-  padding: 4px 10px;
-  font-size: 13px;
-}
-
-.btn-outline-primary {
-  background: transparent;
-  color: #0d6efd;
-  border: 1px solid #0d6efd;
-}
-
-.btn-outline-primary:hover {
-  background: #0d6efd;
-  color: white;
-}
-
-.btn-outline-danger {
-  background: transparent;
-  color: #dc3545;
-  border: 1px solid #dc3545;
-}
-
-.btn-outline-danger:hover {
-  background: #dc3545;
-  color: white;
-}
-
 /* ============================================
    ФИЛЬТРЫ
    ============================================ */
@@ -849,113 +761,8 @@ p {
   vertical-align: middle;
 }
 
-.templates-table tbody tr {
-  cursor: pointer;
-  transition: background 0.15s;
-}
-
-.templates-table tbody tr:hover {
-  background: #f0f7ff;
-}
-
 .templates-table td:last-child {
   cursor: default;
-}
-
-.template-id {
-  font-weight: 600;
-  color: #0d6efd;
-}
-
-.template-desc {
-  display: block;
-  font-size: 12px;
-  color: #6c757d;
-}
-
-.equipment-preview {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 4px;
-}
-
-.equipment-tag {
-  display: inline-block;
-  background: #e8f0fe;
-  color: #1a73e8;
-  padding: 0 8px;
-  border-radius: 10px;
-  font-size: 11px;
-  white-space: nowrap;
-}
-
-.equipment-tag.more {
-  background: #e9ecef;
-  color: #495057;
-}
-
-.no-equipment {
-  color: #adb5bd;
-  font-size: 13px;
-}
-
-/* ============================================
-   БЕЙДЖИ
-   ============================================ */
-.badge {
-  display: inline-block;
-  padding: 2px 10px;
-  border-radius: 12px;
-  font-size: 11px;
-  font-weight: 500;
-  display: inline-flex;
-  align-items: center;
-  gap: 4px;
-}
-
-.badge .badge-icon {
-  width: 12px;
-  height: 12px;
-  stroke: currentColor;
-}
-
-.badge-success {
-  background: #d4edda;
-  color: #155724;
-}
-
-.badge-secondary {
-  background: #e9ecef;
-  color: #495057;
-}
-
-/* ============================================
-   ДЕЙСТВИЯ В ТАБЛИЦЕ
-   ============================================ */
-.table-actions {
-  display: flex;
-  gap: 4px;
-  flex-wrap: wrap;
-}
-
-.table-actions .btn {
-  padding: 4px 8px;
-  font-size: 12px;
-  border-radius: 4px;
-  border: none;
-  cursor: pointer;
-  transition: all 0.15s;
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  width: 28px;
-  height: 28px;
-}
-
-.table-actions .btn .btn-icon {
-  width: 14px;
-  height: 14px;
-  stroke: currentColor;
 }
 
 /* ============================================
@@ -1097,13 +904,13 @@ p {
   .templates-wrapper {
     flex-direction: column;
   }
-  
+
   .templates-sidebar {
     width: 100%;
     flex-direction: row;
     flex-wrap: wrap;
   }
-  
+
   .templates-sidebar .sidebar-card {
     flex: 1;
     min-width: 200px;
@@ -1115,19 +922,19 @@ p {
     flex-direction: column;
     align-items: stretch;
   }
-  
+
   .filter-group {
     min-width: 100%;
   }
-  
+
   .actions {
     flex-direction: row;
   }
-  
+
   .templates-table {
     font-size: 13px;
   }
-  
+
   .templates-table th,
   .templates-table td {
     padding: 8px 10px;

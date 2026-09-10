@@ -1,5 +1,5 @@
 <template>
-  <!-- ТРИГГЕР ВСЕГДА ВИДИМ - снаружи сайдбара -->
+  <!-- ТРИГГЕР -->
   <div 
     class="sidebar-trigger" 
     @mouseenter="showSidebar"
@@ -68,7 +68,12 @@
         <router-link to="/register" class="add-user-btn" title="Создать пользователя">
           <IconPlus />
         </router-link>
-        <button class="logout-btn" @click="handleLogout" title="Выйти">
+        <button 
+          class="logout-btn" 
+          @click="handleLogout" 
+          :disabled="loggingOut"
+          title="Выйти"
+        >
           <IconLogout />
         </button>
       </div>
@@ -77,7 +82,7 @@
 </template>
 
 <script setup>
-import { computed, onMounted, onUnmounted } from 'vue';
+import { ref, computed, onMounted, onUnmounted } from 'vue';
 import { useAuthStore } from '../../stores/auth.store';
 import { useRouter } from 'vue-router';
 import { useAppStore } from '../../stores/appStore';
@@ -99,16 +104,33 @@ const authStore = useAuthStore();
 const router = useRouter();
 const appStore = useAppStore();
 
-// Состояние сайдбара из appStore
+const loggingOut = ref(false);
+
 const sidebarVisible = computed(() => appStore.sidebar.visible);
 
 const showSidebar = () => appStore.showSidebar();
 const hideSidebar = () => appStore.hideSidebar();
 const toggleSidebar = () => appStore.toggleSidebar();
 
+// ============================================
+//  ВЫХОД
+// ============================================
 const handleLogout = async () => {
-  await authStore.logout();
-  router.push('/login');
+  if (loggingOut.value) return;
+  
+  loggingOut.value = true;
+  console.log('🚪 [Sidebar] handleLogout вызван');
+  
+  try {
+    await authStore.logout();
+    console.log('✅ [Sidebar] logout выполнен, редирект на /login');
+  } catch (e) {
+    console.error('❌ [Sidebar] Ошибка logout:', e);
+  } finally {
+    loggingOut.value = false;
+    // ✅ Редирект в любом случае
+    router.push('/login');
+  }
 };
 
 const truncateName = (name, maxLength) => {
@@ -123,23 +145,28 @@ const truncateEmail = (email, maxLength) => {
   return email.substring(0, maxLength) + '...';
 };
 
+// ============================================
+//  ХОТКЕЙ: ESCAPE
+// ============================================
+const handleKeydown = (e) => {
+  if (e.key === 'Escape') {
+    e.preventDefault();
+    toggleSidebar();
+  }
+};
+
 onMounted(() => {
-  document.addEventListener('keydown', (e) => {
-    if (e.key === 'Escape') {
-      e.preventDefault();
-      toggleSidebar();
-    }
-  });
+  document.addEventListener('keydown', handleKeydown);
 });
 
 onUnmounted(() => {
-  document.removeEventListener('keydown', toggleSidebar);
+  document.removeEventListener('keydown', handleKeydown);
 });
 </script>
 
 <style scoped>
 /* ============================================
-   ТРИГГЕР - ВСЕГДА ВИДИМ
+   ТРИГГЕР
    ============================================ */
 .sidebar-trigger {
   position: fixed;
@@ -158,7 +185,7 @@ onUnmounted(() => {
 }
 
 /* ============================================
-   САЙДБАР - НОРМАЛЬНЫЙ ЭЛЕМЕНТ
+   САЙДБАР
    ============================================ */
 .sidebar {
   width: 260px;
@@ -180,7 +207,6 @@ onUnmounted(() => {
   z-index: 10;
 }
 
-/* СКРЫТЫЙ САЙДБАР */
 .sidebar-hidden {
   width: 0;
   padding: 0;
@@ -376,9 +402,14 @@ onUnmounted(() => {
   padding: 0;
 }
 
-.logout-btn:hover {
+.logout-btn:hover:not(:disabled) {
   background: rgba(255, 255, 255, 0.2);
   color: #ffffff;
+}
+
+.logout-btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
 }
 
 .logout-btn :deep(svg) {

@@ -103,14 +103,24 @@ const handleSubmit = async () => {
   min-height: 100vh;
   background: #f5f8fa;
 }
+.auth-page{
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 100vh;
+  background: #f5f8fa;
+}
+.auth-page .logo-wrapper{
+  display: block;
+}
 
 .auth-card {
   background: white;
-  padding: 40px;
+  padding: 45px 65px 100px;
   border-radius: 16px;
   box-shadow: 0 4px 24px rgba(0, 0, 0, 0.06);
   width: 100%;
-  max-width: 400px;
+  max-width: 630px;
   border: 1px solid #e8ecf1;
 }
 
@@ -123,11 +133,6 @@ const handleSubmit = async () => {
   display: flex;
   justify-content: center;
   margin-bottom: 16px;
-}
-
-.auth-logo .logo-icon {
-  width: 160px;
-  height: auto;
 }
 
 .auth-header h1 {

@@ -1,212 +1,270 @@
 <template>
-  <div class="template-item">
-    <div class="template-info">
-      <h3>
-        <IconTemplates class="title-icon" />
-        {{ title }}
-      </h3>
-      <div class="meta">
-        <span>
-          <IconBook class="meta-icon" />
-          {{ discipline }}
-        </span>
-      </div>
-      <div class="equipment-preview" v-if="hasEquipmentPreview">
-        <span class="badge badge-secondary" v-for="(item, index) in equipmentPreview" :key="index">
-          <IconEquipment class="badge-icon" />
+  <tr 
+    class="template-card-row"
+    @click="handleRowClick"
+  >
+    <td class="template-id">#{{ template.id }}</td>
+
+    <td>
+      <strong class="template-title">{{ template.title }}</strong>
+      <span v-if="template.description" class="template-desc">
+        {{ template.description }}
+      </span>
+    </td>
+
+    <td class="discipline-cell">{{ template.discipline || '—' }}</td>
+
+    <td>
+      <div class="equipment-preview">
+        <span 
+          v-for="(item, index) in equipmentPreview" 
+          :key="index"
+          class="equipment-tag"
+          :class="{ 'equipment-tag-broken': isPreviewBroken(index) }"
+        >
           {{ item }}
         </span>
-        <span v-if="hasMoreEquipment" class="badge badge-more">
-          +{{ previewCount - 3 }}
+        <span v-if="equipmentCount > 3" class="equipment-tag more">
+          +{{ equipmentCount - 3 }}
         </span>
+        <span v-if="equipmentCount === 0" class="no-equipment">—</span>
       </div>
-      <span class="badge" :class="statusClass">
-        <IconCheck v-if="isActive" class="badge-icon" />
+    </td>
+
+    <td>
+      <span class="badge" :class="template.is_active ? 'badge-success' : 'badge-secondary'">
+        <IconCheck v-if="template.is_active" class="badge-icon" />
         <IconAlert v-else class="badge-icon" />
-        {{ statusText }}
+        {{ template.is_active ? 'Активен' : 'Неактивен' }}
       </span>
-    </div>
-    <div class="template-actions">
-      <button class="btn btn-sm btn-outline-primary" @click="$emit('edit', template)">
-        <IconEdit class="btn-icon" />
-        Редактировать
-      </button>
-      <button class="btn btn-sm btn-outline-danger" @click="$emit('delete', template.id)">
-        <IconTrash class="btn-icon" />
-        Удалить
-      </button>
-    </div>
-  </div>
+    </td>
+
+    <td class="actions-cell" @click.stop>
+      <div class="table-actions">
+        <button 
+          class="btn btn-sm btn-outline-primary" 
+          @click="$emit('edit', template)" 
+          title="Редактировать"
+        >
+          <IconEdit class="btn-icon" />
+        </button>
+        <button 
+          class="btn btn-sm btn-outline-danger" 
+          @click="$emit('delete', template.id)" 
+          title="Удалить"
+        >
+          <IconTrash class="btn-icon" />
+        </button>
+      </div>
+    </td>
+  </tr>
 </template>
 
 <script setup>
 import { computed } from 'vue';
 import {
-  IconTemplates,
-  IconBook,
-  IconEquipment,
   IconCheck,
   IconAlert,
   IconEdit,
   IconTrash
 } from '../icons';
 
+// ============================================
+//  PROPS
+// ============================================
 const props = defineProps({
-  template: { 
-    type: Object, 
-    required: true 
+  template: {
+    type: Object,
+    required: true
   },
-  equipmentList: {
+  allEquipment: {
     type: Array,
     default: () => []
   }
 });
 
-const emit = defineEmits(['edit', 'delete']);
+// ============================================
+//  EMITS
+// ============================================
+const emit = defineEmits(['row-click', 'edit', 'delete']);
 
-const title = computed(() => props.template.title);
-const discipline = computed(() => props.template.discipline);
-const isActive = computed(() => props.template.is_active);
-
-const statusClass = computed(() => 
-  isActive.value ? 'badge-success' : 'badge-secondary'
-);
-
-const statusText = computed(() => 
-  isActive.value ? 'Активен' : 'Неактивен'
-);
-
-// Получить полное название оборудования
-const getEquipmentFullName = (id) => {
-  const eq = props.equipmentList.find(e => e.id === id);
-  if (!eq) return `Оборудование #${id}`;
-  return `${eq.inventory_name || eq.name} (${eq.inventory_number})`;
+// ============================================
+//  КЛИК ПО СТРОКЕ
+// ============================================
+const handleRowClick = () => {
+  emit('row-click', props.template);
 };
 
-const equipmentPreview = computed(() => {
-  const list = props.template.equipment_list;
-  if (!list) return [];
+// ============================================
+//  ОБОРУДОВАНИЕ
+// ============================================
+const equipmentList = computed(() => {
+  if (!props.template.equipment_list) return [];
   try {
-    const items = typeof list === 'string' ? JSON.parse(list) : list;
-    return items.map(item => getEquipmentFullName(item.equipment_id)).slice(0, 3);
+    return typeof props.template.equipment_list === 'string'
+      ? JSON.parse(props.template.equipment_list)
+      : props.template.equipment_list;
   } catch {
     return [];
   }
 });
 
-const hasEquipmentPreview = computed(() => equipmentPreview.value.length > 0);
-const previewCount = computed(() => {
-  const list = props.template.equipment_list;
-  if (!list) return 0;
-  try {
-    const items = typeof list === 'string' ? JSON.parse(list) : list;
-    return items.length;
-  } catch {
-    return 0;
-  }
+const equipmentCount = computed(() => equipmentList.value.length);
+
+const equipmentPreview = computed(() => {
+  return equipmentList.value.slice(0, 3).map(item => {
+    const eq = props.allEquipment.find(e => e.id === item.equipment_id);
+    if (!eq) return 'Оборудование #' + item.equipment_id;
+
+    const isBroken =
+      eq.working_status !== 'Исправен' ||
+      eq.write_off_status === 'Списан' ||
+      eq.write_off_status === 'На списание' ||
+      eq.is_archived;
+
+    return isBroken ? `${eq.name} (${eq.working_status})` : eq.name;
+  });
 });
 
-const hasMoreEquipment = computed(() => previewCount.value > 3);
+const isPreviewBroken = (index) => {
+  const item = equipmentList.value[index];
+  if (!item) return false;
+  const eq = props.allEquipment.find(e => e.id === item.equipment_id);
+  if (!eq) return false;
+  return (
+    eq.working_status !== 'Исправен' ||
+    eq.write_off_status === 'Списан' ||
+    eq.write_off_status === 'На списание' ||
+    eq.is_archived
+  );
+};
 </script>
 
 <style scoped>
-.template-item {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  padding: 16px 20px;
-  background: #fff;
-  border-radius: 8px;
-  border-left: 4px solid #0d6efd;
-  border: 1px solid #e9ecef;
-  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.06);
-  transition: all 0.2s;
+/* ============================================
+   СТРОКА
+   ============================================ */
+.template-card-row {
+  cursor: pointer;
+  transition: background 0.15s;
 }
 
-.template-item:hover {
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
+.template-card-row:hover {
+  background: #f0f7ff;
 }
 
-.template-info h3 {
-  margin: 0 0 4px 0;
-  font-size: 16px;
+/* ============================================
+   ЯЧЕЙКИ
+   ============================================ */
+.template-card-row td {
+  padding: 10px 16px;
+  border-bottom: 1px solid #e9ecef;
+  vertical-align: middle;
+  line-height: 1.4;
+}
+
+.template-id {
+  font-weight: 600;
+  color: #0d6efd;
+}
+
+.template-title {
+  font-size: 14px;
   font-weight: 600;
   color: #212529;
-  display: flex;
-  align-items: center;
-  gap: 6px;
+  display: block;
 }
 
-.template-info h3 .title-icon {
-  width: 18px;
-  height: 18px;
-  stroke: #212529;
-}
-
-.template-info .meta {
-  display: flex;
-  gap: 16px;
-  margin: 4px 0;
+.template-desc {
+  display: block;
+  font-size: 12px;
   color: #6c757d;
-  font-size: 14px;
-  flex-wrap: wrap;
+  margin-top: 2px;
 }
 
-.template-info .meta span {
+.discipline-cell {
+  color: #495057;
+  white-space: nowrap;
+}
+
+/* ============================================
+   ОБОРУДОВАНИЕ
+   ============================================ */
+.equipment-preview {
   display: flex;
-  align-items: center;
+  flex-wrap: wrap;
   gap: 4px;
 }
 
-.template-info .meta .meta-icon {
-  width: 14px;
-  height: 14px;
-  stroke: #6c757d;
+.equipment-tag {
+  display: inline-block;
+  background: #e8f0fe;
+  color: #1a73e8;
+  padding: 0 8px;
+  border-radius: 10px;
+  font-size: 11px;
+  white-space: nowrap;
 }
 
-.equipment-preview {
-  display: flex;
-  gap: 6px;
-  margin: 6px 0;
-  flex-wrap: wrap;
+.equipment-tag.more {
+  background: #e9ecef;
+  color: #495057;
 }
 
+.equipment-tag.equipment-tag-broken {
+  background: #fce4ec;
+  color: #c62828;
+  border: 1px solid #ef9a9a;
+}
+
+.no-equipment {
+  color: #adb5bd;
+  font-size: 13px;
+}
+
+/* ============================================
+   БЕЙДЖИ
+   ============================================ */
 .badge {
-  padding: 2px 10px;
+  padding: 4px 10px;
   border-radius: 12px;
   font-size: 11px;
   font-weight: 500;
   display: inline-flex;
   align-items: center;
   gap: 4px;
+  white-space: nowrap;
 }
 
 .badge .badge-icon {
   width: 12px;
   height: 12px;
   stroke: currentColor;
+  flex-shrink: 0;
 }
 
 .badge-success {
-  background: #d1e7dd;
-  color: #0f5132;
+  background: #d4edda;
+  color: #155724;
 }
 
 .badge-secondary {
   background: #e9ecef;
-  color: #41464b;
+  color: #495057;
 }
 
-.badge-more {
-  background: #e9ecef;
-  color: #41464b;
-  font-weight: 600;
+/* ============================================
+   ДЕЙСТВИЯ
+   ============================================ */
+.actions-cell {
+  padding-left: 10px;
 }
 
-.template-actions {
+.table-actions {
   display: flex;
-  gap: 6px;
-  flex-shrink: 0;
+  gap: 4px;
+  justify-content: flex-end;
+  flex-wrap: nowrap;
 }
 
 .btn {
@@ -218,19 +276,35 @@ const hasMoreEquipment = computed(() => previewCount.value > 3);
   transition: all 0.15s;
   display: inline-flex;
   align-items: center;
-  gap: 4px;
+  gap: 6px;
 }
 
 .btn .btn-icon {
+  width: 16px;
+  height: 16px;
+  stroke: currentColor;
+}
+
+.btn-sm {
+  padding: 0;
+  border-radius: 5px;
+  width: 28px;
+  height: 28px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+}
+
+.table-actions .btn .btn-icon {
   width: 14px;
   height: 14px;
-  stroke: currentColor;
 }
 
 .btn-outline-primary {
   background: transparent;
   color: #0d6efd;
-  border-color: #0d6efd;
+  border: 1px solid #0d6efd;
 }
 
 .btn-outline-primary:hover {
@@ -241,16 +315,11 @@ const hasMoreEquipment = computed(() => previewCount.value > 3);
 .btn-outline-danger {
   background: transparent;
   color: #dc3545;
-  border-color: #dc3545;
+  border: 1px solid #dc3545;
 }
 
 .btn-outline-danger:hover {
   background: #dc3545;
   color: white;
-}
-
-.btn-sm {
-  padding: 4px 10px;
-  font-size: 13px;
 }
 </style>

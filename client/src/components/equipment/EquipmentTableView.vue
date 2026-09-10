@@ -70,6 +70,16 @@
                 <button class="btn btn-sm btn-danger" @click="$emit('deletePermanent', item.id)" title="Удалить навсегда">
                   <IconTrash class="btn-icon" />
                 </button>
+                <button 
+                  class="btn btn-sm btn-outline-secondary" 
+                  @click="openFilesMenu($event, item)" 
+                  :title="getFilesCount(item) > 0 ? `Документы (${getFilesCount(item)})` : 'Документы'"
+                >
+                  <IconFolder class="btn-icon" />
+                  <span v-if="getFilesCount(item) > 0" class="files-badge">
+                    {{ getFilesCount(item) }}
+                  </span>
+                </button>
                 <button class="btn btn-sm btn-outline-secondary" @click="$emit('history', item)" title="История">
                   <IconHistory class="btn-icon" />
                 </button>
@@ -80,6 +90,16 @@
                 </button>
                 <button class="btn btn-sm btn-outline-danger" @click="$emit('delete', item.id)" title="В архив">
                   <IconArchive class="btn-icon" />
+                </button>
+                <button 
+                  class="btn btn-sm btn-outline-secondary" 
+                  @click="openFilesMenu($event, item)" 
+                  :title="getFilesCount(item) > 0 ? `Документы (${getFilesCount(item)})` : 'Документы'"
+                >
+                  <IconFolder class="btn-icon" />
+                  <span v-if="getFilesCount(item) > 0" class="files-badge">
+                    {{ getFilesCount(item) }}
+                  </span>
                 </button>
                 <button class="btn btn-sm btn-outline-secondary" @click="$emit('history', item)" title="История">
                   <IconHistory class="btn-icon" />
@@ -114,6 +134,7 @@ import IconTrash from '../icons/IconTrash.vue';
 import IconHistory from '../icons/IconHistory.vue';
 import IconEdit from '../icons/IconEdit.vue';
 import IconArchive from '../icons/IconArchive.vue';
+import IconFolder from '../icons/IconFolder.vue';
 import ContextMenu from './ContextMenu.vue';
 
 const props = defineProps({
@@ -124,7 +145,6 @@ const props = defineProps({
   }
 });
 
-// ✅ ТОЛЬКО ЭТИ ЭМИТЫ (без deleteFile)
 const emit = defineEmits([
   'edit', 'delete', 'deletePermanent', 
   'history', 'restore', 'rowClick'
@@ -149,31 +169,47 @@ const selectedItemFiles = computed(() => {
   return [];
 });
 
-const handleContextMenu = (event, item) => {
+// ============================================
+//  ОТКРЫТИЕ КОНТЕКСТНОГО МЕНЮ
+// ============================================
+
+// ✅ Открытие по клику на иконку «Документы»
+const openFilesMenu = (event, item) => {
   event.preventDefault();
-  
+  event.stopPropagation();
+
   if (contextMenuVisible.value) {
     closeContextMenu();
     return;
   }
-  
+
   selectedItem.value = item;
-  
-  let x = event.clientX;
-  let y = event.clientY;
-  
+  positionMenu(event.clientX, event.clientY);
+};
+
+// ✅ Открытие по правому клику на строку
+const handleContextMenu = (event, item) => {
+  event.preventDefault();
+
+  if (contextMenuVisible.value) {
+    closeContextMenu();
+    return;
+  }
+
+  selectedItem.value = item;
+  positionMenu(event.clientX, event.clientY);
+};
+
+// ✅ Общая функция позиционирования
+const positionMenu = (x, y) => {
   const menuWidth = 380;
   const menuHeight = 420;
-  
-  if (x + menuWidth > window.innerWidth) {
-    x = window.innerWidth - menuWidth - 10;
-  }
-  if (y + menuHeight > window.innerHeight) {
-    y = window.innerHeight - menuHeight - 10;
-  }
+
+  if (x + menuWidth > window.innerWidth) x = window.innerWidth - menuWidth - 10;
+  if (y + menuHeight > window.innerHeight) y = window.innerHeight - menuHeight - 10;
   if (x < 10) x = 10;
   if (y < 10) y = 10;
-  
+
   contextMenuX.value = x;
   contextMenuY.value = y;
   contextMenuVisible.value = true;
@@ -184,7 +220,15 @@ const closeContextMenu = () => {
   selectedItem.value = null;
 };
 
-// ✅ ОБРАБОТЧИК УДАЛЕНИЯ ФАЙЛА (ПРЯМО В СТОР)
+// ✅ Подсчёт файлов
+const getFilesCount = (item) => {
+  const files = item.additional_files || [];
+  return Array.isArray(files) ? files.length : 0;
+};
+
+// ============================================
+//  УДАЛЕНИЕ ФАЙЛА
+// ============================================
 const handleDeleteFile = async ({ equipmentId, fileId }) => {
   try {
     await equipmentStore.deleteFile(equipmentId, fileId);
@@ -196,6 +240,9 @@ const handleDeleteFile = async ({ equipmentId, fileId }) => {
   closeContextMenu();
 };
 
+// ============================================
+//  ХЕЛПЕРЫ
+// ============================================
 const getPhotoUrl = (photo) => {
   if (!photo) return null;
   return `${API_URL}${photo}`;
@@ -299,6 +346,9 @@ onBeforeUnmount(() => {
   cursor: default;
 }
 
+/* ============================================
+   ФОТО
+   ============================================ */
 .photo-cell {
   width: 50px;
   height: 50px;
@@ -331,6 +381,9 @@ onBeforeUnmount(() => {
   color: #adb5bd;
 }
 
+/* ============================================
+   ЯЧЕЙКИ
+   ============================================ */
 .inventory-number {
   font-weight: 600;
   color: #4361ee;
@@ -373,6 +426,9 @@ onBeforeUnmount(() => {
   font-size: 13px;
 }
 
+/* ============================================
+   БЕЙДЖИ
+   ============================================ */
 .badge {
   display: inline-block;
   padding: 2px 10px;
@@ -401,6 +457,9 @@ onBeforeUnmount(() => {
   color: #495057;
 }
 
+/* ============================================
+   ДЕЙСТВИЯ
+   ============================================ */
 .table-actions {
   display: flex;
   gap: 4px;
@@ -408,6 +467,7 @@ onBeforeUnmount(() => {
 }
 
 .btn-sm {
+  position: relative;                /* ✅ для бейджа */
   padding: 4px 8px;
   font-size: 12px;
   border-radius: 4px;
@@ -426,6 +486,24 @@ onBeforeUnmount(() => {
   height: 14px;
 }
 
+/* ✅ Бейдж с количеством файлов */
+.files-badge {
+  position: absolute;
+  top: -4px;
+  right: -4px;
+  background: #0d6efd;
+  color: white;
+  font-size: 9px;
+  font-weight: 700;
+  padding: 1px 5px;
+  border-radius: 8px;
+  min-width: 14px;
+  text-align: center;
+  line-height: 12px;
+  pointer-events: none;
+}
+
+/* Кнопки */
 .btn-sm.btn-outline-primary {
   background: transparent;
   color: #0d6efd;

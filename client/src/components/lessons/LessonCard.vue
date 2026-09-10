@@ -1,216 +1,223 @@
 <template>
-  <div class="lesson-item">
-    <div class="lesson-info">
-      <h3>
-        <IconLessons class="title-icon" />
-        {{ title }}
-      </h3>
-      <div class="meta">
-        <span>
-          <IconUser class="meta-icon" />
-          {{ teacher }}
-        </span>
-        <span>
-          <IconUsers class="meta-icon" />
-          {{ group }}
-        </span>
-        <span>
-          <IconCalendar class="meta-icon" />
-          {{ formattedDate }}
-        </span>
-        <span>
-          <IconClock class="meta-icon" />
-          {{ startTime }} - {{ endTime }}
-        </span>
+  <tr 
+    class="lesson-card-row"
+    @click="handleRowClick"
+  >
+    <td class="lesson-id">#{{ lesson.id }}</td>
+
+    <td>
+      <strong class="lesson-title">{{ lesson.title }}</strong>
+      <span v-if="lesson.notes" class="lesson-notes">{{ lesson.notes }}</span>
+    </td>
+
+    <td class="group-cell">{{ lesson.group || '—' }}</td>
+
+    <td class="teacher-cell">{{ lesson.teacher || '—' }}</td>
+
+    <td class="date-cell">{{ formatDate(lesson.date) }}</td>
+
+    <td class="time-cell">
+      {{ lesson.start_time }}–{{ lesson.end_time }}
+    </td>
+
+    <td class="students-cell">
+      {{ lesson.students_count || 0 }}
+    </td>
+
+    <td class="status-cell">
+      <span class="badge" :class="getStatusClass(lesson.status)">
+        <IconCheck v-if="lesson.status === 'Проведено'" class="badge-icon" />
+        <IconClock v-else-if="lesson.status === 'Запланировано'" class="badge-icon" />
+        <IconAlert v-else class="badge-icon" />
+        {{ lesson.status }}
+      </span>
+    </td>
+
+    <td class="actions-cell" @click.stop>
+      <div class="table-actions">
+        <!-- Завершить -->
+        <button 
+          v-if="lesson.status === 'Запланировано'" 
+          class="btn btn-sm btn-success" 
+          @click="$emit('complete', lesson.id)"
+          title="Завершить"
+        >
+          <IconCheck class="btn-icon" />
+        </button>
+
+        <!-- Редактировать -->
+        <button 
+          class="btn btn-sm btn-outline-primary" 
+          @click="$emit('edit', lesson)"
+          title="Редактировать"
+        >
+          <IconEdit class="btn-icon" />
+        </button>
+
+        <!-- Удалить -->
+        <button 
+          class="btn btn-sm btn-outline-danger" 
+          @click="$emit('delete', lesson.id)"
+          title="Удалить"
+        >
+          <IconTrash class="btn-icon" />
+        </button>
       </div>
-      <div class="badges">
-        <span class="badge" :class="statusBadgeClass">
-          <IconCheck v-if="status === 'Проведено'" class="badge-icon" />
-          <IconClock v-else-if="status === 'Запланировано'" class="badge-icon" />
-          <IconAlert v-else class="badge-icon" />
-          {{ status }}
-        </span>
-        <span v-if="hasTemplate" class="badge badge-info">
-          <IconTemplates class="badge-icon" />
-          {{ templateName }}
-        </span>
-      </div>
-    </div>
-    <div class="lesson-actions">
-      <button
-        class="btn btn-sm btn-success"
-        @click="$emit('complete', lesson.id)"
-        v-if="isPlanned"
-      >
-        <IconCheck class="btn-icon" />
-        Завершить
-      </button>
-      <button class="btn btn-sm btn-outline-primary" @click="$emit('edit', lesson)">
-        <IconEdit class="btn-icon" />
-        Редактировать
-      </button>
-      <button class="btn btn-sm btn-outline-danger" @click="$emit('delete', lesson.id)" v-if="!isCompleted">
-        <IconTrash class="btn-icon" />
-        Удалить
-      </button>
-    </div>
-  </div>
+    </td>
+  </tr>
 </template>
 
 <script setup>
-import { computed } from 'vue';
 import { useFormatters } from '../../composables/useFormatters';
 import { useStatusClasses } from '../../composables/useStatusClasses';
 import {
-  IconLessons,
-  IconUser,
-  IconUsers,
-  IconCalendar,
-  IconClock,
   IconCheck,
+  IconClock,
   IconAlert,
-  IconTemplates,
   IconEdit,
   IconTrash
 } from '../icons';
 
+// ============================================
+//  PROPS
+// ============================================
 const props = defineProps({
-  lesson: { 
-    type: Object, 
-    required: true 
-  },
-  templates: {
-    type: Array,
-    default: () => []
+  lesson: {
+    type: Object,
+    required: true
   }
 });
 
-const emit = defineEmits(['complete', 'edit', 'delete']);
+// ============================================
+//  EMITS
+// ============================================
+const emit = defineEmits(['row-click', 'complete', 'edit', 'delete']);
 
+// ============================================
+//  КОМПОЗАБЛЫ
+// ============================================
 const { formatDate } = useFormatters();
 const { getStatusClass } = useStatusClasses();
 
-const title = computed(() => props.lesson?.title || 'Без названия');
-const teacher = computed(() => props.lesson?.teacher || '—');
-const group = computed(() => props.lesson?.group || '—');
-const status = computed(() => props.lesson?.status || '—');
-const startTime = computed(() => props.lesson?.start_time || '—');
-const endTime = computed(() => props.lesson?.end_time || '—');
-const formattedDate = computed(() => formatDate(props.lesson?.date));
-const statusBadgeClass = computed(() => getStatusClass(props.lesson?.status));
-const isPlanned = computed(() => props.lesson?.status === 'Запланировано');
-const isCompleted = computed(() => props.lesson?.status === 'Проведено');
-const hasTemplate = computed(() => !!props.lesson?.template_id);
-
-const templateName = computed(() => {
-  if (!props.lesson?.template_id) return null;
-  const template = props.templates.find(t => t.id === props.lesson.template_id);
-  return template ? template.title : 'Шаблон удалён';
-});
+// ============================================
+//  КЛИК ПО СТРОКЕ
+// ============================================
+const handleRowClick = () => {
+  if (props.lesson.status !== 'Проведено') {
+    emit('row-click', props.lesson);
+  }
+};
 </script>
 
 <style scoped>
-.lesson-item {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  padding: 16px 20px;
-  background: #fff;
-  border-radius: 8px;
-  border-left: 4px solid #0d6efd;
-  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.06);
-  border: 1px solid #e9ecef;
-  transition: all 0.2s;
+/* ============================================
+   СТРОКА
+   ============================================ */
+.lesson-card-row {
+  cursor: pointer;
+  transition: background 0.15s;
 }
 
-.lesson-item:hover {
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
+.lesson-card-row:hover {
+  background: #f0f7ff;
 }
 
-.lesson-info h3 {
-  margin: 0 0 4px 0;
-  font-size: 16px;
+/* ============================================
+   ЯЧЕЙКИ
+   ============================================ */
+.lesson-card-row td {
+  padding: 10px 16px;
+  border-bottom: 1px solid #e9ecef;
+  vertical-align: middle;
+  line-height: 1.4;
+}
+
+.lesson-id {
+  font-weight: 600;
+  color: #0d6efd;
+  white-space: nowrap;
+}
+
+.lesson-title {
+  font-size: 14px;
   font-weight: 600;
   color: #212529;
-  display: flex;
-  align-items: center;
-  gap: 6px;
+  display: block;
 }
 
-.lesson-info h3 .title-icon {
-  width: 18px;
-  height: 18px;
-  stroke: #212529;
-}
-
-.meta {
-  display: flex;
-  gap: 16px;
-  margin: 4px 0;
+.lesson-notes {
+  display: block;
+  font-size: 12px;
   color: #6c757d;
-  font-size: 14px;
-  flex-wrap: wrap;
+  margin-top: 2px;
 }
 
-.meta span {
-  display: inline-flex;
-  align-items: center;
-  gap: 4px;
+.group-cell,
+.teacher-cell,
+.date-cell,
+.time-cell {
+  color: #495057;
+  white-space: nowrap;
 }
 
-.meta .meta-icon {
-  width: 14px;
-  height: 14px;
-  stroke: #6c757d;
+.students-cell {
+  text-align: center;
+  color: #212529;
+  font-weight: 500;
 }
 
-.badges {
-  display: flex;
-  gap: 8px;
-  margin-top: 6px;
-  flex-wrap: wrap;
+.status-cell {
+  white-space: nowrap;
 }
 
-.lesson-actions {
-  display: flex;
-  gap: 6px;
-  flex-shrink: 0;
-}
-
+/* ============================================
+   БЕЙДЖИ
+   ============================================ */
 .badge {
-  padding: 2px 10px;
+  display: inline-flex;
+  padding: 4px 12px;
   border-radius: 12px;
   font-size: 11px;
   font-weight: 500;
-  display: inline-flex;
   align-items: center;
   gap: 4px;
+  white-space: nowrap;
 }
 
 .badge .badge-icon {
   width: 12px;
   height: 12px;
   stroke: currentColor;
+  flex-shrink: 0;
 }
 
 .badge-success {
-  background: #d1e7dd;
-  color: #0f5132;
+  background: #d4edda;
+  color: #155724;
 }
 
 .badge-warning {
   background: #fff3cd;
-  color: #664d03;
+  color: #856404;
 }
 
 .badge-danger {
   background: #f8d7da;
-  color: #842029;
+  color: #721c24;
 }
 
-.badge-info {
-  background: #cfe2ff;
-  color: #084298;
+/* ============================================
+   ДЕЙСТВИЯ
+   ============================================ */
+.actions-cell {
+  padding-left: 10px;
+}
+
+.table-actions {
+  display: flex;
+  gap: 4px;
+  justify-content: flex-end;
+  flex-wrap: nowrap;
 }
 
 .btn {
@@ -222,35 +229,29 @@ const templateName = computed(() => {
   transition: all 0.15s;
   display: inline-flex;
   align-items: center;
-  gap: 4px;
+  gap: 6px;
 }
 
 .btn .btn-icon {
-  width: 14px;
-  height: 14px;
+  width: 16px;
+  height: 16px;
   stroke: currentColor;
 }
 
-.btn-outline-primary {
-  background: transparent;
-  color: #0d6efd;
-  border-color: #0d6efd;
+.btn-sm {
+  padding: 0;
+  border-radius: 5px;
+  width: 28px;
+  height: 28px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
 }
 
-.btn-outline-primary:hover {
-  background: #0d6efd;
-  color: white;
-}
-
-.btn-outline-danger {
-  background: transparent;
-  color: #dc3545;
-  border-color: #dc3545;
-}
-
-.btn-outline-danger:hover {
-  background: #dc3545;
-  color: white;
+.table-actions .btn .btn-icon {
+  width: 14px;
+  height: 14px;
 }
 
 .btn-success {
@@ -264,8 +265,25 @@ const templateName = computed(() => {
   border-color: #146c43;
 }
 
-.btn-sm {
-  padding: 4px 10px;
-  font-size: 13px;
+.btn-outline-primary {
+  background: transparent;
+  color: #0d6efd;
+  border: 1px solid #0d6efd;
+}
+
+.btn-outline-primary:hover {
+  background: #0d6efd;
+  color: white;
+}
+
+.btn-outline-danger {
+  background: transparent;
+  color: #dc3545;
+  border: 1px solid #dc3545;
+}
+
+.btn-outline-danger:hover {
+  background: #dc3545;
+  color: white;
 }
 </style>

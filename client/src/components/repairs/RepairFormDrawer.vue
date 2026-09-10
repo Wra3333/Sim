@@ -1,13 +1,11 @@
 <template>
   <Teleport to="body">
-    <!-- ОВЕРЛЕЙ ДЛЯ ЗАТЕМНЕНИЯ -->
     <div 
       class="drawer-overlay" 
       :class="{ 'drawer-overlay-visible': visible }"
       @click="close"
     ></div>
 
-    <!-- ВЫДВИЖНАЯ ПАНЕЛЬ СПРАВА -->
     <div 
       class="drawer" 
       :class="{ 'drawer-open': visible }"
@@ -119,18 +117,9 @@ import {
 } from '../icons';
 
 const props = defineProps({
-  visible: {
-    type: Boolean,
-    default: false
-  },
-  equipmentId: {
-    type: Number,
-    default: null
-  },
-  repair: {
-    type: Object,
-    default: null
-  }
+  visible: { type: Boolean, default: false },
+  equipmentId: { type: Number, default: null },
+  repair: { type: Object, default: null }
 });
 
 const emit = defineEmits(['close', 'save']);
@@ -148,7 +137,53 @@ const form = ref({
 });
 
 // ============================================
-//  БЛОКИРОВКА СКРОЛЛА
+//  ДАТА
+// ============================================
+
+// Текущая дата+время в формате для <input type="datetime-local">
+const getCurrentDateTimeLocal = () => {
+  const now = new Date();
+  const offset = now.getTimezoneOffset();
+  const local = new Date(now.getTime() - offset * 60 * 1000);
+  return local.toISOString().slice(0, 16);   // "YYYY-MM-DDTHH:MM"
+};
+
+// Конвертация даты из БД → формат для <input type="datetime-local">
+const toDateTimeLocal = (dateValue) => {
+  if (!dateValue) return getCurrentDateTimeLocal();
+
+  try {
+    let date;
+
+    if (typeof dateValue === 'string') {
+      // ISO с 'Z' или '+03:00' — парсим как UTC/ISO
+      if (dateValue.includes('Z') || /[+-]\d{2}:\d{2}$/.test(dateValue)) {
+        date = new Date(dateValue);
+      } else {
+        // Строка без таймзоны — считаем локальной
+        date = new Date(dateValue.length === 16 ? dateValue + ':00' : dateValue);
+      }
+    } else if (dateValue instanceof Date) {
+      date = dateValue;
+    } else {
+      date = new Date(dateValue);
+    }
+
+    if (isNaN(date.getTime())) {
+      return getCurrentDateTimeLocal();
+    }
+
+    const offset = date.getTimezoneOffset();
+    const local = new Date(date.getTime() - offset * 60 * 1000);
+    return local.toISOString().slice(0, 16);   // "YYYY-MM-DDTHH:MM"
+
+  } catch (e) {
+    return getCurrentDateTimeLocal();
+  }
+};
+
+// ============================================
+//  СКРОЛЛ
 // ============================================
 const toggleBodyScroll = (disable) => {
   if (disable) {
@@ -158,24 +193,40 @@ const toggleBodyScroll = (disable) => {
   }
 };
 
+// ============================================
+//  ЗАПОЛНЕНИЕ ФОРМЫ
+// ============================================
 const fillForm = (data) => {
-  if (data) {
-    form.value = {
-      equipment_ids: data.equipment_ids || (data.equipment_id ? [data.equipment_id] : []),
-      detection_date: data.detection_date || '',
-      nature_of_malfunction: data.nature_of_malfunction || '',
-      detected_by: data.detected_by || '',
-      repair_possibility: data.repair_possibility || 'Самостоятельно'
-    };
-  }
+  if (!data) return;
+
+  console.log('🔍 [fillForm] data.detection_date (raw):', data.detection_date);
+
+  const converted = toDateTimeLocal(data.detection_date);
+  console.log('🔍 [fillForm] → toDateTimeLocal:', converted);
+
+  form.value = {
+    equipment_ids: data.equipment_ids || (data.equipment_id ? [data.equipment_id] : []),
+    detection_date: converted,
+    nature_of_malfunction: data.nature_of_malfunction || '',
+    detected_by: data.detected_by || '',
+    repair_possibility: data.repair_possibility || 'Самостоятельно'
+  };
+
+  console.log('🔍 [fillForm] form.detection_date:', form.value.detection_date);
 };
 
+// ============================================
+//  WATCH: props.repair
+// ============================================
 watch(() => props.repair, (val) => {
   if (val) {
     fillForm(val);
   }
-}, { immediate: true, deep: true });
+}, { immediate: true });
 
+// ============================================
+//  WATCH: props.visible
+// ============================================
 watch(() => props.visible, (val) => {
   if (val && props.repair) {
     fillForm(props.repair);
@@ -183,7 +234,7 @@ watch(() => props.visible, (val) => {
   if (val && !props.repair) {
     form.value = {
       equipment_ids: props.equipmentId ? [props.equipmentId] : [],
-      detection_date: '',
+      detection_date: getCurrentDateTimeLocal(),
       nature_of_malfunction: '',
       detected_by: '',
       repair_possibility: 'Самостоятельно'
@@ -192,27 +243,39 @@ watch(() => props.visible, (val) => {
   toggleBodyScroll(val);
 }, { immediate: true });
 
+// ============================================
+//  WATCH: props.equipmentId
+// ============================================
 watch(() => props.equipmentId, (val) => {
   if (val && !props.repair) {
     form.value.equipment_ids = [val];
   }
 }, { immediate: true });
 
+// ============================================
+//  ЗАГРУЗКА ОБОРУДОВАНИЯ
+// ============================================
 const loadEquipment = async () => {
   try {
     const { data } = await equipmentApi.getAll();
     equipmentList.value = data;
   } catch (error) {
     console.error('Error loading equipment:', error);
-    toast.error(error?.response?.data?.message || "Ошибка загрузки списка оборудования");
+    toast.error(error?.response?.data?.message || 'Ошибка загрузки списка оборудования');
   }
 };
 
+// ============================================
+//  ЗАКРЫТИЕ
+// ============================================
 const close = () => {
   toggleBodyScroll(false);
   emit('close');
 };
 
+// ============================================
+//  SUBMIT
+// ============================================
 const submit = async () => {
   if (!form.value.equipment_ids || form.value.equipment_ids.length === 0) {
     toast.warning('Выберите оборудование');
@@ -234,9 +297,14 @@ const submit = async () => {
   try {
     loading.value = true;
 
+    // Добавляем секунды для бэкенда: "YYYY-MM-DDTHH:MM:SS"
+    const detectionDate = form.value.detection_date.length === 16
+      ? form.value.detection_date + ':00'
+      : form.value.detection_date;
+
     const payload = {
       equipment_ids: form.value.equipment_ids,
-      detection_date: form.value.detection_date,
+      detection_date: detectionDate,
       nature_of_malfunction: form.value.nature_of_malfunction,
       detected_by: form.value.detected_by,
       repair_possibility: form.value.repair_possibility
@@ -253,12 +321,15 @@ const submit = async () => {
     emit('save');
     close();
   } catch (error) {
-    toast.error(error?.response?.data?.message || "Ошибка сохранения");
+    toast.error(error?.response?.data?.message || 'Ошибка сохранения');
   } finally {
     loading.value = false;
   }
 };
 
+// ============================================
+//  LIFECYCLE
+// ============================================
 onMounted(loadEquipment);
 
 onBeforeUnmount(() => {
@@ -267,9 +338,6 @@ onBeforeUnmount(() => {
 </script>
 
 <style scoped>
-/* ============================================
-   ОВЕРЛЕЙ (ЗАТЕМНЕНИЕ)
-   ============================================ */
 .drawer-overlay {
   position: fixed;
   top: 0;
@@ -288,9 +356,6 @@ onBeforeUnmount(() => {
   pointer-events: auto;
 }
 
-/* ============================================
-   ВЫДВИЖНАЯ ПАНЕЛЬ — transform вместо right
-   ============================================ */
 .drawer {
   position: fixed;
   top: 0;
@@ -311,9 +376,6 @@ onBeforeUnmount(() => {
   transform: translateX(0);
 }
 
-/* ============================================
-   ШАПКА
-   ============================================ */
 .drawer-header {
   display: flex;
   justify-content: space-between;
@@ -322,7 +384,6 @@ onBeforeUnmount(() => {
   border-bottom: 1px solid #e9ecef;
   flex-shrink: 0;
   background: white;
-  border-radius: 0;
 }
 
 .drawer-header h3 {
@@ -356,9 +417,6 @@ onBeforeUnmount(() => {
   color: #212529;
 }
 
-/* ============================================
-   ТЕЛО (СКРОЛЛ)
-   ============================================ */
 .drawer-body {
   flex: 1;
   overflow-y: auto;
@@ -382,9 +440,6 @@ onBeforeUnmount(() => {
   background: #a8a8a8;
 }
 
-/* ============================================
-   ФОРМА
-   ============================================ */
 .form-group {
   margin-bottom: 16px;
 }
@@ -501,9 +556,6 @@ textarea.form-control {
   background: #e9ecef;
 }
 
-/* ============================================
-   АДАПТИВНОСТЬ
-   ============================================ */
 @media (max-width: 768px) {
   .drawer {
     width: 90%;

@@ -9,7 +9,7 @@
 
       <ProblemLessonsAlert 
         :lessons="lessonsItems" 
-        :equipment-list="equipmentItems" 
+        :equipment-list="allEquipment" 
         :on-replace-click="openEditForm" 
       />
 
@@ -19,7 +19,7 @@
           Создать занятие
         </button>
         <span class="hotkey-hint">
-          <kbd>Enter</kbd> для открытия/закрытия формы
+          Нажмите <kbd>Enter</kbd> для открытия/закрытия формы
         </span>
       </div>
 
@@ -51,7 +51,6 @@
             <input v-model="lessonsFilters.search" type="text" class="form-control" placeholder="Поиск по названию..." />
           </div>
 
-          <!-- ✅ ДАТА - КОМПАКТНО В ОДНУ СТРОКУ -->
           <div class="filter-group date-filters">
             <label>Дата</label>
             <div class="date-inputs">
@@ -107,57 +106,15 @@
             </tr>
           </thead>
           <tbody>
-            <tr 
-              v-for="lesson in paginatedItems" 
+            <LessonCard
+              v-for="lesson in paginatedItems"
               :key="lesson.id"
-              @click="handleRowClick(lesson)"
-            >
-              <td class="lesson-id">#{{ lesson.id }}</td>
-              <td>
-                <strong>{{ lesson.title }}</strong>
-                <span v-if="lesson.notes" class="lesson-notes">{{ lesson.notes }}</span>
-              </td>
-              <td>{{ lesson.group || '—' }}</td>
-              <td>{{ lesson.teacher || '—' }}</td>
-              <td>{{ formatDate(lesson.date) }}</td>
-              <td>{{ lesson.start_time }}–{{ lesson.end_time }}</td>
-              <td class="text-center">{{ lesson.students_count || 0 }}</td>
-              <td>
-                <span class="badge" :class="getStatusClass(lesson.status)">
-                  <IconCheck v-if="lesson.status === 'Проведено'" class="badge-icon" />
-                  <IconClock v-else-if="lesson.status === 'Запланировано'" class="badge-icon" />
-                  <IconAlert v-else class="badge-icon" />
-                  {{ lesson.status }}
-                </span>
-              </td>
-              <td @click.stop>
-                <div class="table-actions">
-                  <button 
-                    v-if="lesson.status === 'Запланировано'" 
-                    class="btn btn-sm btn-success" 
-                    @click="completeLesson(lesson.id)"
-                    title="Завершить"
-                  >
-                    <IconCheck class="btn-icon" />
-                  </button>
-                  <button 
-                    class="btn btn-sm btn-outline-primary" 
-                    @click="openEditForm(lesson)"
-                    title="Редактировать"
-                  >
-                    <IconEdit class="btn-icon" />
-                  </button>
-                  <button 
-                    v-if="lesson.status !== 'Проведено'"
-                    class="btn btn-sm btn-outline-danger" 
-                    @click="deleteLesson(lesson.id)"
-                    title="Удалить"
-                  >
-                    <IconTrash class="btn-icon" />
-                  </button>
-                </div>
-              </td>
-            </tr>
+              :lesson="lesson"
+              @row-click="openEditForm"
+              @complete="completeLesson"
+              @edit="openEditForm"
+              @delete="deleteLesson"
+            />
           </tbody>
         </table>
       </div>
@@ -194,7 +151,7 @@
       <ProblemEquipmentSidebar 
         :lessons="lessonsItems" 
         :templates="templatesItems" 
-        :equipment-list="equipmentItems" 
+        :equipment-list="allEquipment" 
         :limit="3" 
       />
 
@@ -231,8 +188,7 @@ import { useLessonsStore, useTemplatesStore, useEquipmentStore } from '../stores
 import { useAppStore } from '../stores/appStore';
 import { useToastStore } from '../stores/toastStore';
 import { useConfirm } from '../composables/useConfirm';
-import { useFormatters } from '../composables/useFormatters';
-import { useStatusClasses } from '../composables/useStatusClasses';
+import LessonCard from '../components/lessons/LessonCard.vue';
 import LessonFormDrawer from '../components/lessons/LessonFormDrawer.vue';
 import ConfirmModal from '../components/ConfirmModal.vue';
 import ProblemLessonsAlert from '../components/ProblemLessonsAlert.vue';
@@ -244,19 +200,18 @@ import {
   IconReset,
   IconLoading,
   IconList,
-  IconUsers,
-  IconCheck,
-  IconClock,
-  IconAlert,
-  IconEdit,
-  IconTrash
+  IconUsers
 } from '../components/icons';
+
+// ============================================
+//  ROUTER
+// ============================================
+const route = useRoute();
+const router = useRouter();
 
 // ============================================
 //  STORE
 // ============================================
-const route = useRoute();
-const router = useRouter();
 const appStore = useAppStore();
 const lessonsStore = useLessonsStore();
 const templatesStore = useTemplatesStore();
@@ -264,13 +219,11 @@ const equipmentStore = useEquipmentStore();
 const toast = useToastStore();
 
 const { show, config, confirm, onConfirm, onCancel } = useConfirm();
-const { formatDate } = useFormatters();
-const { getStatusClass } = useStatusClasses();
 
 const { items: lessonsItems } = storeToRefs(lessonsStore);
 const { items: templatesItems } = storeToRefs(templatesStore);
-const { items: equipmentItems } = storeToRefs(equipmentStore);
-const { filters, pagination, editing } = storeToRefs(appStore);
+const { allEquipment } = storeToRefs(equipmentStore);
+const { filters, pagination } = storeToRefs(appStore);
 
 // ============================================
 //  СОСТОЯНИЕ
@@ -300,7 +253,6 @@ const lessonsPagination = computed({
   }
 });
 
-// Текущая страница
 const currentPage = computed({
   get: () => lessonsPagination.value.page || 1,
   set: (val) => {
@@ -309,7 +261,7 @@ const currentPage = computed({
 });
 
 // ============================================
-//  КОНФИГУРАЦИЯ ФИЛЬТРОВ
+//  ФИЛЬТРАЦИЯ
 // ============================================
 const filterConfig = {
   status: {
@@ -351,13 +303,10 @@ const filterConfig = {
   }
 };
 
-// ============================================
-//  ФИЛЬТРАЦИЯ
-// ============================================
 const filteredLessons = computed(() => {
   const list = [...lessonsItems.value];
   const allFilters = { ...lessonsFilters.value };
-  
+
   return list.filter(item => {
     let result = true;
     for (const [key, config] of Object.entries(filterConfig)) {
@@ -390,15 +339,13 @@ const getGroupCount = (groupName) => {
   return lessonsItems.value.filter(item => item.group === groupName).length;
 };
 
-// ✅ Toggle группы
 const toggleGroup = (group) => {
   if (lessonsFilters.value.group === group) {
-    lessonsFilters.value.group = '';
+    lessonsFilters.value = { ...lessonsFilters.value, group: '' };
   } else {
-    lessonsFilters.value.group = group;
+    lessonsFilters.value = { ...lessonsFilters.value, group };
   }
   applyFilters();
-
 };
 
 // ============================================
@@ -454,7 +401,7 @@ const resetAllFilters = () => {
 };
 
 // ============================================
-//  ХОТКЕЙ Enter
+//  ХОТКЕЙ: ENTER
 // ============================================
 const handleKeydown = (e) => {
   if (e.key === 'Enter') {
@@ -521,12 +468,6 @@ const onSaved = () => {
   loadData();
 };
 
-const handleRowClick = (lesson) => {
-  if (lesson.status !== 'Проведено') {
-    openEditForm(lesson);
-  }
-};
-
 const completeLesson = async (id) => {
   const confirmed = await confirm({
     title: 'Завершить занятие?',
@@ -534,7 +475,7 @@ const completeLesson = async (id) => {
     confirmText: 'Да, завершить',
     confirmVariant: 'success'
   });
-  
+
   if (confirmed) {
     try {
       await lessonsStore.complete(id);
@@ -553,7 +494,7 @@ const deleteLesson = async (id) => {
     confirmText: 'Удалить',
     confirmVariant: 'danger'
   });
-  
+
   if (confirmed) {
     try {
       await lessonsStore.delete(id);
@@ -570,9 +511,9 @@ const deleteLesson = async (id) => {
 // ============================================
 const openFromUrl = async () => {
   if (isUpdatingFromUrl) return false;
-  
+
   const lessonEdit = route.query.lesson_edit;
-  
+
   if (lessonEdit) {
     const id = parseInt(lessonEdit, 10);
     if (!isNaN(id) && id > 0) {
@@ -606,7 +547,7 @@ const openFromUrl = async () => {
 //  WATCH
 // ============================================
 watch(
-  [() => lessonsFilters.value.status, () => lessonsFilters.value.group, 
+  [() => lessonsFilters.value.status, () => lessonsFilters.value.group,
    () => lessonsFilters.value.search, () => lessonsFilters.value.dateFrom, () => lessonsFilters.value.dateTo],
   () => {
     resetPage();
@@ -624,7 +565,7 @@ watch(
   () => route.query.lesson_edit,
   async (newVal) => {
     if (isUpdatingFromUrl) return;
-    
+
     if (newVal) {
       await openFromUrl();
     } else {
@@ -646,16 +587,16 @@ watch(
 // ============================================
 onMounted(async () => {
   await loadData();
-  
+
   if (route.query.l_p) {
     const page = parseInt(route.query.l_p, 10);
     if (!isNaN(page) && page > 0) {
       currentPage.value = page;
     }
   }
-  
+
   await openFromUrl();
-  
+
   document.addEventListener('keydown', handleKeydown);
 });
 
@@ -669,17 +610,31 @@ onBeforeUnmount(() => {
 </script>
 
 <style scoped>
-.lessons-wrapper { display: flex; gap: 20px; }
-.lessons-main { flex: 1; min-width: 0; }
-.lessons-sidebar { width: 280px; flex-shrink: 0; display: flex; flex-direction: column; gap: 12px; }
+.lessons-wrapper {
+  display: flex;
+  gap: 20px;
+}
+
+.lessons-main {
+  flex: 1;
+  min-width: 0;
+}
+
+.lessons-sidebar {
+  width: 280px;
+  flex-shrink: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
 
 /* ============================================
    ЗАГОЛОВКИ
    ============================================ */
-h2 { 
-  font-size: 24px; 
-  font-weight: 600; 
-  margin-bottom: 4px; 
+h2 {
+  font-size: 24px;
+  font-weight: 600;
+  margin-bottom: 4px;
   color: #212529;
   display: flex;
   align-items: center;
@@ -692,19 +647,19 @@ h2 .title-icon {
   stroke: #212529;
 }
 
-p { 
-  color: #6c757d; 
-  margin-bottom: 16px; 
+p {
+  color: #6c757d;
+  margin-bottom: 16px;
 }
 
 /* ============================================
    ТУЛБАР
    ============================================ */
-.toolbar { 
-  display: flex; 
-  justify-content: space-between; 
-  align-items: center; 
-  margin: 16px 0; 
+.toolbar {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin: 16px 0;
 }
 
 .hotkey-hint {
@@ -722,14 +677,14 @@ p {
 }
 
 /* ============================================
-   КНОПКИ
+   КНОПКИ (используются в родителе)
    ============================================ */
-.btn { 
-  padding: 6px 16px; 
-  border: 1px solid transparent; 
-  border-radius: 4px; 
-  font-size: 14px; 
-  cursor: pointer; 
+.btn {
+  padding: 6px 16px;
+  border: 1px solid transparent;
+  border-radius: 4px;
+  font-size: 14px;
+  cursor: pointer;
   transition: all 0.15s;
   display: inline-flex;
   align-items: center;
@@ -742,63 +697,25 @@ p {
   stroke: currentColor;
 }
 
-.btn-primary { 
-  background: #0d6efd; 
-  color: white; 
-  border-color: #0d6efd; 
-}
-
-.btn-primary:hover { 
-  background: #0b5ed7; 
-  border-color: #0a58ca; 
-}
-
-.btn-outline-secondary { 
-  background: transparent; 
-  color: #6c757d; 
-  border: 1px solid #6c757d; 
-}
-
-.btn-outline-secondary:hover { 
-  background: #6c757d; 
-  color: white; 
-}
-
-.btn-sm { 
-  padding: 4px 10px; 
-  font-size: 13px; 
-}
-
-.btn-success {
-  background: #198754;
-  color: white;
-  border-color: #198754;
-}
-
-.btn-success:hover {
-  background: #157347;
-  border-color: #146c43;
-}
-
-.btn-outline-primary {
-  background: transparent;
-  color: #0d6efd;
-  border: 1px solid #0d6efd;
-}
-
-.btn-outline-primary:hover {
+.btn-primary {
   background: #0d6efd;
   color: white;
+  border-color: #0d6efd;
 }
 
-.btn-outline-danger {
+.btn-primary:hover {
+  background: #0b5ed7;
+  border-color: #0a58ca;
+}
+
+.btn-outline-secondary {
   background: transparent;
-  color: #dc3545;
-  border: 1px solid #dc3545;
+  color: #6c757d;
+  border: 1px solid #6c757d;
 }
 
-.btn-outline-danger:hover {
-  background: #dc3545;
+.btn-outline-secondary:hover {
+  background: #6c757d;
   color: white;
 }
 
@@ -852,7 +769,6 @@ p {
   box-shadow: 0 0 0 0.2rem rgba(0, 123, 255, 0.25);
 }
 
-/* ✅ ДАТА - КОМПАКТНО */
 .date-filters {
   min-width: 200px;
   flex: 0 0 auto;
@@ -918,118 +834,21 @@ p {
   white-space: nowrap;
 }
 
-.lessons-table td {
-  padding: 10px 16px;
-  border-bottom: 1px solid #e9ecef;
-  vertical-align: middle;
-}
-
-.lessons-table tbody tr {
-  cursor: pointer;
-  transition: background 0.15s;
-}
-
-.lessons-table tbody tr:hover {
-  background: #f0f7ff;
-}
-
-.lessons-table td:last-child {
-  cursor: default;
-}
-
-.lesson-id {
-  font-weight: 600;
-  color: #0d6efd;
-}
-
-.lesson-notes {
-  display: block;
-  font-size: 12px;
-  color: #6c757d;
-}
-
-.text-center {
-  text-align: center;
-}
-
-/* ============================================
-   БЕЙДЖИ
-   ============================================ */
-.badge {
-  display: inline-flex;
-  padding: 3px 12px;
-  border-radius: 12px;
-  font-size: 11px;
-  font-weight: 500;
-  align-items: center;
-  gap: 4px;
-}
-
-.badge .badge-icon {
-  width: 12px;
-  height: 12px;
-  stroke: currentColor;
-}
-
-.badge-success {
-  background: #d4edda;
-  color: #155724;
-}
-
-.badge-warning {
-  background: #fff3cd;
-  color: #856404;
-}
-
-.badge-danger {
-  background: #f8d7da;
-  color: #721c24;
-}
-
-/* ============================================
-   ДЕЙСТВИЯ В ТАБЛИЦЕ
-   ============================================ */
-.table-actions {
-  display: flex;
-  gap: 4px;
-  flex-wrap: wrap;
-}
-
-.table-actions .btn {
-  padding: 4px 8px;
-  font-size: 12px;
-  border-radius: 4px;
-  border: none;
-  cursor: pointer;
-  transition: all 0.15s;
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  width: 28px;
-  height: 28px;
-}
-
-.table-actions .btn .btn-icon {
-  width: 14px;
-  height: 14px;
-  stroke: currentColor;
-}
-
 /* ============================================
    САЙДБАР
    ============================================ */
-.sidebar-card { 
-  background: white; 
-  border-radius: 8px; 
-  padding: 16px; 
-  border: 1px solid #e9ecef; 
-  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.06); 
+.sidebar-card {
+  background: white;
+  border-radius: 8px;
+  padding: 16px;
+  border: 1px solid #e9ecef;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.06);
 }
 
-.sidebar-card h4 { 
-  font-size: 14px; 
-  font-weight: 600; 
-  margin: 0 0 10px 0; 
+.sidebar-card h4 {
+  font-size: 14px;
+  font-weight: 600;
+  margin: 0 0 10px 0;
   color: #212529;
   display: flex;
   align-items: center;
@@ -1042,66 +861,66 @@ p {
   stroke: #212529;
 }
 
-.group-list { 
-  display: flex; 
-  flex-direction: column; 
-  gap: 4px; 
-  max-height: 170px; 
-  overflow-y: auto; 
+.group-list {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  max-height: 170px;
+  overflow-y: auto;
 }
 
-.group-item { 
-  display: flex; 
-  justify-content: space-between; 
-  align-items: center; 
-  padding: 6px 10px; 
-  border-radius: 4px; 
-  cursor: pointer; 
-  transition: all 0.15s; 
-  font-size: 13px; 
-  border: 1px solid transparent; 
+.group-item {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 6px 10px;
+  border-radius: 4px;
+  cursor: pointer;
+  transition: all 0.15s;
+  font-size: 13px;
+  border: 1px solid transparent;
 }
 
-.group-item:hover { 
-  background: #f8f9fa; 
-  border-color: #e9ecef; 
+.group-item:hover {
+  background: #f8f9fa;
+  border-color: #e9ecef;
 }
 
-.group-item.active { 
-  background: #e7f1ff; 
-  border-color: #0d6efd; 
-  color: #0d6efd; 
+.group-item.active {
+  background: #e7f1ff;
+  border-color: #0d6efd;
+  color: #0d6efd;
 }
 
-.group-item .group-name { 
-  font-weight: 500; 
+.group-item .group-name {
+  font-weight: 500;
 }
 
-.group-item .group-count { 
-  font-size: 12px; 
-  color: #6c757d; 
-  background: #e9ecef; 
-  padding: 0 8px; 
-  border-radius: 10px; 
+.group-item .group-count {
+  font-size: 12px;
+  color: #6c757d;
+  background: #e9ecef;
+  padding: 0 8px;
+  border-radius: 10px;
 }
 
-.group-item.active .group-count { 
-  background: #0d6efd; 
-  color: white; 
+.group-item.active .group-count {
+  background: #0d6efd;
+  color: white;
 }
 
-.group-item.empty { 
-  cursor: default; 
-  color: #6c757d; 
-  justify-content: center; 
+.group-item.empty {
+  cursor: default;
+  color: #6c757d;
+  justify-content: center;
 }
 
 /* ============================================
    ПУСТЫЕ СОСТОЯНИЯ
    ============================================ */
-.empty-state { 
-  text-align: center; 
-  padding: 40px; 
+.empty-state {
+  text-align: center;
+  padding: 40px;
   color: #6c757d;
   display: flex;
   flex-direction: column;
@@ -1115,9 +934,9 @@ p {
   stroke: #6c757d;
 }
 
-.text-center { 
-  text-align: center; 
-  padding: 20px; 
+.text-center {
+  text-align: center;
+  padding: 20px;
   color: #6c757d;
   display: flex;
   align-items: center;
@@ -1140,14 +959,27 @@ p {
 /* ============================================
    АДАПТИВНОСТЬ
    ============================================ */
-@media (max-width: 1200px) { 
-  .lessons-sidebar { width: 250px; } 
+@media (max-width: 1200px) {
+  .lessons-sidebar {
+    width: 250px;
+  }
 }
 
 @media (max-width: 992px) {
-  .lessons-wrapper { flex-direction: column; }
-  .lessons-sidebar { width: 100%; flex-direction: row; flex-wrap: wrap; }
-  .lessons-sidebar .sidebar-card { flex: 1; min-width: 200px; }
+  .lessons-wrapper {
+    flex-direction: column;
+  }
+
+  .lessons-sidebar {
+    width: 100%;
+    flex-direction: row;
+    flex-wrap: wrap;
+  }
+
+  .lessons-sidebar .sidebar-card {
+    flex: 1;
+    min-width: 200px;
+  }
 }
 
 @media (max-width: 768px) {
@@ -1155,35 +987,34 @@ p {
     flex-direction: column;
     align-items: stretch;
   }
-  
+
   .filter-group {
     min-width: 100%;
   }
-  
+
   .date-filters {
     min-width: 100%;
     flex: 1;
   }
-  
+
   .date-inputs {
     flex-wrap: wrap;
   }
-  
+
   .date-input {
     flex: 1;
     min-width: 80px;
   }
-  
+
   .actions {
     flex-direction: row;
   }
-  
+
   .lessons-table {
     font-size: 13px;
   }
-  
-  .lessons-table th,
-  .lessons-table td {
+
+  .lessons-table th {
     padding: 8px 10px;
   }
 }

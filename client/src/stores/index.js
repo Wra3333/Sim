@@ -399,16 +399,16 @@ export const useTemplatesStore = defineStore('templates', {
       }
     },
     
-    async syncLessons(templateId) {
-      try {
-        const response = await templatesApi.syncLessons(templateId);
-        this.lastFetched = Date.now();
-        return response.data;
-      } catch (error) {
-        this.error = error.response?.data?.message || 'Ошибка синхронизации';
-        throw error;
-      }
-    }
+async syncLessons(templateId, lessonIds = null) {
+  try {
+    const response = await templatesApi.syncLessons(templateId, lessonIds);   
+    this.lastFetched = Date.now();
+    return response.data;
+  } catch (error) {
+    this.error = error.response?.data?.message || 'Ошибка синхронизации';
+    throw error;
+  }
+}
   }
 });
 

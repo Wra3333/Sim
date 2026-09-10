@@ -15,12 +15,12 @@ api.interceptors.request.use(
     const token = localStorage.getItem('accessToken');
     console.log('🔍 [api] Запрос:', config.method?.toUpperCase(), config.url);
     console.log('🔍 [api] Токен в localStorage:', token ? 'ЕСТЬ' : 'НЕТ');
-    
+
     if (token) {
       config.headers.Authorization = `Bearer ${token}`;
-      console.log('[api] Authorization заголовок добавлен');
+      console.log('✅ [api] Authorization заголовок добавлен');
     } else {
-      console.log('⚠️ [api] Токен отсутствует, заголовок не добавлен');
+      console.log('⚠️ [api] Токен отсутствует');
     }
     return config;
   },
@@ -28,45 +28,55 @@ api.interceptors.request.use(
 );
 
 // ============================================
-// ПЕРЕХВАТЧИК: ОБРАБОТКА ОШИБОК 401
+// ПЕРЕХВАТЧИК: ОБРАБОТКА 401
 // ============================================
 api.interceptors.response.use(
   (response) => response,
   async (error) => {
     const originalRequest = error.config;
-    
+
+    // ✅ НЕ перехватываем 401 от logout (иначе — попытка refresh при выходе)
+    if (originalRequest.url?.includes('/auth/logout')) {
+      return Promise.reject(error);
+    }
+
+    // ✅ НЕ перехватываем 401 от refresh (иначе — бесконечная рекурсия)
+    if (originalRequest.url?.includes('/auth/refresh')) {
+      return Promise.reject(error);
+    }
+
     if (error.response?.status === 401 && !originalRequest._retry) {
       originalRequest._retry = true;
-      
+
       try {
         const refreshToken = localStorage.getItem('refreshToken');
         if (!refreshToken) {
           throw new Error('Нет refresh токена');
         }
-        
+
         console.log('🔄 [api] Попытка обновить токен...');
         const response = await axios.post(`${API_URL}/auth/refresh`, {
           refreshToken
         });
-        
+
         const { accessToken, refreshToken: newRefreshToken } = response.data;
-        
+
         localStorage.setItem('accessToken', accessToken);
         localStorage.setItem('refreshToken', newRefreshToken);
-        
-        console.log('[api] Токен обновлен');
-        
+
+        console.log('✅ [api] Токен обновлен');
+
         originalRequest.headers.Authorization = `Bearer ${accessToken}`;
         return api(originalRequest);
       } catch (refreshError) {
-        console.error('[api] Не удалось обновить токен:', refreshError.message);
+        console.error('❌ [api] Не удалось обновить токен:', refreshError.message);
         localStorage.removeItem('accessToken');
         localStorage.removeItem('refreshToken');
         window.location.href = '/login';
         return Promise.reject(refreshError);
       }
     }
-    
+
     return Promise.reject(error);
   }
 );
@@ -91,27 +101,20 @@ export const authApi = {
 // ОБОРУДОВАНИЕ
 // ============================================
 export const equipmentApi = {
-  // Базовые CRUD
   getAll: (params) => api.get('/equipment', { params }),
   getById: (id) => api.get(`/equipment/${id}`),
   create: (data) => api.post('/equipment', data),
   update: (id, data) => api.put(`/equipment/${id}`, data),
-  
-  // Архив
-  delete: (id) => api.delete(`/equipment/${id}`),                    // в архив
-  deletePermanent: (id) => api.delete(`/equipment/${id}/permanent`), // полное удаление
-  restore: (id) => api.post(`/equipment/${id}/restore`),             // восстановление
+  delete: (id) => api.delete(`/equipment/${id}`),
+  deletePermanent: (id) => api.delete(`/equipment/${id}/permanent`),
+  restore: (id) => api.post(`/equipment/${id}/restore`),
   archiveProblematics: () => api.post('/equipment/archive-problematics'),
-  
-  // Фото
   deletePhoto: (id) => api.delete(`/equipment/${id}/photo`),
   uploadPhoto: (id, formData) => {
     return api.post(`/equipment/${id}/photo`, formData, {
       headers: { 'Content-Type': undefined }
     });
   },
-  
-  // Excel
   importExcel: async (formData) => {
     return await api.post('/equipment/import-excel', formData, {
       headers: { 'Content-Type': 'multipart/form-data' }
@@ -154,7 +157,13 @@ export const templatesApi = {
   create: (data) => api.post('/templates', data),
   update: (id, data) => api.put(`/templates/${id}`, data),
   delete: (id) => api.delete(`/templates/${id}`),
-  syncLessons: (templateId) => api.post(`/templates/${templateId}/sync-lessons`),
+  syncLessons: (templateId, lessonIds = null) => {
+    const body = {};
+    if (Array.isArray(lessonIds) && lessonIds.length > 0) {
+      body.lessonIds = lessonIds;
+    }
+    return api.post(`/templates/${templateId}/sync-lessons`, body);
+  }
 };
 
 // ============================================
@@ -167,13 +176,13 @@ export const lessonsApi = {
   update: (id, data) => api.put(`/lessons/${id}`, data),
   complete: (id) => api.put(`/lessons/${id}/complete`),
   delete: (id) => api.delete(`/lessons/${id}`),
-    getParticipantStats: (params = {}) => {
+  getParticipantStats: (params = {}) => {
     return api.get('/lessons/stats/participants', { params });
   }
 };
 
 // ============================================
-// ВРЕМЯ РАБОТЫ (АНАЛИТИКА)
+// ВРЕМЯ РАБОТЫ
 // ============================================
 export const workTimeApi = {
   getAll: () => api.get('/worktime'),

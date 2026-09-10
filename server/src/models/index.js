@@ -8,14 +8,16 @@ const Template = require('./Template');
 const User = require('./User');
 const RefreshToken = require('./RefreshToken');
 const Log = require('./Log');
-const AdditionalFile = require('./AdditionalFile'); // ✅ ДОБАВЛЯЕМ
+const AdditionalFile = require('./AdditionalFile');
 
 // ============================================
 // User → RefreshToken
 // ============================================
 User.hasMany(RefreshToken, {
   foreignKey: 'user_id',
-  as: 'refreshTokens'
+  as: 'refreshTokens',
+  onDelete: 'CASCADE',      // ✅ при удалении юзера — удалить токены
+  onUpdate: 'CASCADE'
 });
 RefreshToken.belongsTo(User, {
   foreignKey: 'user_id',
@@ -27,7 +29,9 @@ RefreshToken.belongsTo(User, {
 // ============================================
 User.hasMany(Log, {
   foreignKey: 'user_id',
-  as: 'logs'
+  as: 'logs',
+  onDelete: 'CASCADE',      // ✅ логи удаляются с юзером
+  onUpdate: 'CASCADE'
 });
 Log.belongsTo(User, {
   foreignKey: 'user_id',
@@ -35,11 +39,13 @@ Log.belongsTo(User, {
 });
 
 // ============================================
-// User → Equipment
+// User → Equipment (created_by / updated_by)
 // ============================================
 User.hasMany(Equipment, {
   foreignKey: 'created_by',
-  as: 'createdEquipments'
+  as: 'createdEquipments',
+  onDelete: 'SET NULL',     // ✅ при удалении юзера — оставить оборудование, но created_by = NULL
+  onUpdate: 'CASCADE'
 });
 Equipment.belongsTo(User, {
   foreignKey: 'created_by',
@@ -48,7 +54,9 @@ Equipment.belongsTo(User, {
 
 User.hasMany(Equipment, {
   foreignKey: 'updated_by',
-  as: 'updatedEquipments'
+  as: 'updatedEquipments',
+  onDelete: 'SET NULL',
+  onUpdate: 'CASCADE'
 });
 Equipment.belongsTo(User, {
   foreignKey: 'updated_by',
@@ -60,7 +68,9 @@ Equipment.belongsTo(User, {
 // ============================================
 Equipment.hasMany(Repair, {
   foreignKey: 'equipment_id',
-  as: 'repairs'
+  as: 'repairs',
+  onDelete: 'CASCADE',      // ✅ при удалении оборудования — удалить заявки
+  onUpdate: 'CASCADE'
 });
 Repair.belongsTo(Equipment, {
   foreignKey: 'equipment_id',
@@ -72,7 +82,9 @@ Repair.belongsTo(Equipment, {
 // ============================================
 Equipment.hasMany(WorkTime, {
   foreignKey: 'equipment_id',
-  as: 'workTimes'
+  as: 'workTimes',
+  onDelete: 'CASCADE',      // ✅ при удалении оборудования — удалить учёт времени
+  onUpdate: 'CASCADE'
 });
 WorkTime.belongsTo(Equipment, {
   foreignKey: 'equipment_id',
@@ -84,7 +96,9 @@ WorkTime.belongsTo(Equipment, {
 // ============================================
 Equipment.hasMany(AdditionalFile, {
   foreignKey: 'equipment_id',
-  as: 'additionalFiles'
+  as: 'additionalFiles',
+  onDelete: 'CASCADE',      // ✅ файлы удаляются с оборудованием
+  onUpdate: 'CASCADE'
 });
 AdditionalFile.belongsTo(Equipment, {
   foreignKey: 'equipment_id',
@@ -96,7 +110,9 @@ AdditionalFile.belongsTo(Equipment, {
 // ============================================
 User.hasMany(Repair, {
   foreignKey: 'created_by',
-  as: 'createdRepairs'
+  as: 'createdRepairs',
+  onDelete: 'SET NULL',
+  onUpdate: 'CASCADE'
 });
 Repair.belongsTo(User, {
   foreignKey: 'created_by',
@@ -108,7 +124,9 @@ Repair.belongsTo(User, {
 // ============================================
 Template.hasMany(Lesson, {
   foreignKey: 'template_id',
-  as: 'lessons'
+  as: 'lessons',
+  onDelete: 'SET NULL',     // ✅ при удалении шаблона — занятия остаются, template_id = NULL
+  onUpdate: 'CASCADE'
 });
 Lesson.belongsTo(Template, {
   foreignKey: 'template_id',
@@ -120,7 +138,9 @@ Lesson.belongsTo(Template, {
 // ============================================
 Lesson.hasMany(WorkTime, {
   foreignKey: 'lesson_id',
-  as: 'workTimes'
+  as: 'workTimes',
+  onDelete: 'CASCADE',      // ✅ при удалении занятия — удалить учёт времени
+  onUpdate: 'CASCADE'
 });
 WorkTime.belongsTo(Lesson, {
   foreignKey: 'lesson_id',
@@ -132,7 +152,9 @@ WorkTime.belongsTo(Lesson, {
 // ============================================
 User.hasMany(Lesson, {
   foreignKey: 'created_by',
-  as: 'createdLessons'
+  as: 'createdLessons',
+  onDelete: 'SET NULL',
+  onUpdate: 'CASCADE'
 });
 Lesson.belongsTo(User, {
   foreignKey: 'created_by',
@@ -141,7 +163,9 @@ Lesson.belongsTo(User, {
 
 User.hasMany(Lesson, {
   foreignKey: 'updated_by',
-  as: 'updatedLessons'
+  as: 'updatedLessons',
+  onDelete: 'SET NULL',
+  onUpdate: 'CASCADE'
 });
 Lesson.belongsTo(User, {
   foreignKey: 'updated_by',
@@ -153,7 +177,9 @@ Lesson.belongsTo(User, {
 // ============================================
 User.hasMany(Template, {
   foreignKey: 'created_by',
-  as: 'createdTemplates'
+  as: 'createdTemplates',
+  onDelete: 'SET NULL',
+  onUpdate: 'CASCADE'
 });
 Template.belongsTo(User, {
   foreignKey: 'created_by',
@@ -162,7 +188,9 @@ Template.belongsTo(User, {
 
 User.hasMany(Template, {
   foreignKey: 'updated_by',
-  as: 'updatedTemplates'
+  as: 'updatedTemplates',
+  onDelete: 'SET NULL',
+  onUpdate: 'CASCADE'
 });
 Template.belongsTo(User, {
   foreignKey: 'updated_by',
@@ -174,7 +202,9 @@ Template.belongsTo(User, {
 // ============================================
 User.hasMany(WorkTime, {
   foreignKey: 'created_by',
-  as: 'createdWorkTimes'
+  as: 'createdWorkTimes',
+  onDelete: 'SET NULL',
+  onUpdate: 'CASCADE'
 });
 WorkTime.belongsTo(User, {
   foreignKey: 'created_by',
@@ -182,7 +212,7 @@ WorkTime.belongsTo(User, {
 });
 
 // ============================================
-// AdditionalFile → User (uploaded_by)
+// AdditionalFile → User
 // ============================================
 AdditionalFile.belongsTo(User, {
   foreignKey: 'uploaded_by',
@@ -190,7 +220,9 @@ AdditionalFile.belongsTo(User, {
 });
 User.hasMany(AdditionalFile, {
   foreignKey: 'uploaded_by',
-  as: 'uploadedFiles'
+  as: 'uploadedFiles',
+  onDelete: 'SET NULL',
+  onUpdate: 'CASCADE'
 });
 
 module.exports = {
@@ -203,5 +235,5 @@ module.exports = {
   User,
   RefreshToken,
   Log,
-  AdditionalFile // ✅ ЭКСПОРТИРУЕМ
+  AdditionalFile
 };

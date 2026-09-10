@@ -339,7 +339,7 @@ const equipmentFilters = computed({
 })
 
 const equipmentPagination = computed({
-  get: () => pagination.value.equipment || { page: 1, size: 7 },
+  get: () => pagination.value.equipment || { page: 1, size: 6},
   set: (val) => {
     pagination.value.equipment = val
   }
@@ -388,7 +388,7 @@ const currentPage = computed({
 })
 
 const pageSize = computed({
-  get: () => equipmentPagination.value.size || 7,
+  get: () => equipmentPagination.value.size || 6,
   set: (val) => {
     equipmentPagination.value = { ...equipmentPagination.value, size: val, page: 1 }
   }

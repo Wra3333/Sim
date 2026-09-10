@@ -5,20 +5,24 @@ const { Op } = require('sequelize');
 const JWT_SECRET = process.env.JWT_SECRET || 'your-very-secret-key-change-this-in-production-12345';
 const JWT_REFRESH_SECRET = process.env.JWT_REFRESH_SECRET || 'your-refresh-secret-key-change-this-67890';
 
+const ACCESS_TOKEN_TTL = '7d';
+const REFRESH_TOKEN_TTL = '30d';
+const REFRESH_TOKEN_TTL_MS = 30 * 24 * 60 * 60 * 1000;   // 30 дней в мс
+
 module.exports = {
   name: 'auth',
 
   actions: {
     // ============================================
-    // LOGIN - вход в систему
+    // LOGIN
     // ============================================
     login: {
-      auth: "public",
+      auth: 'public',
       params: {
         email: { type: 'string', min: 5, max: 100 },
         password: { type: 'string', min: 1 }
       },
-      handler: async function(ctx) {
+      handler: async function (ctx) {
         const { email, password } = ctx.params;
 
         const user = await User.findOne({ where: { email } });
@@ -26,12 +30,20 @@ module.exports = {
           throw new Error('Неверный email или пароль');
         }
 
+        if (!user.is_active) {
+          throw new Error('Аккаунт деактивирован');
+        }
+
         const isValid = await user.comparePassword(password);
         if (!isValid) {
           throw new Error('Неверный email или пароль');
         }
 
-        const tokens = this.generateTokens(user);
+        // ✅ Обновляем last_login
+        await user.update({ last_login: new Date() });
+
+        // ✅ Генерируем и сохраняем токены
+        const tokens = await this.generateAndSaveTokens(user, ctx);
 
         return {
           success: true,
@@ -47,44 +59,84 @@ module.exports = {
     },
 
     // ============================================
-    // REFRESH - обновление токена
+    // REFRESH — обновление токена
     // ============================================
     refresh: {
-      auth: "public",
+      auth: 'public',
       params: {
         refreshToken: { type: 'string', min: 1 }
       },
-      handler: async function(ctx) {
+      handler: async function (ctx) {
         const { refreshToken } = ctx.params;
 
+        // 1. Проверяем подпись JWT
+        let decoded;
         try {
-          const decoded = jwt.verify(refreshToken, JWT_REFRESH_SECRET);
-          const user = await User.findByPk(decoded.id);
-
-          if (!user || !user.is_active) {
-            throw new Error('Пользователь не найден');
-          }
-
-          const tokens = this.generateTokens(user);
-          return {
-            success: true,
-            ...tokens
-          };
+          decoded = jwt.verify(refreshToken, JWT_REFRESH_SECRET);
         } catch (err) {
           throw new Error('Невалидный refresh token');
         }
+
+        // 2. Ищем в БД — не отозван ли
+        const stored = await RefreshToken.findOne({
+          where: {
+            token: refreshToken,
+            revoked: false
+          }
+        });
+
+        if (!stored) {
+          throw new Error('Refresh token отозван или не найден');
+        }
+
+        // 3. Проверяем, не истёк ли (дублируем проверку из JWT, но с учётом времени сервера)
+        if (stored.expires_at && new Date(stored.expires_at) < new Date()) {
+          await stored.update({ revoked: true });
+          throw new Error('Refresh token истёк');
+        }
+
+        // 4. Проверяем пользователя
+        const user = await User.findByPk(decoded.id);
+        if (!user || !user.is_active) {
+          throw new Error('Пользователь не найден или деактивирован');
+        }
+
+        // 5. ✅ РОТАЦИЯ: отзываем старый токен
+        await stored.update({ revoked: true });
+
+        // 6. ✅ Генерируем новую пару
+        const tokens = await this.generateAndSaveTokens(user, ctx);
+
+        return {
+          success: true,
+          ...tokens
+        };
       }
     },
 
     // ============================================
-    // LOGOUT - выход из системы
+    // LOGOUT — выход
     // ============================================
     logout: {
-      auth: "public",
+      auth: 'public',
       params: {
         refreshToken: { type: 'string', optional: true }
       },
-      handler: async function(ctx) {
+      handler: async function (ctx) {
+        const { refreshToken } = ctx.params;
+
+        if (refreshToken) {
+          // ✅ Отзываем токен (или удаляем — на выбор)
+          const stored = await RefreshToken.findOne({
+            where: { token: refreshToken }
+          });
+
+          if (stored) {
+            await stored.update({ revoked: true });
+            // или await stored.destroy();
+          }
+        }
+
         return {
           success: true,
           message: 'Выход выполнен'
@@ -93,14 +145,14 @@ module.exports = {
     },
 
     // ============================================
-    // VALIDATE - проверка токена
+    // VALIDATE — проверка access-токена
     // ============================================
     validateToken: {
-      auth: "public",
+      auth: 'public',
       params: {
         token: { type: 'string', min: 1 }
       },
-      handler: async function(ctx) {
+      handler: async function (ctx) {
         try {
           const decoded = jwt.verify(ctx.params.token, JWT_SECRET);
           const user = await User.findByPk(decoded.id, {
@@ -126,14 +178,14 @@ module.exports = {
     },
 
     // ============================================
-    // ME - информация о пользователе
+    // ME — информация о пользователе
     // ============================================
     me: {
-      auth: "public",
+      auth: 'public',
       params: {
         userId: { type: 'number', integer: true, positive: true }
       },
-      handler: async function(ctx) {
+      handler: async function (ctx) {
         const user = await User.findByPk(ctx.params.userId, {
           attributes: ['id', 'email', 'name', 'last_login', 'created_at', 'is_active']
         });
@@ -143,7 +195,7 @@ module.exports = {
     },
 
     // ============================================
-    // REGISTER - регистрация
+    // REGISTER — регистрация
     // ============================================
     register: {
       params: {
@@ -151,7 +203,7 @@ module.exports = {
         password: { type: 'string', min: 6, max: 100 },
         name: { type: 'string', min: 2, max: 100 }
       },
-      handler: async function(ctx) {
+      handler: async function (ctx) {
         const { email, password, name } = ctx.params;
 
         const existing = await User.findOne({ where: { email } });
@@ -160,7 +212,9 @@ module.exports = {
         }
 
         const user = await User.create({ email, password, name });
-        const tokens = this.generateTokens(user);
+
+        // ✅ Тоже выдаём токены и сохраняем refresh
+        const tokens = await this.generateAndSaveTokens(user, ctx);
 
         return {
           success: true,
@@ -173,11 +227,40 @@ module.exports = {
           ...tokens
         };
       }
+    },
+
+    // ============================================
+    // CLEANUP — очистка старых/просроченных refresh-токенов
+    // ============================================
+    cleanupTokens: {
+      auth: 'public',
+      handler: async function (ctx) {
+        const now = new Date();
+
+        // Удаляем те, что истекли ИЛИ отозваны, ИЛИ старше 60 дней
+        const deleted = await RefreshToken.destroy({
+          where: {
+            [Op.or]: [
+              { expires_at: { [Op.lt]: now } },
+              { revoked: true }
+            ]
+          }
+        });
+
+        return {
+          success: true,
+          deleted,
+          message: `Удалено ${deleted} старых токенов`
+        };
+      }
     }
   },
 
   methods: {
-    generateTokens(user) {
+    // ============================================
+    // ГЕНЕРАЦИЯ И СОХРАНЕНИЕ ТОКЕНОВ
+    // ============================================
+    async generateAndSaveTokens(user, ctx = {}) {
       const payload = {
         id: user.id,
         email: user.email,
@@ -185,14 +268,22 @@ module.exports = {
       };
 
       const accessToken = jwt.sign(payload, JWT_SECRET, {
-        expiresIn: '7d'
+        expiresIn: ACCESS_TOKEN_TTL
       });
 
       const refreshToken = jwt.sign(
         { id: user.id },
         JWT_REFRESH_SECRET,
-        { expiresIn: '30d' }
+        { expiresIn: REFRESH_TOKEN_TTL }
       );
+
+      // ✅ Сохраняем refresh в БД
+      await RefreshToken.create({
+        user_id: user.id,
+        token: refreshToken,
+        expires_at: new Date(Date.now() + REFRESH_TOKEN_TTL_MS),
+        revoked: false
+      });
 
       return { accessToken, refreshToken };
     }

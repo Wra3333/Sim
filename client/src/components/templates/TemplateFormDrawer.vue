@@ -4,10 +4,8 @@
       class="drawer-wrapper" 
       :class="{ 'drawer-open': visible }"
     >
-      <!-- ОВЕРЛЕЙ -->
       <div class="drawer-overlay" @click="close"></div>
 
-      <!-- ПАНЕЛЬ -->
       <div class="drawer">
         <div class="drawer-header">
           <h3>
@@ -84,7 +82,6 @@
               <EquipmentSelect
                 v-model="equipmentIds"
                 :equipment-options="allEquipment"
-                :only-working="true"
                 placeholder="Выберите оборудование..."
               />
             </div>
@@ -101,20 +98,18 @@
               </button>
             </div>
           </form>
-
-          <ConfirmModal
-            v-model:visible="showConfirmModal"
-            :title="confirmTitle"
-            :message="confirmMessage"
-            confirm-text="Да, обновить все"
-            cancel-text="Нет, оставить как есть"
-            confirm-variant="warning"
-            @confirm="handleSyncConfirm"
-            @cancel="handleSyncCancel"
-          />
         </div>
       </div>
     </div>
+
+    <!-- ✅ ВЫНЕСЕННАЯ МОДАЛКА -->
+    <SyncLessonsModal
+        v-if="showSyncModal"
+        :lessons="linkedLessons"
+        :syncing="syncing"
+        @confirm="handleSyncConfirm"
+        @cancel="handleSyncCancel"
+    />
   </Teleport>
 </template>
 
@@ -123,7 +118,7 @@ import { ref, watch, onMounted, computed, onBeforeUnmount } from 'vue';
 import { useEquipmentStore, useTemplatesStore } from '../../stores';
 import { useToastStore } from '../../stores/toastStore';
 import EquipmentSelect from '../../components/EquipmentSelect.vue';
-import ConfirmModal from '../../components/ConfirmModal.vue';
+import SyncLessonsModal from '../../components/templates/SyncLessonsModal.vue';
 import {
   IconEdit,
   IconPlus,
@@ -148,10 +143,14 @@ const toast = useToastStore();
 
 const loading = ref(false);
 const equipmentIds = ref([]);
-const showConfirmModal = ref(false);
-const confirmTitle = ref('');
-const confirmMessage = ref('');
-let pendingSyncTemplateId = null;
+
+// ============================================
+//  СОСТОЯНИЕ ДЛЯ МОДАЛКИ СИНХРОНИЗАЦИИ
+// ============================================
+const showSyncModal = ref(false);
+const linkedLessons = ref([]);
+const syncing = ref(false);
+let pendingTemplateId = null;
 
 const form = ref({
   title: '',
@@ -161,7 +160,7 @@ const form = ref({
 });
 
 const allEquipment = computed(() => {
-  return equipmentStore.items || [];
+  return equipmentStore.allEquipment || [];
 });
 
 // ============================================
@@ -198,6 +197,9 @@ const normalizeEquipmentList = (data) => {
   return [];
 };
 
+// ============================================
+//  SUBMIT
+// ============================================
 const submit = async () => {
   if (!form.value.title.trim()) {
     toast.warning('Введите название шаблона');
@@ -207,7 +209,6 @@ const submit = async () => {
     toast.warning('Введите дисциплину');
     return;
   }
-
   if (equipmentIds.value.length === 0) {
     toast.warning('Выберите оборудование для шаблона');
     return;
@@ -233,24 +234,30 @@ const submit = async () => {
 
     if (props.template) {
       response = await templatesStore.update(props.template.id, data);
-      
+
       if (response?.hasLinkedLessons) {
-        pendingSyncTemplateId = props.template.id;
-        confirmTitle.value = 'Обновить занятия?';
-        confirmMessage.value = `
-          Шаблон был изменен. 
-          ${response.linkedLessonsCount} занятий используют этот шаблон.
-          
-          Хотите обновить существующие занятия?
-          
-          Проведенные занятия не будут обновлены.
-        `;
-        showConfirmModal.value = true;
+        pendingTemplateId = props.template.id;
+
+        // ✅ Оставляем только НЕ проведённые
+        const notCompleted = (response.linkedLessons || []).filter(
+          l => l.status !== 'Проведено'
+        );
+
+        if (notCompleted.length === 0) {
+          toast.info('Шаблон обновлён. Все связанные занятия уже проведены');
+          emit('save');
+          close();
+          loading.value = false;
+          return;
+        }
+
+        linkedLessons.value = notCompleted;
+        showSyncModal.value = true;
         loading.value = false;
         return;
       }
-      
-      toast.success('Шаблон обновлен');
+
+      toast.success('Шаблон обновлён');
     } else {
       await templatesStore.create(data);
       toast.success('Шаблон создан');
@@ -266,28 +273,52 @@ const submit = async () => {
   }
 };
 
-const handleSyncConfirm = async () => {
+// ============================================
+//  ДЕЙСТВИЯ В МОДАЛКЕ
+// ============================================
+const handleSyncConfirm = async (selectedIds) => {
   try {
-    if (pendingSyncTemplateId) {
-      await templatesStore.syncLessons(pendingSyncTemplateId);
-      toast.success('Занятия обновлены');
+    syncing.value = true;
+
+    const result = await templatesStore.syncLessons(
+      pendingTemplateId,
+      selectedIds
+    );
+
+    if (result?.errors?.length) {
+      toast.error(
+        `Обновлено ${result.updated} из ${result.total}. Ошибок: ${result.errors.length}`
+      );
+    } else {
+      toast.success(`Обновлено ${result?.updated ?? selectedIds.length} занятий`);
     }
-    showConfirmModal.value = false;
+
+    resetSyncState();
     emit('save');
     close();
   } catch (error) {
     console.error('Ошибка синхронизации:', error);
-    toast.error('Ошибка синхронизации занятий');
+    toast.error(error?.response?.data?.message || 'Ошибка синхронизации занятий');
+  } finally {
+    syncing.value = false;
   }
 };
 
 const handleSyncCancel = () => {
-  showConfirmModal.value = false;
-  pendingSyncTemplateId = null;
+  resetSyncState();
   emit('save');
   close();
 };
 
+const resetSyncState = () => {
+  showSyncModal.value = false;
+  linkedLessons.value = [];
+  pendingTemplateId = null;
+};
+
+// ============================================
+//  WATCH
+// ============================================
 watch(() => props.template, (val) => {
   if (val) {
     form.value = {
@@ -310,10 +341,17 @@ watch(() => props.template, (val) => {
 
 watch(() => props.visible, (val) => {
   toggleBodyScroll(val);
+
+  if (!val) {
+    resetSyncState();
+  }
 }, { immediate: true });
 
+// ============================================
+//  LIFECYCLE
+// ============================================
 onMounted(async () => {
-  if (equipmentStore.items.length === 0) {
+  if (equipmentStore.allEquipment.length === 0) {
     await equipmentStore.fetchAll();
   }
 });
@@ -325,7 +363,7 @@ onBeforeUnmount(() => {
 
 <style scoped>
 /* ============================================
-   БАЗОВЫЕ СТИЛИ — ПО УМОЛЧАНИЮ СКРЫТЫ
+   DRAWER
    ============================================ */
 .drawer-wrapper {
   position: fixed;
@@ -367,9 +405,6 @@ onBeforeUnmount(() => {
   transition: transform 0.35s cubic-bezier(0.4, 0, 0.2, 1);
 }
 
-/* ============================================
-   АКТИВНОЕ СОСТОЯНИЕ — ПРИ ОТКРЫТИИ
-   ============================================ */
 .drawer-wrapper.drawer-open {
   pointer-events: auto;
 }
@@ -384,9 +419,6 @@ onBeforeUnmount(() => {
   pointer-events: auto;
 }
 
-/* ============================================
-   ОСТАЛЬНЫЕ СТИЛИ
-   ============================================ */
 .drawer-header {
   display: flex;
   justify-content: space-between;
@@ -395,7 +427,6 @@ onBeforeUnmount(() => {
   border-bottom: 1px solid #e9ecef;
   flex-shrink: 0;
   background: white;
-  border-radius: 0;
 }
 
 .drawer-header h3 {
@@ -446,10 +477,6 @@ onBeforeUnmount(() => {
 .drawer-body::-webkit-scrollbar-thumb {
   background: #c1c1c1;
   border-radius: 3px;
-}
-
-.drawer-body::-webkit-scrollbar-thumb:hover {
-  background: #a8a8a8;
 }
 
 .form-group {
@@ -588,15 +615,18 @@ textarea.form-control {
   background: #e9ecef;
 }
 
+/* ============================================
+   АДАПТИВНОСТЬ
+   ============================================ */
 @media (max-width: 768px) {
   .drawer {
     width: 90%;
   }
-  
+
   .drawer-body {
     padding: 16px 20px;
   }
-  
+
   .form-row {
     grid-template-columns: 1fr;
   }
@@ -606,15 +636,15 @@ textarea.form-control {
   .drawer {
     width: 100%;
   }
-  
+
   .drawer-header h3 {
     font-size: 17px;
   }
-  
+
   .form-actions {
     flex-direction: column;
   }
-  
+
   .form-actions .btn {
     width: 100%;
     justify-content: center;

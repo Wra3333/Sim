@@ -25,50 +25,67 @@
 
     <!-- ФИЛЬТРЫ -->
     <div class="filters">
-      <div class="filter-group">
-        <label>Группа</label>
-        <select v-model="filterGroup" class="form-control" @change="applyFilters">
-          <option value="">Все группы</option>
-          <option v-for="group in uniqueGroups" :key="group" :value="group">
-            {{ group }}
-          </option>
-        </select>
+      <!-- Первая строка фильтров -->
+      <div class="filters-row">
+        <div class="filter-group">
+          <label>Группа</label>
+          <select v-model="filterGroup" class="form-control" @change="applyFilters">
+            <option value="">Все группы</option>
+            <option v-for="group in uniqueGroups" :key="group" :value="group">
+              {{ group }}
+            </option>
+          </select>
+        </div>
+
+        <div class="filter-group">
+          <label>Категория участников</label>
+          <select v-model="filterParticipantType" class="form-control" @change="applyFilters">
+            <option value="">Все категории</option>
+            <option value="student">Студенты</option>
+            <option value="intern">Интерны</option>
+            <option value="resident">Ординаторы</option>
+            <option value="doctor">Врачи</option>
+            <option value="nurse">Медсестры</option>
+          </select>
+        </div>
+
+        <div class="filter-group date-filters">
+          <label>От</label>
+          <input 
+            v-model="filterDateFrom" 
+            type="date" 
+            class="form-control" 
+            @change="applyFilters"
+          />
+          <label>До</label>
+          <input 
+            v-model="filterDateTo" 
+            type="date" 
+            class="form-control" 
+            @change="applyFilters"
+          />
+        </div>
+
+        <div class="filter-group actions">
+          <button class="btn btn-outline-secondary" @click="resetFilters">
+            <IconReset class="btn-icon" />
+            Сбросить
+          </button>
+        </div>
       </div>
 
-      <div class="filter-group">
-        <label>Категория участников</label>
-        <select v-model="filterParticipantType" class="form-control" @change="applyFilters">
-          <option value="">Все категории</option>
-          <option value="student">Студенты</option>
-          <option value="intern">Интерны</option>
-          <option value="resident">Ординаторы</option>
-          <option value="doctor">Врачи</option>
-          <option value="nurse">Медсестры</option>
-        </select>
-      </div>
-
-      <div class="filter-group date-filters">
-        <label>От</label>
-        <input 
-          v-model="filterDateFrom" 
-          type="date" 
-          class="form-control" 
-          @change="applyFilters"
-        />
-        <label>До</label>
-        <input 
-          v-model="filterDateTo" 
-          type="date" 
-          class="form-control" 
-          @change="applyFilters"
-        />
-      </div>
-
-      <div class="filter-group actions">
-        <button class="btn btn-outline-secondary" @click="resetFilters">
-          <IconReset class="btn-icon" />
-          Сбросить
-        </button>
+      <!-- Вторая строка - поиск по оборудованию -->
+      <div class="filters-row equipment-row">
+        <div class="filter-group equipment-filter">
+          <label>Оборудование</label>
+          <!-- ✅ equipmentOptions="allEquipment" — теперь видно и неисправные -->
+          <EquipmentMultiSelect
+            v-model="selectedEquipmentIds"
+            :equipmentOptions="allEquipment"
+            placeholder="Поиск по названию, инв. номеру..."
+            :onlyWorking="false"
+          />
+        </div>
       </div>
     </div>
 
@@ -316,6 +333,7 @@ import { useFormatters } from '../composables/useFormatters';
 import { useStatusClasses } from '../composables/useStatusClasses';
 import { useToastStore } from '../stores/toastStore';
 import Pagination from '../components/Pagination.vue';
+import EquipmentMultiSelect from '../components/EquipmentMultiSelect.vue';
 import {
   IconAnalytics,
   IconClock,
@@ -323,7 +341,6 @@ import {
   IconLessons,
   IconCalendar,
   IconRefresh,
-  IconFilter,
   IconReset,
   IconLoading,
   IconInbox,
@@ -342,7 +359,8 @@ const templatesStore = useTemplatesStore();
 const workTimeStore = useWorkTimeStore();
 const toast = useToastStore();
 
-const { items: equipmentItems } = storeToRefs(equipmentStore);
+// ✅ allEquipment — всё оборудование (включая архивированные/неисправные)
+const { items: equipmentItems, allEquipment } = storeToRefs(equipmentStore);
 const { items: lessonsItems } = storeToRefs(lessonsStore);
 const { filters, pagination } = storeToRefs(appStore);
 
@@ -366,6 +384,7 @@ const filterGroup = ref('');
 const filterParticipantType = ref('');
 const filterDateFrom = ref('');
 const filterDateTo = ref('');
+const selectedEquipmentIds = ref([]);
 
 // ============================================
 //  ПАГИНАЦИЯ
@@ -394,6 +413,14 @@ const pageSize = computed({
 // ============================================
 //  ФИЛЬТРАЦИЯ ЗАНЯТИЙ
 // ============================================
+const getEquipmentList = (lesson) => {
+  if (!lesson.equipment_list) return [];
+  if (typeof lesson.equipment_list === 'string') {
+    try { return JSON.parse(lesson.equipment_list); } catch { return []; }
+  }
+  return lesson.equipment_list || [];
+};
+
 const filteredLessons = computed(() => {
   let result = [...lessonsItems.value];
 
@@ -415,20 +442,22 @@ const filteredLessons = computed(() => {
     result = result.filter(l => l.date <= filterDateTo.value);
   }
 
+  // Фильтр по оборудованию
+  if (selectedEquipmentIds.value.length > 0) {
+    result = result.filter(lesson => {
+      const equipmentList = getEquipmentList(lesson);
+      return equipmentList.some(eq => 
+        selectedEquipmentIds.value.includes(eq.equipment_id)
+      );
+    });
+  }
+
   return result;
 });
 
 // ============================================
 //  ОБОРУДОВАНИЕ ИЗ ОТФИЛЬТРОВАННЫХ ЗАНЯТИЙ
 // ============================================
-const getEquipmentList = (lesson) => {
-  if (!lesson.equipment_list) return [];
-  if (typeof lesson.equipment_list === 'string') {
-    try { return JSON.parse(lesson.equipment_list); } catch { return []; }
-  }
-  return lesson.equipment_list || [];
-};
-
 const filteredEquipmentIds = computed(() => {
   const ids = new Set();
   for (const lesson of filteredLessons.value) {
@@ -440,9 +469,17 @@ const filteredEquipmentIds = computed(() => {
   return ids;
 });
 
+// ✅ Использует allEquipment — чтобы отображать и неисправные тоже
 const filteredEquipment = computed(() => {
+  if (selectedEquipmentIds.value.length > 0) {
+    return allEquipment.value.filter(eq => 
+      selectedEquipmentIds.value.includes(eq.id)
+    );
+  }
+  
+  // Иначе — всё оборудование из отфильтрованных занятий
   const ids = filteredEquipmentIds.value;
-  return equipmentItems.value.filter(eq => ids.has(eq.id));
+  return allEquipment.value.filter(eq => ids.has(eq.id));
 });
 
 // ============================================
@@ -595,7 +632,8 @@ const applyFilters = () => {
     group: filterGroup.value,
     participantType: filterParticipantType.value,
     dateFrom: filterDateFrom.value,
-    dateTo: filterDateTo.value
+    dateTo: filterDateTo.value,
+    equipmentIds: selectedEquipmentIds.value
   };
   
   currentPage.value = 1;
@@ -608,12 +646,14 @@ const resetFilters = () => {
   filterParticipantType.value = '';
   filterDateFrom.value = '';
   filterDateTo.value = '';
+  selectedEquipmentIds.value = [];
   
   filters.value.analytics = {
     group: '',
     participantType: '',
     dateFrom: '',
-    dateTo: ''
+    dateTo: '',
+    equipmentIds: []
   };
   
   currentPage.value = 1;
@@ -669,6 +709,7 @@ watch(() => filters.value.analytics, (val) => {
     filterParticipantType.value = val.participantType || '';
     filterDateFrom.value = val.dateFrom || '';
     filterDateTo.value = val.dateTo || '';
+    selectedEquipmentIds.value = val.equipmentIds || [];
   }
 }, { immediate: true, deep: true });
 
@@ -687,7 +728,6 @@ onActivated(() => {
 <style scoped>
 .analytics-view {
   padding: 0;
-  max-width: 1400px;
   margin: 0 auto;
 }
 
@@ -724,15 +764,29 @@ onActivated(() => {
   gap: 8px;
 }
 
+/* ============================================
+   ФИЛЬТРЫ
+   ============================================ */
 .filters {
   display: flex;
+  flex-direction: column;
   gap: 12px;
   margin-bottom: 20px;
-  flex-wrap: wrap;
-  align-items: flex-end;
   background: #f8f9fa;
   padding: 16px;
   border-radius: 8px;
+}
+
+.filters-row {
+  display: flex;
+  gap: 12px;
+  flex-wrap: wrap;
+  align-items: flex-end;
+}
+
+.equipment-row {
+  border-top: 1px solid #e9ecef;
+  padding-top: 12px;
 }
 
 .filter-group {
@@ -781,6 +835,11 @@ onActivated(() => {
   min-width: 150px;
 }
 
+.equipment-filter {
+  flex: 1;
+  min-width: 300px;
+}
+
 .actions {
   flex-direction: row;
   align-items: flex-end;
@@ -788,6 +847,9 @@ onActivated(() => {
   padding-top: 0;
 }
 
+/* ============================================
+   КНОПКИ
+   ============================================ */
 .btn {
   padding: 6px 16px;
   border: 1px solid transparent;
@@ -833,6 +895,9 @@ onActivated(() => {
   font-size: 13px;
 }
 
+/* ============================================
+   СТАТИСТИКА
+   ============================================ */
 .stats-grid {
   display: grid;
   grid-template-columns: repeat(4, 1fr);
@@ -877,6 +942,9 @@ onActivated(() => {
   color: #888;
 }
 
+/* ============================================
+   ЗАГРУЗКА / ПУСТО
+   ============================================ */
 .loading-state {
   display: flex;
   align-items: center;
@@ -925,6 +993,9 @@ onActivated(() => {
   color: #adb5bd;
 }
 
+/* ============================================
+   АККОРДЕОН ОБОРУДОВАНИЯ
+   ============================================ */
 .equipment-accordion {
   display: flex;
   flex-direction: column;
@@ -1041,6 +1112,9 @@ onActivated(() => {
   transform: rotate(180deg);
 }
 
+/* ============================================
+   ДЕТАЛИ ОБОРУДОВАНИЯ
+   ============================================ */
 .equipment-details {
   padding: 16px 20px 20px;
   border-top: 1px solid #e9ecef;
@@ -1108,6 +1182,9 @@ onActivated(() => {
 .info-value.badge-danger { color: #721c24; }
 .info-value.badge-secondary { color: #495057; }
 
+/* ============================================
+   ЗАНЯТИЯ
+   ============================================ */
 .lesson-item {
   background: white;
   border-radius: 6px;
@@ -1271,15 +1348,34 @@ onActivated(() => {
   text-align: center;
 }
 
+/* ============================================
+   АДАПТИВ
+   ============================================ */
 @media (max-width: 1200px) {
   .stats-grid {
     grid-template-columns: repeat(2, 1fr);
   }
 }
 
+@media (max-width: 992px) {
+  .equipment-filter {
+    min-width: 200px;
+    flex: 1 1 100%;
+  }
+}
+
 @media (max-width: 768px) {
   .filters {
     flex-direction: column;
+  }
+
+  .filters-row {
+    flex-direction: column;
+  }
+  
+  .filter-group {
+    min-width: 100%;
+    flex: 1 1 100%;
   }
   
   .date-filters {
@@ -1288,6 +1384,10 @@ onActivated(() => {
   
   .date-filters .form-control {
     min-width: 120px;
+  }
+
+  .equipment-filter {
+    min-width: 100%;
   }
   
   .stats-grid {
@@ -1332,6 +1432,15 @@ onActivated(() => {
   .lesson-detail-row .detail-label {
     min-width: auto;
   }
+
+  .actions {
+    width: 100%;
+  }
+
+  .actions .btn {
+    width: 100%;
+    justify-content: center;
+  }
 }
 
 @media (max-width: 480px) {
@@ -1347,6 +1456,21 @@ onActivated(() => {
   .lesson-info {
     flex-direction: column;
     align-items: flex-start;
+  }
+  
+  .toolbar {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 12px;
+  }
+  
+  .toolbar-right {
+    width: 100%;
+  }
+  
+  .toolbar-right .btn {
+    width: 100%;
+    justify-content: center;
   }
 }
 </style>

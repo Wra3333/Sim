@@ -104,97 +104,115 @@ module.exports = {
     },
 
     update: {
-      params: {
-        id: { type: 'number', required: true, integer: true, positive: true, convert: true },
-        title: { type: 'string', optional: true, min: 1, max: 255 },
-        discipline: { type: 'string', optional: true, min: 1, max: 255 },
-        description: { type: 'string', optional: true, max: 1000 },
-        is_active: { type: 'boolean', optional: true },
-        equipment_list: {
-          type: 'array',
-          items: {
-            type: 'object',
-            props: {
-              equipment_id: { type: 'number', integer: true, positive: true },
-              quantity: { type: 'number', integer: true, min: 1 }
-            }
-          },
-          optional: true
+  params: {
+    id: { type: 'number', required: true, integer: true, positive: true, convert: true },
+    title: { type: 'string', optional: true, min: 1, max: 255 },
+    discipline: { type: 'string', optional: true, min: 1, max: 255 },
+    description: { type: 'string', optional: true, max: 1000 },
+    is_active: { type: 'boolean', optional: true },
+    equipment_list: {
+      type: 'array',
+      items: {
+        type: 'object',
+        props: {
+          equipment_id: { type: 'number', integer: true, positive: true },
+          quantity: { type: 'number', integer: true, min: 1 }
         }
       },
-      handler: async function(ctx) {
-        const { id, ...data } = ctx.params;
-        
-        const template = await Template.findByPk(id);
-        if (!template) throw new Error('Шаблон не найден');
+      optional: true
+    }
+  },
+  handler: async function(ctx) {
+    const { id, ...data } = ctx.params;
+    
+    const template = await Template.findByPk(id);
+    if (!template) throw new Error('Шаблон не найден');
 
-        const oldEquipmentList = template.equipment_list 
-          ? JSON.parse(JSON.stringify(template.equipment_list)) 
-          : [];
+    const oldEquipmentList = template.equipment_list 
+      ? JSON.parse(JSON.stringify(template.equipment_list)) 
+      : [];
 
-        if (data.equipment_list && data.equipment_list.length > 0) {
-          const equipmentIds = data.equipment_list.map(item => item.equipment_id);
-          const existingEquipment = await Equipment.findAll({
-            where: { id: equipmentIds }
-          });
+    // ✅ Проверка: нельзя деактивировать шаблон с запланированными занятиями
+    const willBeInactive = data.is_active === false && template.is_active === true;
 
-          if (existingEquipment.length !== equipmentIds.length) {
-            throw new Error('Некоторое оборудование не найдено');
-          }
-
-          const invalidEquipment = existingEquipment.filter(eq =>
-            eq.working_status !== 'Исправен' ||
-            eq.write_off_status === 'На списание' ||
-            eq.write_off_status === 'Списан'
-          );
-
-          if (invalidEquipment.length > 0) {
-            const names = invalidEquipment
-              .map(e => `${e.name} (статус: ${e.working_status}, списание: ${e.write_off_status})`)
-              .join(', ');
-            throw new Error(`Оборудование не может быть использовано в шаблоне: ${names}`);
-          }
+    if (willBeInactive) {
+      const plannedLessonsCount = await Lesson.count({
+        where: {
+          template_id: id,
+          status: 'Запланировано'
         }
+      });
 
-        data.updated_by = ctx.meta.user?.id;
-        await template.update(data);
+      if (plannedLessonsCount > 0) {
+        throw new Error(
+          `Нельзя деактивировать шаблон: ${plannedLessonsCount} запланированных занятий используют его.`
+        );
+      }
+    }
 
-        const equipmentChanged = data.equipment_list !== undefined && 
-          JSON.stringify(data.equipment_list) !== JSON.stringify(oldEquipmentList);
+    if (data.equipment_list && data.equipment_list.length > 0) {
+      const equipmentIds = data.equipment_list.map(item => item.equipment_id);
+      const existingEquipment = await Equipment.findAll({
+        where: { id: equipmentIds }
+      });
 
-        if (equipmentChanged) {
-          const lessons = await Lesson.findAll({
-            where: { 
-              template_id: id,
-              status: ['Запланировано', 'Проведено']
-            }
-          });
+      if (existingEquipment.length !== equipmentIds.length) {
+        throw new Error('Некоторое оборудование не найдено');
+      }
 
-          if (lessons.length > 0) {
-            return {
-              success: true,
-              template: template,
-              hasLinkedLessons: true,
-              linkedLessonsCount: lessons.length,
-              linkedLessons: lessons.map(l => ({
-                id: l.id,
-                title: l.title,
-                status: l.status,
-                date: l.date
-              })),
-              message: `Шаблон обновлен. ${lessons.length} занятий используют этот шаблон.`
-            };
-          }
+      const invalidEquipment = existingEquipment.filter(eq =>
+        eq.working_status !== 'Исправен' ||
+        eq.write_off_status === 'На списание' ||
+        eq.write_off_status === 'Списан'
+      );
+
+      if (invalidEquipment.length > 0) {
+        const names = invalidEquipment
+          .map(e => `${e.name} (статус: ${e.working_status}, списание: ${e.write_off_status})`)
+          .join(', ');
+        throw new Error(`Оборудование не может быть использовано в шаблоне: ${names}`);
+      }
+    }
+
+    data.updated_by = ctx.meta.user?.id;
+    await template.update(data);
+
+    const equipmentChanged = data.equipment_list !== undefined && 
+      JSON.stringify(data.equipment_list) !== JSON.stringify(oldEquipmentList);
+
+    if (equipmentChanged) {
+      const lessons = await Lesson.findAll({
+        where: { 
+          template_id: id,
+          status: ['Запланировано', 'Проведено']
         }
+      });
 
+      if (lessons.length > 0) {
         return {
           success: true,
           template: template,
-          hasLinkedLessons: false,
-          message: 'Шаблон успешно обновлен'
+          hasLinkedLessons: true,
+          linkedLessonsCount: lessons.length,
+          linkedLessons: lessons.map(l => ({
+            id: l.id,
+            title: l.title,
+            status: l.status,
+            date: l.date
+          })),
+          message: `Шаблон обновлен. ${lessons.length} занятий используют этот шаблон.`
         };
       }
-    },
+    }
+
+    return {
+      success: true,
+      template: template,
+      hasLinkedLessons: false,
+      message: 'Шаблон успешно обновлен'
+    };
+  }
+},
 
     delete: {
       params: {
@@ -278,13 +296,13 @@ module.exports = {
 
     syncLessons: {
       params: {
-        templateId: { type: 'number', required: true, integer: true, positive: true },
+        id: { type: 'number', required: true, integer: true, positive: true },
         lessonIds: { type: 'array', items: 'number', optional: true }
       },
       handler: async function(ctx) {
-        const { templateId, lessonIds } = ctx.params;
+        const { id, lessonIds } = ctx.params;
 
-        const template = await Template.findByPk(templateId);
+        const template = await Template.findByPk(id);
         if (!template) throw new Error('Шаблон не найден');
 
         let newEquipmentList = template.equipment_list;
@@ -300,7 +318,7 @@ module.exports = {
           throw new Error('В шаблоне нет оборудования');
         }
 
-        const where = { template_id: templateId };
+        const where = { template_id: id };
         if (lessonIds && lessonIds.length > 0) {
           where.id = lessonIds;
         }

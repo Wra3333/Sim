@@ -1,85 +1,100 @@
 <template>
-  <div class="multi-select-wrapper">
-    <!-- Выбранные элементы -->
-    <div v-if="selectedItems.length > 0" class="selected-list">
-      <div
-        v-for="item in selectedItems"
-        :key="item.id"
-        class="selected-item-wrapper"
-      >
-        <div class="selected-item">
-          <span class="item-name">{{ item.name }}</span>
-          <span class="item-inv">(Инв. № {{ item.inventory_number }})</span>
-          <button
-            type="button"
-            class="remove-btn"
-            @click="removeItem(item.id)"
-          >
-            ×
-          </button>
-        </div>
-      </div>
-    </div>
-
-    <!-- Добавление нового оборудования -->
-    <div class="add-row">
-      <div class="input-wrapper">
-        <input
-          ref="inputRef"
-          type="text"
-          v-model="searchQuery"
-          @input="onInput"
-          @focus="showDropdown = true"
-          @blur="closeDropdown"
-          :placeholder="placeholder"
-          autocomplete="off"
-          :disabled="disabled"
-        />
-        
-        <!-- Выпадающий список -->
-        <div v-if="showDropdown && filteredItems.length > 0" class="dropdown">
-          <div
-            v-for="item in filteredItems"
-            :key="item.id"
-            class="dropdown-item"
-            @mousedown.prevent="selectItem(item)"
-          >
-            <span class="name">{{ item.name }}</span>
-            <span class="inv">(Инв. № {{ item.inventory_number }})</span>
-            <span class="status" :class="getStatusClass(item)">
-              {{ item.working_status }}
-            </span>
-          </div>
-        </div>
-
-        <div v-if="showDropdown && filteredItems.length === 0 && searchQuery" class="empty">
-          {{ emptyText }}
-        </div>
-      </div>
-
+  <div class="equipment-select">
+    <!-- Заголовок со счетчиком выбранных -->
+    <div v-if="selectedIds.length > 0" class="selected-summary">
+      <span class="summary-label">Выбрано:</span>
+      <span class="summary-count">{{ selectedIds.length }}</span>
       <button
         type="button"
-        class="btn-add"
-        @click="addSelectedItem"
-        :disabled="!selectedItemToAdd"
+        class="summary-clear"
+        @click="clearAll"
+        title="Сбросить выбор"
       >
-        Добавить
+        Сбросить
       </button>
     </div>
 
-    <!-- Предупреждение о неисправном оборудовании -->
-    <small v-if="brokenCount > 0" style="color: #dc3545; display: block; margin-top: 6px;">
-      {{ brokenCount }} единиц оборудования в ремонте, требует ремонта или на списании
+    <!-- Поле поиска -->
+    <div class="input-wrapper">
+      <input
+        ref="inputRef"
+        type="text"
+        v-model="searchQuery"
+        @focus="showDropdown = true"
+        @blur="closeDropdown"
+        :placeholder="placeholder"
+        autocomplete="off"
+        :disabled="disabled"
+      />
+      <button
+        v-if="searchQuery"
+        type="button"
+        class="clear-search"
+        @mousedown.prevent="clearSearch"
+        title="Очистить поиск"
+      >
+        ×
+      </button>
+    </div>
+
+    <!-- Список с чекбоксами -->
+    <div v-if="showDropdown && filteredItems.length > 0" class="options-list">
+      <div class="options-header">
+        <span class="found-count">Найдено: {{ filteredItems.length }}</span>
+        <button
+          v-if="filteredItems.length > 1"
+          type="button"
+          class="select-all-btn"
+          @mousedown.prevent="selectAllFiltered"
+        >
+          Выбрать все
+        </button>
+      </div>
+
+      <div
+        v-for="item in filteredItems"
+        :key="item.id"
+        class="option-item"
+        :class="{
+          selected: isSelected(item.id),
+          broken: isBroken(item)
+        }"
+        @click="toggleSelect(item)"
+      >
+        <input
+          type="checkbox"
+          :checked="isSelected(item.id)"
+          @click.stop
+          tabindex="-1"
+        />
+        <span class="name">{{ item.name }}</span>
+        <span class="inv">Инв. № {{ item.inventory_number }}</span>
+        <span class="status" :class="getStatusClass(item)">
+          {{ getStatusText(item) }}
+        </span>
+      </div>
+    </div>
+
+    <div
+      v-else-if="showDropdown && filteredItems.length === 0 && searchQuery"
+      class="empty"
+    >
+      {{ emptyText }}
+    </div>
+
+    <!-- Предупреждение -->
+    <small v-if="brokenCount > 0" class="broken-warning">
+      {{ brokenCount }} ед. оборудования в ремонте, требует ремонта или на списании
     </small>
   </div>
 </template>
 
 <script setup>
-import { ref, computed, watch } from 'vue';
+import { ref, computed, watch, nextTick } from 'vue';
 import { useEquipmentStore } from '../stores';
 
 // ============================================
-//  PROPS
+//  PROPS / EMITS
 // ============================================
 const props = defineProps({
   modelValue: {
@@ -92,7 +107,7 @@ const props = defineProps({
   },
   placeholder: {
     type: String,
-    default: 'Выберите оборудование...'
+    default: 'Поиск по названию или инв. номеру...'
   },
   emptyText: {
     type: String,
@@ -108,9 +123,6 @@ const props = defineProps({
   }
 });
 
-// ============================================
-//  EMITS
-// ============================================
 const emit = defineEmits(['update:modelValue', 'select', 'remove']);
 
 // ============================================
@@ -124,7 +136,6 @@ const equipmentStore = useEquipmentStore();
 const inputRef = ref(null);
 const searchQuery = ref('');
 const showDropdown = ref(false);
-const selectedItemToAdd = ref(null);
 let closeTimeout = null;
 
 // ============================================
@@ -134,41 +145,37 @@ const selectedIds = computed(() => {
   return Array.isArray(props.modelValue) ? props.modelValue : [];
 });
 
-const selectedItems = computed(() => {
-  return props.equipmentOptions.filter(eq => selectedIds.value.includes(eq.id));
-});
-
+// Показываем ВСЁ оборудование (и исправное, и неисправное)
 const availableEquipment = computed(() => {
-  let list = props.equipmentOptions;
-  if (props.onlyWorking) {
-    list = list.filter(eq => 
-      eq.working_status === 'Исправен' && 
-      eq.write_off_status === 'На балансе'
-    );
-  }
-  return list;
+  return props.equipmentOptions;
 });
 
+// Фильтр по поиску
 const filteredItems = computed(() => {
   const query = searchQuery.value.toLowerCase().trim();
-  let list = availableEquipment.value;
-  
-  // Исключаем уже выбранные
-  list = list.filter(eq => !selectedIds.value.includes(eq.id));
-  
+  const list = availableEquipment.value;
+
   if (!query) return list;
-  
-  return list.filter(eq =>
-    eq.name.toLowerCase().includes(query) ||
-    eq.inventory_number.toLowerCase().includes(query) ||
-    (eq.inventory_name && eq.inventory_name.toLowerCase().includes(query))
-  );
+
+  return list.filter(eq => {
+    const name = (eq.name || '').toLowerCase();
+    const inv = (eq.inventory_number || '').toLowerCase();
+    const group = (eq.group || '').toLowerCase();
+    const status = (eq.working_status || '').toLowerCase();
+
+    return (
+      name.includes(query) ||
+      inv.includes(query) ||
+      group.includes(query) ||
+      status.includes(query)
+    );
+  });
 });
 
 const brokenCount = computed(() => {
-  return equipmentStore.items.filter(eq => 
-    eq.working_status !== 'Исправен' || 
-    eq.write_off_status === 'На списание' || 
+  return equipmentStore.items.filter(eq =>
+    eq.working_status !== 'Исправен' ||
+    eq.write_off_status === 'На списание' ||
     eq.write_off_status === 'Списан'
   ).length;
 });
@@ -180,27 +187,29 @@ const isSelected = (id) => {
   return selectedIds.value.includes(id);
 };
 
+// Неисправно ли оборудование (только для визуальной пометки)
+const isBroken = (eq) => {
+  return eq.working_status !== 'Исправен' ||
+         eq.write_off_status === 'На списание' ||
+         eq.write_off_status === 'Списан';
+};
+
+// Класс статуса
 const getStatusClass = (eq) => {
-  if (eq.working_status === 'Исправен' && eq.write_off_status === 'На балансе') {
-    return 'status-success';
-  }
-  if (eq.working_status !== 'Исправен') {
-    return 'status-warning';
-  }
-  if (eq.write_off_status === 'На списание' || eq.write_off_status === 'Списан') {
+  if (eq.write_off_status === 'Списан' || eq.write_off_status === 'На списание') {
     return 'status-danger';
   }
+  if (eq.working_status === 'В ремонте') return 'status-warning';
+  if (eq.working_status === 'Требует ремонта') return 'status-danger';
+  if (eq.working_status === 'Исправен') return 'status-success';
   return '';
 };
 
-const onInput = () => {
-  showDropdown.value = true;
-  selectedItemToAdd.value = null;
-};
-
-const onFocus = () => {
-  clearTimeout(closeTimeout);
-  showDropdown.value = true;
+// Текст статуса
+const getStatusText = (eq) => {
+  if (eq.write_off_status === 'Списан') return 'Списан';
+  if (eq.write_off_status === 'На списание') return 'На списании';
+  return eq.working_status || 'Неизвестно';
 };
 
 const closeDropdown = () => {
@@ -209,47 +218,53 @@ const closeDropdown = () => {
   }, 200);
 };
 
-const selectItem = (item) => {
+// ОСНОВНАЯ ЛОГИКА: любые элементы можно выбирать/снимать
+const toggleSelect = (item) => {
   clearTimeout(closeTimeout);
-  selectedItemToAdd.value = item;
-  searchQuery.value = item.name;
-  showDropdown.value = false;
-  inputRef.value?.focus();
-};
 
-const addSelectedItem = () => {
-  if (!selectedItemToAdd.value) return;
-  
-  const item = selectedItemToAdd.value;
   const current = [...selectedIds.value];
-  
-  if (!current.includes(item.id)) {
+  const index = current.indexOf(item.id);
+
+  if (index > -1) {
+    current.splice(index, 1);
+    emit('remove', item);
+  } else {
     current.push(item.id);
     emit('select', item);
-    emit('update:modelValue', current);
   }
-  
-  // Сброс
-  selectedItemToAdd.value = null;
-  searchQuery.value = '';
-  showDropdown.value = false;
-  inputRef.value?.focus();
+
+  emit('update:modelValue', current);
+  showDropdown.value = true;
 };
 
-const removeItem = (id) => {
-  const current = selectedIds.value.filter(item => item !== id);
-  const removed = props.equipmentOptions.find(eq => eq.id === id);
-  emit('update:modelValue', current);
-  if (removed) {
-    emit('remove', removed);
+// Выбрать все из отфильтрованного
+const selectAllFiltered = () => {
+  const current = [...selectedIds.value];
+  const added = [];
+
+  for (const item of filteredItems.value) {
+    if (!current.includes(item.id)) {
+      current.push(item.id);
+      added.push(item);
+    }
   }
+
+  emit('update:modelValue', current);
+  added.forEach(item => emit('select', item));
+  showDropdown.value = true;
+};
+
+const clearSearch = () => {
+  searchQuery.value = '';
+  showDropdown.value = true;
+  nextTick(() => inputRef.value?.focus());
 };
 
 const clearAll = () => {
   emit('update:modelValue', []);
   searchQuery.value = '';
-  selectedItemToAdd.value = null;
-  inputRef.value?.focus();
+  showDropdown.value = true;
+  nextTick(() => inputRef.value?.focus());
 };
 
 // ============================================
@@ -258,95 +273,80 @@ const clearAll = () => {
 watch(() => props.modelValue, (newVal) => {
   if (!newVal || newVal.length === 0) {
     searchQuery.value = '';
-    selectedItemToAdd.value = null;
   }
 });
 
-defineExpose({ 
-  clear: clearAll, 
+// ============================================
+//  EXPOSE
+// ============================================
+defineExpose({
+  clear: clearAll,
   focus: () => inputRef.value?.focus()
 });
 </script>
 
 <style scoped>
-.multi-select-wrapper {
+.equipment-select {
   position: relative;
   width: 100%;
 }
 
-/*  ВЫБРАННЫЕ ЭЛЕМЕНТЫ */
-.selected-list {
-  display: flex;
-  flex-direction: column;
-  gap: 6px;
-  margin-bottom: 8px;
-}
-
-.selected-item-wrapper {
-  width: 100%;
-}
-
-.selected-item {
+/* ============================================
+   СВОДКА О ВЫБРАННОМ
+   ============================================ */
+.selected-summary {
   display: flex;
   align-items: center;
   gap: 8px;
-  padding: 6px 12px;
-  background: #f8f9fa;
-  border: 1px solid #e9ecef;
+  padding: 6px 10px;
+  background: #e7f1ff;
+  border: 1px solid #b8d4ff;
   border-radius: 4px;
-  font-size: 14px;
-  width: 100%;
-  box-sizing: border-box;
-}
-
-.selected-item .item-name {
-  font-weight: 500;
-}
-
-.selected-item .item-inv {
-  color: #6c757d;
+  margin-bottom: 6px;
   font-size: 13px;
 }
 
-.remove-btn {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  width: 20px;
-  height: 20px;
-  border: none;
-  background: transparent;
-  color: #6c757d;
-  font-size: 18px;
-  cursor: pointer;
-  border-radius: 4px;
-  padding: 0;
-  line-height: 1;
-  flex-shrink: 0;
+.summary-label {
+  color: #4a7bc7;
+}
+
+.summary-count {
+  background: #0d6efd;
+  color: #fff;
+  font-weight: 600;
+  font-size: 12px;
+  padding: 1px 8px;
+  border-radius: 10px;
+  min-width: 20px;
+  text-align: center;
+}
+
+.summary-clear {
   margin-left: auto;
+  background: transparent;
+  border: none;
+  color: #0d6efd;
+  font-size: 13px;
+  cursor: pointer;
+  padding: 2px 6px;
+  border-radius: 4px;
+  transition: background 0.15s;
 }
 
-.remove-btn:hover {
-  background: #dc3545;
-  color: white;
+.summary-clear:hover {
+  background: rgba(13, 110, 253, 0.1);
 }
 
-/*  СТРОКА ДОБАВЛЕНИЯ */
-.add-row {
-  display: flex;
-  gap: 8px;
-  align-items: center;
-  width: 100%;
-}
-
-.add-row .input-wrapper {
-  flex: 1;
+/* ============================================
+   ПОЛЕ ПОИСКА
+   ============================================ */
+.input-wrapper {
   position: relative;
 }
 
-.add-row .input-wrapper input {
+.input-wrapper input {
   width: 100%;
-  padding: 8px 12px;
+  padding: 8px 36px 8px 12px;
   border: 1px solid #ced4da;
   border-radius: 4px;
   font-size: 14px;
@@ -356,103 +356,190 @@ defineExpose({
   transition: border-color 0.15s, box-shadow 0.15s;
 }
 
-.add-row .input-wrapper input:focus {
+.input-wrapper input:focus {
   border-color: #80bdff;
   outline: none;
   box-shadow: 0 0 0 0.2rem rgba(0, 123, 255, 0.25);
 }
 
-.add-row .input-wrapper input:disabled {
+.input-wrapper input:disabled {
   background: #e9ecef;
   cursor: not-allowed;
 }
 
-.add-row .btn-add {
-  padding: 8px 20px;
-  background: #0d6efd;
-  color: white;
+.clear-search {
+  position: absolute;
+  right: 8px;
+  top: 50%;
+  transform: translateY(-50%);
+  width: 20px;
+  height: 20px;
   border: none;
-  border-radius: 4px;
-  font-size: 14px;
+  background: transparent;
+  color: #6c757d;
+  font-size: 18px;
+  line-height: 1;
   cursor: pointer;
-  transition: background 0.15s;
-  white-space: nowrap;
-  flex-shrink: 0;
+  border-radius: 50%;
+  padding: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: all 0.15s;
 }
 
-.add-row .btn-add:hover:not(:disabled) {
-  background: #0b5ed7;
+.clear-search:hover {
+  background: #e9ecef;
+  color: #212529;
 }
 
-.add-row .btn-add:disabled {
-  opacity: 0.5;
-  cursor: not-allowed;
-}
-
-/*  ВЫПАДАЮЩИЙ СПИСОК */
-.dropdown {
+/* ============================================
+   СПИСОК ОПЦИЙ
+   ============================================ */
+.options-list {
   position: absolute;
   top: 100%;
   left: 0;
   right: 0;
-  background: white;
+  background: #fff;
   border: 1px solid #ced4da;
   border-radius: 4px;
-  max-height: 200px;
+  max-height: 260px;
   overflow-y: auto;
   z-index: 9999;
-  margin-top: 2px;
-  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+  margin-top: 4px;
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.15);
 }
 
-.dropdown-item {
+.options-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 6px 12px;
+  border-bottom: 1px solid #e9ecef;
+  background: #f8f9fa;
+  position: sticky;
+  top: 0;
+  z-index: 1;
+  font-size: 12px;
+}
+
+.found-count {
+  color: #6c757d;
+}
+
+.select-all-btn {
+  font-size: 12px;
+  color: #0d6efd;
+  background: none;
+  border: none;
+  cursor: pointer;
+  padding: 2px 6px;
+  border-radius: 4px;
+  transition: background 0.15s;
+}
+
+.select-all-btn:hover {
+  background: #e9ecef;
+}
+
+.option-item {
   display: flex;
   align-items: center;
   gap: 8px;
   padding: 8px 12px;
   cursor: pointer;
   border-bottom: 1px solid #f1f3f5;
-  transition: background 0.15s;
+  transition: background 0.12s;
 }
 
-.dropdown-item:hover {
+.option-item:last-child {
+  border-bottom: none;
+}
+
+.option-item:hover {
   background: #f8f9fa;
 }
 
-.dropdown-item .name {
-  flex: 1;
-  font-weight: 500;
-  font-size: 14px;
+.option-item.selected {
+  background: #f0f7ff;
 }
 
-.dropdown-item .inv {
+.option-item.selected:hover {
+  background: #e3f0ff;
+}
+
+/* ============================================
+   НЕИСПРАВНОЕ — только визуальная пометка
+   ============================================ */
+.option-item.broken:not(.selected) {
+  background: #fff8f8;
+}
+
+.option-item.broken:not(.selected):hover {
+  background: #ffeaea;
+}
+
+.option-item.broken:not(.selected) .name {
+  color: #6c757d;
+}
+
+.option-item.broken.selected {
+  background: #f0f7ff;
+}
+
+.option-item input[type="checkbox"] {
+  width: 16px;
+  height: 16px;
+  flex-shrink: 0;
+  accent-color: #0d6efd;
+  pointer-events: none;
+}
+
+.option-item .name {
+  font-size: 14px;
+  font-weight: 500;
+  color: #212529;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  max-width: 40%;
+}
+
+.option-item .inv {
   color: #6c757d;
   font-size: 13px;
-}
-
-.dropdown-item .status {
-  font-size: 12px;
-  padding: 2px 8px;
-  border-radius: 4px;
-  background: #e9ecef;
   white-space: nowrap;
 }
 
-.dropdown-item .status.status-success {
+.option-item .status {
+  margin-left: auto;
+  font-size: 11px;
+  padding: 2px 8px;
+  border-radius: 10px;
+  background: #e9ecef;
+  color: #495057;
+  white-space: nowrap;
+}
+
+.option-item .status.status-success {
   background: #d4edda;
   color: #155724;
 }
 
-.dropdown-item .status.status-warning {
+.option-item .status.status-warning {
   background: #fff3cd;
   color: #856404;
 }
 
-.dropdown-item .status.status-danger {
+.option-item .status.status-danger {
   background: #f8d7da;
   color: #721c24;
 }
 
+/* ============================================
+   ПУСТО
+   ============================================ */
 .empty {
   position: absolute;
   top: 100%;
@@ -461,25 +548,56 @@ defineExpose({
   padding: 12px;
   text-align: center;
   color: #6c757d;
-  background: white;
+  background: #fff;
   border: 1px solid #ced4da;
   border-radius: 4px;
-  margin-top: 2px;
+  margin-top: 4px;
   z-index: 9999;
+  font-size: 13px;
 }
 
-/* Адаптивность */
+/* ============================================
+   ПРЕДУПРЕЖДЕНИЕ
+   ============================================ */
+.broken-warning {
+  display: block;
+  color: #dc3545;
+  font-size: 12px;
+  margin-top: 6px;
+}
+
+/* ============================================
+   СКРОЛЛБАР
+   ============================================ */
+.options-list::-webkit-scrollbar {
+  width: 6px;
+}
+
+.options-list::-webkit-scrollbar-track {
+  background: #f1f1f1;
+  border-radius: 4px;
+}
+
+.options-list::-webkit-scrollbar-thumb {
+  background: #ced4da;
+  border-radius: 4px;
+}
+
+.options-list::-webkit-scrollbar-thumb:hover {
+  background: #adb5bd;
+}
+
+/* ============================================
+   АДАПТИВ
+   ============================================ */
 @media (max-width: 768px) {
-  .add-row {
-    flex-wrap: wrap;
+  .option-item .name {
+    max-width: 100%;
+    white-space: normal;
   }
-  
-  .add-row .input-wrapper {
-    flex: 1 1 100%;
-  }
-  
-  .add-row .btn-add {
-    flex: 1;
+
+  .option-item .status {
+    display: none;
   }
 }
 </style>

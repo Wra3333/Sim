@@ -65,6 +65,10 @@ defineProps({
   line-height: 1.1;
   min-width: 0;
 }
+.auth-page .logo-text{
+  display:  none;
+}
+
 
 .logo-title {
   font-size: 20px;

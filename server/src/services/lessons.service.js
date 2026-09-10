@@ -439,10 +439,6 @@ module.exports = {
         const lesson = await Lesson.findByPk(ctx.params.id);
         if (!lesson) throw new Error('Занятие не найдено');
 
-        if (lesson.status === 'Проведено') {
-          throw new Error('Нельзя удалить проведенное занятие');
-        }
-
         await lesson.destroy();
         return { success: true };
       }

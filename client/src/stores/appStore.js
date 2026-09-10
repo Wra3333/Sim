@@ -33,7 +33,7 @@ export const useAppStore = defineStore('app', {
     
     // Пагинация
     pagination: {
-      equipment: { page: 1, size: 7 },
+      equipment: { page: 1, size: 6 },
       lessons: { page: 1, size: 7 },
       repairs: { page: 1, size: 8 },
       templates: { page: 1, size: 7 },

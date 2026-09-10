@@ -43,26 +43,15 @@
 
       <div class="filter-group">
         <label>Оборудование</label>
-        <EquipmentMultiSelect
-          v-model="filterEquipmentIds"
-          :equipment-options="equipmentItems"
-          placeholder="Введите название или инв. номер..."
-        />
+        <EquipmentMultiSelect v-model="filterEquipmentIds" :equipment-options="equipmentItems"
+          placeholder="Введите название или инв. номер..." />
       </div>
 
       <div class="filter-group date-filters">
         <label>От</label>
-        <input 
-          v-model="filterDateFrom" 
-          type="date" 
-          class="form-control" 
-        />
+        <input v-model="filterDateFrom" type="date" class="form-control" />
         <label>До</label>
-        <input 
-          v-model="filterDateTo" 
-          type="date" 
-          class="form-control" 
-        />
+        <input v-model="filterDateTo" type="date" class="form-control" />
       </div>
 
       <div class="filter-group actions">
@@ -86,119 +75,37 @@
       <table class="repairs-table">
         <thead>
           <tr>
-            <th style="width: 80px;">№</th>
-            <th style="min-width: 150px;">Оборудование</th>
-            <th style="min-width: 200px;">Описание</th>
+            <th style="width: 70px;">№</th>
+            <th style="min-width: 220px;">Оборудование</th>
+            <th style="min-width: 280px;">Описание</th>
             <th style="width: 120px;">Дата</th>
-            <th style="width: 120px;">Кто выявил</th>
-            <th style="width: 120px;">Статус</th>
-            <th style="width: 120px;">Кто устранил</th>
-            <th style="width: 150px;">Действия</th>
+            <th style="min-width: 140px;">Кто выявил</th>
+            <th style="min-width: 220px;">Возможность устранения</th>
+            <th style="width: 140px;">Статус</th>
+            <th style="min-width: 140px;">Кто устранил</th>
+            <th style="width: 170px;">Действия</th>
           </tr>
         </thead>
         <tbody>
-          <tr 
-            v-for="repair in paginatedItems" 
-            :key="repair.id"
-            :class="{ 'row-resolved': repair.is_resolved, 'row-impossible': repair.resolution_status === 'impossible' }"
-            @click="handleRowClick(repair)"
-          >
-            <td class="repair-id">#{{ repair.id }}</td>
-            <td>
-              <strong>{{ repair.equipment?.name || 'Оборудование' }}</strong>
-              <span class="inv-number">Инв. № {{ repair.equipment?.inventory_number || '—' }}</span>
-            </td>
-            <td class="description-cell">
-              <span class="desc-text">{{ repair.nature_of_malfunction || '—' }}</span>
-              <span v-if="repair.resolution_status === 'impossible'" class="badge badge-danger badge-sm">
-                <IconTrash class="badge-icon" />
-                Списан
-              </span>
-            </td>
-            <td>{{ formatDate(repair.detection_date) }}</td>
-            <td>{{ repair.detected_by || '—' }}</td>
-            <td>
-              <span class="badge" :class="getStatusClass(repair.is_resolved)">
-                <IconCheck v-if="repair.is_resolved" class="badge-icon" />
-                <IconAlert v-else class="badge-icon" />
-                {{ repair.is_resolved ? 'Устранена' : 'Новая' }}
-              </span>
-            </td>
-            <td>{{ repair.resolved_by || '—' }}</td>
-            <td @click.stop>
-              <div class="table-actions">
-                <button 
-                  v-if="!repair.is_resolved" 
-                  class="btn btn-sm btn-success" 
-                  @click="openResolveModal(repair)"
-                  title="Устранить"
-                >
-                  <IconCheck class="btn-icon" />
-                </button>
-                <button 
-                  v-if="repair.is_resolved" 
-                  class="btn btn-sm btn-outline-secondary" 
-                  @click="openEditResolvedBy(repair)"
-                  title="Кто устранил"
-                >
-                  <IconUser class="btn-icon" />
-                </button>
-                <button 
-                  class="btn btn-sm btn-outline-primary" 
-                  @click="openEditForm(repair)"
-                  v-if="!repair.is_resolved" 
-                  title="Редактировать"
-                >
-                  <IconEdit class="btn-icon" />
-                </button>
-                <button 
-                  class="btn btn-sm btn-outline-danger" 
-                  @click="confirmDelete(repair.id)"
-                  title="Удалить"
-                >
-                  <IconTrash class="btn-icon" />
-                </button>
-              </div>
-            </td>
-          </tr>
+          <RepairCard v-for="repair in paginatedItems" :key="repair.id" :repair="repair" @row-click="handleRowClick"
+            @resolve="openResolveModal" @edit-resolved-by="openEditResolvedBy" @edit="openEditForm"
+            @delete="confirmDelete" />
         </tbody>
       </table>
     </div>
 
     <!-- ПАГИНАЦИЯ -->
-    <Pagination 
-      v-if="showPagination"
-      v-model:current-page="currentPage"
-      :total-pages="totalPages"
-      :loading="loading"
-    />
+    <Pagination v-if="showPagination" v-model:current-page="currentPage" :total-pages="totalPages" :loading="loading" />
 
     <!-- МОДАЛКИ -->
-    <RepairFormDrawer
-      :visible="showForm"
-      :repair="editingRepair"
-      @close="closeForm"
-      @save="onRepairSaved"
-    />
+    <RepairFormDrawer :visible="showForm" :repair="editingRepair" @close="closeForm" @save="onRepairSaved" />
 
-    <ConfirmModal
-      v-model:visible="show"
-      :title="config.title"
-      :message="config.message"
-      :confirm-text="config.confirmText"
-      :cancel-text="config.cancelText"
-      :confirm-variant="config.confirmVariant"
-      @confirm="onConfirm"
-      @cancel="onCancel"
-    />
+    <ConfirmModal v-model:visible="show" :title="config.title" :message="config.message"
+      :confirm-text="config.confirmText" :cancel-text="config.cancelText" :confirm-variant="config.confirmVariant"
+      @confirm="onConfirm" @cancel="onCancel" />
 
-    <ResolveRepairModal
-      v-model:visible="showResolveModal"
-      :repair="resolvingRepair"
-      :is-editing="isEditingResolvedBy"
-      @close="closeResolveModal"
-      @resolve="loadRepairs"
-    />
+    <ResolveRepairModal v-model:visible="showResolveModal" :repair="resolvingRepair" :is-editing="isEditingResolvedBy"
+      @close="closeResolveModal" @resolve="loadRepairs" />
   </div>
 </template>
 
@@ -214,6 +121,7 @@ import { useFormatters } from '../composables/useFormatters';
 import RepairFormDrawer from '../components/repairs/RepairFormDrawer.vue';
 import ConfirmModal from '../components/ConfirmModal.vue';
 import ResolveRepairModal from '../components/repairs/ResolveRepairModal.vue';
+import RepairCard from '../components/repairs/RepairCard.vue';
 import EquipmentMultiSelect from '../components/EquipmentMultiSelect.vue';
 import Pagination from '../components/Pagination.vue';
 import {
@@ -223,10 +131,7 @@ import {
   IconAlert,
   IconReset,
   IconList,
-  IconLoading,
-  IconUser,
-  IconEdit,
-  IconTrash
+  IconLoading
 } from '../components/icons';
 
 // ============================================
@@ -249,8 +154,6 @@ const { filters, pagination, editing } = storeToRefs(appStore);
 // ============================================
 // СОСТОЯНИЕ ИЗ APPSTORE
 // ============================================
-
-// ✅ Базовый computed для фильтров
 const repairsFilters = computed({
   get: () => filters.value.repairs || { status: '', equipmentIds: [], dateFrom: '', dateTo: '' },
   set: (val) => {
@@ -258,7 +161,6 @@ const repairsFilters = computed({
   }
 });
 
-// ✅ Отдельные computed для каждого фильтра с авто-сбросом страницы
 const filterStatus = computed({
   get: () => repairsFilters.value.status,
   set: (val) => {
@@ -355,7 +257,7 @@ const filterConfig = {
 const filteredRepairs = computed(() => {
   const list = [...repairsItems.value];
   const allFilters = { ...repairsFilters.value };
-  
+
   return list.filter(item => {
     let result = true;
     for (const [key, config] of Object.entries(filterConfig)) {
@@ -405,13 +307,6 @@ const stats = computed(() => ({
   resolved: repairsItems.value.filter(r => r.is_resolved).length,
   active: repairsItems.value.filter(r => !r.is_resolved).length
 }));
-
-// ============================================
-// МЕТОДЫ ДЛЯ СТАТУСОВ
-// ============================================
-const getStatusClass = (isResolved) => {
-  return isResolved ? 'badge-success' : 'badge-warning';
-};
 
 // ============================================
 // ЗАГРУЗКА ДАННЫХ
@@ -496,7 +391,7 @@ const confirmDelete = async (id) => {
     confirmText: 'Удалить',
     confirmVariant: 'danger'
   });
-  
+
   if (confirmed) {
     try {
       await repairsStore.delete(id);
@@ -510,7 +405,7 @@ const confirmDelete = async (id) => {
 };
 
 // ============================================
-// ✅ ХОТКЕЙ: ENTER
+// ХОТКЕЙ: ENTER
 // ============================================
 const handleKeydown = (e) => {
   if (e.key === 'Enter') {
@@ -531,18 +426,18 @@ const handleKeydown = (e) => {
 // ============================================
 const openFromUrl = async () => {
   const repairEdit = route.query.repair_edit;
-  
+
   if (repairEdit) {
     const id = parseInt(repairEdit, 10);
     if (!isNaN(id) && id > 0) {
       if (showForm.value && editingRepair.value?.id === id) {
         return true;
       }
-      
+
       if (repairsItems.value.length === 0) {
         await repairsStore.fetchAll();
       }
-      
+
       const repair = repairsItems.value.find(r => r.id === id);
       if (repair) {
         if (showForm.value) {
@@ -556,17 +451,13 @@ const openFromUrl = async () => {
       }
     }
   }
-  
+
   return false;
 };
 
 // ============================================
 // WATCH
 // ============================================
-
-// ❌ УДАЛЕН вотчер фильтров
-
-// ✅ Вотчер URL параметра
 watch(
   () => route.query.repair_edit,
   async (newVal) => {
@@ -592,7 +483,7 @@ onMounted(async () => {
     loadRepairs(),
     equipmentStore.fetchAll()
   ]);
-  
+
   await openFromUrl();
   document.addEventListener('keydown', handleKeydown);
 });
@@ -611,23 +502,26 @@ onUnmounted(() => {
 </script>
 
 <style scoped>
-.repairs-view { 
-  padding: 0; 
+.repairs-view {
+  padding: 0;
 }
 
-.toolbar { 
-  display: flex; 
-  justify-content: space-between; 
-  align-items: center; 
-  margin-bottom: 8px; 
+/* ============================================
+   ТУЛБАР
+   ============================================ */
+.toolbar {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 8px;
   flex-wrap: wrap;
   gap: 12px;
 }
 
-.toolbar-left h2 { 
-  font-size: 24px; 
-  font-weight: 600; 
-  margin-bottom: 4px; 
+.toolbar-left h2 {
+  font-size: 24px;
+  font-weight: 600;
+  margin-bottom: 4px;
   color: #212529;
   display: flex;
   align-items: center;
@@ -640,15 +534,15 @@ onUnmounted(() => {
   stroke: #212529;
 }
 
-.toolbar-left .count { 
-  color: #6c757d; 
+.toolbar-left .count {
+  color: #6c757d;
   font-size: 14px;
 }
 
-.toolbar-right { 
-  display: flex; 
-  align-items: center; 
-  gap: 12px; 
+.toolbar-right {
+  display: flex;
+  align-items: center;
+  gap: 12px;
   flex-wrap: wrap;
 }
 
@@ -673,15 +567,18 @@ onUnmounted(() => {
   font-weight: 600;
 }
 
-.stats-badges { 
-  display: flex; 
-  gap: 6px; 
+.stats-badges {
+  display: flex;
+  gap: 6px;
 }
 
-.badge { 
-  padding: 3px 12px; 
-  border-radius: 12px; 
-  font-size: 12px; 
+/* ============================================
+   БЕЙДЖИ СТАТИСТИКИ
+   ============================================ */
+.badge {
+  padding: 3px 12px;
+  border-radius: 12px;
+  font-size: 12px;
   font-weight: 500;
   display: inline-flex;
   align-items: center;
@@ -694,26 +591,19 @@ onUnmounted(() => {
   stroke: currentColor;
 }
 
-.badge-success { 
-  background: #d1e7dd; 
-  color: #0f5132; 
+.badge-success {
+  background: #d1e7dd;
+  color: #0f5132;
 }
 
-.badge-warning { 
-  background: #fff3cd; 
-  color: #664d03; 
+.badge-warning {
+  background: #fff3cd;
+  color: #664d03;
 }
 
-.badge-danger {
-  background: #f8d7da;
-  color: #842029;
-}
-
-.badge-sm {
-  font-size: 10px;
-  padding: 1px 8px;
-}
-
+/* ============================================
+   КНОПКИ
+   ============================================ */
 .btn {
   padding: 6px 16px;
   border: 1px solid transparent;
@@ -732,66 +622,31 @@ onUnmounted(() => {
   stroke: currentColor;
 }
 
-.btn-primary { 
-  background: #0d6efd; 
-  color: white; 
-  border-color: #0d6efd; 
-}
-
-.btn-primary:hover { 
-  background: #0b5ed7; 
-  border-color: #0a58ca; 
-}
-
-.btn-outline-secondary { 
-  background: transparent; 
-  color: #6c757d; 
-  border: 1px solid #6c757d; 
-}
-
-.btn-outline-secondary:hover { 
-  background: #6c757d; 
-  color: white; 
-}
-
-.btn-sm {
-  padding: 4px 10px;
-  font-size: 12px;
-}
-
-.btn-success {
-  background: #198754;
-  color: white;
-  border-color: #198754;
-}
-
-.btn-success:hover {
-  background: #157347;
-  border-color: #146c43;
-}
-
-.btn-outline-primary {
-  background: transparent;
-  color: #0d6efd;
-  border: 1px solid #0d6efd;
-}
-
-.btn-outline-primary:hover {
+.btn-primary {
   background: #0d6efd;
   color: white;
+  border-color: #0d6efd;
 }
 
-.btn-outline-danger {
+.btn-primary:hover {
+  background: #0b5ed7;
+  border-color: #0a58ca;
+}
+
+.btn-outline-secondary {
   background: transparent;
-  color: #dc3545;
-  border: 1px solid #dc3545;
+  color: #6c757d;
+  border: 1px solid #6c757d;
 }
 
-.btn-outline-danger:hover {
-  background: #dc3545;
+.btn-outline-secondary:hover {
+  background: #6c757d;
   color: white;
 }
 
+/* ============================================
+   ФИЛЬТРЫ
+   ============================================ */
 .filters {
   display: flex;
   gap: 12px;
@@ -857,9 +712,12 @@ onUnmounted(() => {
   flex: 0 0 auto;
 }
 
-.empty-state { 
-  text-align: center; 
-  padding: 40px; 
+/* ============================================
+   ПУСТЫЕ СОСТОЯНИЯ
+   ============================================ */
+.empty-state {
+  text-align: center;
+  padding: 40px;
   color: #6c757d;
   display: flex;
   flex-direction: column;
@@ -873,9 +731,9 @@ onUnmounted(() => {
   stroke: #6c757d;
 }
 
-.text-center { 
-  text-align: center; 
-  padding: 20px; 
+.text-center {
+  text-align: center;
+  padding: 20px;
   color: #6c757d;
   display: flex;
   align-items: center;
@@ -891,8 +749,13 @@ onUnmounted(() => {
 }
 
 @keyframes spin {
-  from { transform: rotate(0deg); }
-  to { transform: rotate(360deg); }
+  from {
+    transform: rotate(0deg);
+  }
+
+  to {
+    transform: rotate(360deg);
+  }
 }
 
 /* ============================================
@@ -909,6 +772,7 @@ onUnmounted(() => {
 
 .repairs-table {
   width: 100%;
+  min-width: 1300px;          
   border-collapse: collapse;
   font-size: 14px;
 }
@@ -918,7 +782,7 @@ onUnmounted(() => {
 }
 
 .repairs-table th {
-  padding: 12px 16px;
+  padding: 14px 18px;              
   text-align: left;
   font-weight: 600;
   color: #495057;
@@ -927,104 +791,30 @@ onUnmounted(() => {
 }
 
 .repairs-table td {
-  padding: 10px 16px;
+  padding: 14px 18px;            
   border-bottom: 1px solid #e9ecef;
   vertical-align: middle;
 }
 
-.repairs-table tbody tr {
-  cursor: pointer;
-  transition: background 0.15s;
-}
 
-.repairs-table tbody tr:hover {
-  background: #f0f7ff;
-}
-
-.repairs-table tbody tr.row-resolved {
-  opacity: 0.85;
-}
-
-.repairs-table tbody tr.row-resolved:hover {
-  background: #f0f7ff;
-}
-
-.repairs-table tbody tr.row-impossible {
-  background: #fdf2f2;
-}
-
-.repairs-table tbody tr.row-impossible:hover {
-  background: #fce8e8;
-}
-
-.repairs-table td:last-child {
-  cursor: default;
-}
-
-.repair-id {
-  font-weight: 600;
-  color: #0d6efd;
-}
-
-.inv-number {
-  display: block;
-  font-size: 12px;
-  color: #6c757d;
-}
-
-.description-cell {
-  max-width: 250px;
-}
-
-.desc-text {
-  display: block;
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
-}
-
-.table-actions {
-  display: flex;
-  gap: 4px;
-  flex-wrap: wrap;
-}
-
-.table-actions .btn {
-  padding: 4px 8px;
-  font-size: 12px;
-  border-radius: 4px;
-  border: none;
-  cursor: pointer;
-  transition: all 0.15s;
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  width: 28px;
-  height: 28px;
-}
-
-.table-actions .btn .btn-icon {
-  width: 14px;
-  height: 14px;
-  stroke: currentColor;
-}
-
-/* Адаптивность */
+/* ============================================
+   АДАПТИВНОСТЬ
+   ============================================ */
 @media (max-width: 1024px) {
   .filters {
     flex-direction: column;
     align-items: stretch;
   }
-  
+
   .filter-group {
     min-width: 100%;
   }
-  
+
   .date-filters {
     flex-direction: row;
     flex-wrap: wrap;
   }
-  
+
   .date-filters .form-control {
     flex: 1;
     min-width: 120px;
@@ -1036,26 +826,22 @@ onUnmounted(() => {
     flex-direction: column;
     align-items: stretch;
   }
-  
+
   .toolbar-right {
     flex-wrap: wrap;
   }
-  
+
   .stats-badges {
     order: -1;
   }
-  
+
   .repairs-table {
     font-size: 13px;
   }
-  
+
   .repairs-table th,
   .repairs-table td {
     padding: 8px 10px;
-  }
-  
-  .description-cell {
-    max-width: 120px;
   }
 }
 </style>

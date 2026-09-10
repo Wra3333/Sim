@@ -26,17 +26,14 @@ export function useFormatters() {
     if (!time) return '—';
     
     try {
-      //  Если это уже строка времени HH:MM:SS
       if (typeof time === 'string' && /^\d{2}:\d{2}:\d{2}$/.test(time)) {
-        return time.slice(0, 5); // HH:MM
+        return time.slice(0, 5);
       }
       
-      //  Если это строка времени HH:MM
       if (typeof time === 'string' && /^\d{2}:\d{2}$/.test(time)) {
         return time;
       }
       
-      //  Если это полная дата или timestamp
       const d = new Date(time);
       if (isNaN(d.getTime())) return '—';
       return d.toLocaleTimeString('ru-RU', {
@@ -70,11 +67,67 @@ export function useFormatters() {
     return `${h} ч ${m} мин`;
   };
 
-  // Возвращаем функции
+  // ============================================
+  // ✅ ДЛЯ <input type="datetime-local">
+  // ============================================
+
+  /**
+   * Текущая дата+время в формате "YYYY-MM-DDTHH:MM" (локальное).
+   * Используется при создании новых записей.
+   */
+  const getCurrentDateTimeLocal = () => {
+    const now = new Date();
+    const offset = now.getTimezoneOffset();
+    const local = new Date(now.getTime() - offset * 60 * 1000);
+    return local.toISOString().slice(0, 16);
+  };
+
+  /**
+   * Конвертирует дату из любого формата в "YYYY-MM-DDTHH:MM" (локальное)
+   * для использования в <input type="datetime-local">.
+   *
+   * - Если дата в UTC (с 'Z' или смещением '+03:00') — переводит в локальное.
+   * - Если строка без 'Z' — считает её уже локальной.
+   * - Если пусто/невалидно — возвращает текущее время.
+   */
+  const toDateTimeLocal = (dateValue) => {
+    if (!dateValue) return getCurrentDateTimeLocal();
+
+    try {
+      let date;
+
+      if (typeof dateValue === 'string') {
+        if (dateValue.includes('Z') || /[+-]\d{2}:\d{2}$/.test(dateValue)) {
+          date = new Date(dateValue);
+        } else {
+          date = new Date(
+            dateValue.length === 16 ? dateValue + ':00' : dateValue
+          );
+        }
+      } else if (dateValue instanceof Date) {
+        date = dateValue;
+      } else {
+        date = new Date(dateValue);
+      }
+
+      if (isNaN(date.getTime())) {
+        return getCurrentDateTimeLocal();
+      }
+
+      const offset = date.getTimezoneOffset();
+      const local = new Date(date.getTime() - offset * 60 * 1000);
+      return local.toISOString().slice(0, 16);
+    } catch (e) {
+      return getCurrentDateTimeLocal();
+    }
+  };
+
   return {
     formatDate,
     formatTime,
     formatDateTime,
-    formatHours
+    formatHours,
+    getCurrentDateTimeLocal,
+    toDateTimeLocal
   };
 }

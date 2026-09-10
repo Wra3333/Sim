@@ -170,10 +170,10 @@
               Оборудование
             </label>
             
+            <!-- ✅ Убран :only-working="true" — теперь видны все, включая неисправные -->
             <EquipmentSelect
               v-model="equipmentList"
               :equipment-options="allEquipment"
-              :only-working="true"
               placeholder="Выберите оборудование..."
             />
           </div>
@@ -279,8 +279,9 @@ const activeTemplates = computed(() => {
   return templatesStore.items.filter(t => t.is_active === true);
 });
 
+// ✅ Берём ВСЁ оборудование (включая архивированные/неисправные)
 const allEquipment = computed(() => {
-  return equipmentStore.items || [];
+  return equipmentStore.allEquipment || [];
 });
 
 // ============================================
@@ -363,6 +364,7 @@ const submit = async () => {
     return;
   }
 
+  // ✅ Проверяем, что выбрано только исправное оборудование
   const invalidEquipment = [];
   for (const id of equipmentList.value) {
     const eq = equipmentStore.getById(id);
@@ -396,7 +398,7 @@ const submit = async () => {
       notes: form.value.notes || '',
       equipment_list: equipmentWithQuantity,
       template_id: form.value.template_id,
-      participant_type: form.value.participant_type || '' // ✅ ТОЛЬКО КАТЕГОРИЯ
+      participant_type: form.value.participant_type || ''
     };
 
     if (props.lesson) {
@@ -437,7 +439,7 @@ watch(() => props.lesson, (val) => {
       template_id: val.template_id || null,
       status: val.status || 'Запланировано',
       notes: val.notes || '',
-      participant_type: val.participant_type || '' // ✅ ТОЛЬКО КАТЕГОРИЯ
+      participant_type: val.participant_type || ''
     };
     
     if (val.equipment_list && Array.isArray(val.equipment_list)) {
@@ -458,7 +460,7 @@ watch(() => props.lesson, (val) => {
       template_id: null,
       status: 'Запланировано',
       notes: '',
-      participant_type: '' // ✅ ТОЛЬКО КАТЕГОРИЯ
+      participant_type: ''
     };
     equipmentList.value = [];
   }
@@ -493,6 +495,7 @@ const handleKeydown = (e) => {
 onMounted(async () => {
   await Promise.all([
     templatesStore.fetchAll(),
+    // ✅ Загружаем ВСЁ оборудование
     equipmentStore.fetchAll()
   ]);
   
