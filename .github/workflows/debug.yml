@@ -1,0 +1,16 @@
+name: Debug Secrets
+
+on:
+  workflow_dispatch:
+
+jobs:
+  debug:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Show secrets shape
+        run: |
+          echo "APP_DIR: [${{ secrets.APP_DIR }}]"
+          echo "SERVER_IP: [${{ secrets.SERVER_IP }}]"
+          echo "SERVER_USER: [${{ secrets.SERVER_USER }}]"
+          echo "SSH key first line: $(echo '${{ secrets.SSH_PRIVATE_KEY }}' | head -1)"
+          echo "SSH key chars: $(echo '${{ secrets.SSH_PRIVATE_KEY }}' | wc -c)"
