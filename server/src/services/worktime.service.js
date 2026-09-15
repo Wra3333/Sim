@@ -35,6 +35,16 @@ module.exports = {
           throw new Error(' Оборудование не найдено');
         }
 
+        // «Исправен» и «Частично неисправен» — можно.
+        // «Требует ремонта», «В ремонте», «Списан» — нельзя.
+        if (
+          equipment.working_status === 'Требует ремонта' ||
+          equipment.working_status === 'В ремонте' ||
+          equipment.working_status === 'Списан'
+        ) {
+          throw new Error(`Оборудование "${equipment.name}" в статусе "${equipment.working_status}" — учёт времени недоступен`);
+        }
+
         if (ctx.params.lesson_id) {
           const lesson = await Lesson.findByPk(ctx.params.lesson_id);
           if (!lesson) {

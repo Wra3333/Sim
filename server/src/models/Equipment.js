@@ -47,7 +47,7 @@ const Equipment = sequelize.define('Equipment', {
     type: DataTypes.STRING(50),
     defaultValue: 'Исправен',
     validate: {
-      isIn: [['Исправен', 'Требует ремонта', 'В ремонте']]
+      isIn: [['Исправен', 'Частично неисправен', 'Требует ремонта', 'В ремонте']]
     }
   },
   write_off_status: {

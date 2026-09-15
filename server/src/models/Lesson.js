@@ -13,11 +13,11 @@ const Lesson = sequelize.define('Lesson', {
   },
   group: {
     type: DataTypes.STRING(100),
-    allowNull: false
+    allowNull: true          // стало необязательным
   },
   teacher: {
     type: DataTypes.STRING(255),
-    allowNull: false
+    allowNull: true          // стало необязательным
   },
   students_count: {
     type: DataTypes.INTEGER,
@@ -52,17 +52,49 @@ const Lesson = sequelize.define('Lesson', {
   notes: {
     type: DataTypes.TEXT
   },
-  
-  // ✅ ПОЛЕ ДЛЯ КАТЕГОРИИ УЧАСТНИКОВ
+
+  // ============================================
+  // ОБРАЗОВАНИЕ
+  // ============================================
   participant_type: {
     type: DataTypes.STRING(50),
     allowNull: true,
     defaultValue: null,
     validate: {
-      isIn: [['student', 'intern', 'resident', 'doctor', 'nurse', null]]
+      isIn: [[
+        'vo_specialist',
+        'vo_residency',
+        'aspirantura',
+        'pa',
+        'psa',
+        'dpo_pp',
+        'dpo_pk_vo',
+        'dpo_pk_spo',
+        'do',
+        'master_class',
+        null
+      ]]
     }
   },
-  
+
+  faculty: {
+    type: DataTypes.STRING(255),
+    allowNull: true,
+    defaultValue: null
+  },
+
+  specialty: {
+    type: DataTypes.STRING(255),
+    allowNull: true,
+    defaultValue: null
+  },
+
+  course: {
+    type: DataTypes.INTEGER,
+    allowNull: true,
+    defaultValue: null
+  },
+
   created_by: {
     type: DataTypes.INTEGER,
     allowNull: true

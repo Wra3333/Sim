@@ -32,8 +32,6 @@ const WorkTime = sequelize.define('WorkTime', {
     type: DataTypes.DECIMAL(10, 2),
     defaultValue: 0.00
   },
-  
-  // ДОБАВЛЯЕМ
   created_by: {
     type: DataTypes.INTEGER,
     allowNull: true
@@ -48,12 +46,19 @@ const WorkTime = sequelize.define('WorkTime', {
 WorkTime.beforeCreate(async (workTime) => {
   const equipment = await Equipment.findByPk(workTime.equipment_id);
   if (!equipment) throw new Error('Оборудование не найдено');
-  if (equipment.working_status === 'В ремонте' || equipment.working_status === 'Требует ремонта') {
+
+  if (
+    equipment.working_status === 'В ремонте' ||
+    equipment.working_status === 'Требует ремонта' ||
+    equipment.working_status === 'Списан'
+  ) {
     throw new Error(`Оборудование "${equipment.name}" в статусе "${equipment.working_status}"`);
   }
+
   if (workTime.start_time >= workTime.end_time) {
     throw new Error('Время начала должно быть раньше времени окончания');
   }
+
   const diff = workTime.end_time - workTime.start_time;
   workTime.total_hours = parseFloat((diff / (1000 * 60 * 60)).toFixed(2));
 });

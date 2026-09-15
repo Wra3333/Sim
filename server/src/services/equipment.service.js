@@ -4,7 +4,7 @@ const path = require('path');
 const fs = require('fs');
 const ExcelJS = require('exceljs');
 
-const VALID_WORKING_STATUSES = ['Исправен', 'В ремонте', 'Требует ремонта'];
+const VALID_WORKING_STATUSES = ['Исправен', 'Частично неисправен', 'В ремонте', 'Требует ремонта'];
 const VALID_WRITE_OFF_STATUSES = ['На балансе', 'Списан', 'На списание'];
 
 const normalizePhoto = (value) => {

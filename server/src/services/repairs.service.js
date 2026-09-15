@@ -255,10 +255,6 @@ module.exports = {
         const repair = await Repair.findByPk(ctx.params.id);
         if (!repair) throw new Error('Заявка не найдена');
 
-        if (repair.is_resolved) {
-          throw new Error('Нельзя удалить закрытую заявку');
-        }
-
         const equipmentId = repair.equipment_id;
         await repair.destroy();
 
