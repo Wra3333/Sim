@@ -125,6 +125,7 @@
   </template>
 
   <script setup>
+import { UPLOADS_URL } from '@/config';
   import { ref, computed, onMounted, onBeforeUnmount } from 'vue';
   import { useEquipmentStore } from '../../stores';
   import { useToastStore } from '../../stores/toastStore';
@@ -153,7 +154,7 @@
   const equipmentStore = useEquipmentStore();
   const toast = useToastStore();
 
-  const API_URL = 'http://localhost:3000/uploads/';
+  const API_URL = `${UPLOADS_URL}/`;
 
   const contextMenuVisible = ref(false);
   const contextMenuX = ref(0);

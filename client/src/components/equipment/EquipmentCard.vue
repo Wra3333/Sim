@@ -115,6 +115,7 @@
 </template>
 
 <script setup>
+import { UPLOADS_URL } from '@/config';
 import { ref, computed, onMounted, onBeforeUnmount } from 'vue';
 import { useStatusClasses } from '../../composables/useStatusClasses';
 import { useEquipmentStore } from '../../stores';
@@ -229,7 +230,7 @@ const hasExtraData = computed(() => {
 const photoUrl = computed(() => {
   if (!props.equipment.photo) return null;
   if (props.equipment.photo.startsWith('http')) return props.equipment.photo;
-  return `http://localhost:3000/uploads/${props.equipment.photo}`;
+  return `${UPLOADS_URL}/${props.equipment.photo}`;
 });
 
 const handlePhotoClick = (e) => {

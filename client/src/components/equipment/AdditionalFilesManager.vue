@@ -74,6 +74,7 @@
 </template>
 
 <script setup>
+import { UPLOADS_URL } from '@/config';
 import { ref, watch } from 'vue';
 import { equipmentApi } from '../../api';
 import ConfirmModal from '../ConfirmModal.vue';
@@ -99,7 +100,7 @@ const showDeleteModal = ref(false);
 const deleteFileId = ref(null);
 
 const getFileUrl = (filename) => {
-  return `http://localhost:3000/uploads/additional/${filename}`;
+  return `${UPLOADS_URL}/additional/${filename}`;
 };
 
 const getFileIcon = (type) => {

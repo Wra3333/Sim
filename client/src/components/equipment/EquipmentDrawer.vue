@@ -156,6 +156,7 @@
 </template>
 
 <script setup>
+import { UPLOADS_URL } from '@/config';
 import { ref, watch, computed, onBeforeUnmount } from 'vue';
 import { storeToRefs } from 'pinia';
 import { useEquipmentStore } from '../../stores';
@@ -180,7 +181,7 @@ const store = useEquipmentStore();
 const toast = useToastStore();
 const { items } = storeToRefs(store);
 
-const API_URL = 'http://localhost:3000/uploads/';
+const API_URL = `${UPLOADS_URL}/`;
 
 const formRef = ref(null);
 const submitting = ref(false);

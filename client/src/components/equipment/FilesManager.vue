@@ -181,6 +181,7 @@
 </template>
 
 <script setup>
+import { UPLOADS_URL } from '@/config';
 import { ref, computed, watch } from 'vue';
 import { equipmentApi } from '../../api';
 import ConfirmModal from '../ConfirmModal.vue';
@@ -218,7 +219,7 @@ const fileList = computed(() => {
   return props.files || [];
 });
 
-const API_URL = 'http://localhost:3000/uploads/';
+const API_URL = `${UPLOADS_URL}/`;
 
 const getFileTypeByExtension = (filename) => {
   if (!filename) return 'other';

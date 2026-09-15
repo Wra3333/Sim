@@ -334,6 +334,7 @@
 </template>
 
 <script setup>
+import { UPLOADS_URL } from '@/config';
 import { ref, computed } from 'vue';
 import ConfirmModal from '../ConfirmModal.vue';
 
@@ -362,7 +363,7 @@ const props = defineProps({
 
 const emit = defineEmits(['close', 'delete']);
 
-const API_URL = 'http://localhost:3000/uploads/';
+const API_URL = `${UPLOADS_URL}/`;
 
 const showDeleteModal = ref(false);
 const deleteFileId = ref(null);
