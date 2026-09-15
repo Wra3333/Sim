@@ -1,0 +1,43 @@
+name: Deploy to Production
+
+on:
+  push:
+    branches:
+      - main
+  workflow_run:
+    workflows: ["Backend Tests"]
+    types:
+      - completed
+    branches:
+      - main
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    if: ${{ github.event_name == 'push' || github.event.workflow_run.conclusion == 'success' }}
+
+    steps:
+      - name: Deploy via SSH
+        uses: appleboy/ssh-action@v1.0.3
+        with:
+          host: ${{ secrets.SERVER_IP }}
+          username: ${{ secrets.SERVER_USER }}
+          key: ${{ secrets.SSH_PRIVATE_KEY }}
+          script: |
+            set -e
+            cd ${{ secrets.APP_DIR }}
+
+            echo "=== 1. Забираем свежий код ==="
+            git pull origin main
+
+            echo "=== 2. Собираем фронт ==="
+            cd client
+            npm ci
+            npm run build
+            cd ..
+
+            echo "=== 3. Перезапускаем контейнеры ==="
+            docker compose up -d --build
+
+            echo "=== 4. Статус ==="
+            docker compose ps
