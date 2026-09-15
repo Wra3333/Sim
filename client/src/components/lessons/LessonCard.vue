@@ -3,21 +3,42 @@
     class="lesson-card-row"
     @click="handleRowClick"
   >
-    <td class="lesson-id">#{{ lesson.id }}</td>
+    <!-- ДАТА СОЗДАНИЯ -->
+    <td class="lesson-created">
+      {{ formatDate(lesson.created_at) }}
+    </td>
 
+    <!-- ОБРАЗОВАНИЕ: уровень · факультет · курс -->
+    <td class="lesson-education">
+      <template v-if="educationInfo.length > 0">
+        <span 
+          v-for="(line, i) in educationInfo" 
+          :key="i"
+          class="edu-line"
+          :class="line.class"
+        >
+          {{ line.text }}
+        </span>
+      </template>
+      <span v-else class="edu-empty">—</span>
+    </td>
+
+    <!-- НАЗВАНИЕ + СПЕЦИАЛЬНОСТЬ + ПРИМЕЧАНИЯ -->
     <td>
       <strong class="lesson-title">{{ lesson.title }}</strong>
-      <span v-if="lesson.notes" class="lesson-notes">{{ lesson.notes }}</span>
+      <span v-if="lesson.specialty" class="lesson-specialty">
+        {{ shortSpecialty(lesson.specialty) }}
+      </span>
     </td>
 
     <td class="group-cell">{{ lesson.group || '—' }}</td>
 
     <td class="teacher-cell">{{ lesson.teacher || '—' }}</td>
 
-    <td class="date-cell">{{ formatDate(lesson.date) }}</td>
-
-    <td class="time-cell">
-      {{ lesson.start_time }}–{{ lesson.end_time }}
+    <!-- КОГДА: дата сверху, время снизу -->
+    <td class="when-cell">
+      <span class="when-date">{{ formatDate(lesson.date) }}</span>
+      <span class="when-time">{{ lesson.start_time }}–{{ lesson.end_time }}</span>
     </td>
 
     <td class="students-cell">
@@ -68,8 +89,10 @@
 </template>
 
 <script setup>
+import { computed } from 'vue';
 import { useFormatters } from '../../composables/useFormatters';
 import { useStatusClasses } from '../../composables/useStatusClasses';
+import { getEducationLevelLabel } from '../../constants/education';
 import {
   IconCheck,
   IconClock,
@@ -100,12 +123,55 @@ const { formatDate } = useFormatters();
 const { getStatusClass } = useStatusClasses();
 
 // ============================================
+//  ОБРАЗОВАНИЕ — собираем в массив строк
+// ============================================
+const shortFaculty = (faculty) => {
+  if (!faculty) return '';
+  return faculty
+    .replace('Факультет последипломного образования (ФПДО)', 'ФПДО')
+    .replace(' факультет', '');
+};
+
+const educationInfo = computed(() => {
+  const result = [];
+
+  if (props.lesson.participant_type) {
+    result.push({
+      text: getEducationLevelLabel(props.lesson.participant_type),
+      class: 'edu-level'
+    });
+  }
+
+  if (props.lesson.faculty) {
+    result.push({
+      text: shortFaculty(props.lesson.faculty),
+      class: 'edu-faculty'
+    });
+  }
+
+  if (props.lesson.course) {
+    result.push({
+      text: `${props.lesson.course} курс`,
+      class: 'edu-course'
+    });
+  }
+
+  return result;
+});
+
+// ============================================
+//  СПЕЦИАЛЬНОСТЬ — убираем шифр типа 31.05.01
+// ============================================
+const shortSpecialty = (specialty) => {
+  if (!specialty) return '';
+  return specialty.replace(/^\d+\.\d+\.\d+\s+/, '');
+};
+
+// ============================================
 //  КЛИК ПО СТРОКЕ
 // ============================================
 const handleRowClick = () => {
-  if (props.lesson.status !== 'Проведено') {
     emit('row-click', props.lesson);
-  }
 };
 </script>
 
@@ -132,17 +198,64 @@ const handleRowClick = () => {
   line-height: 1.4;
 }
 
-.lesson-id {
-  font-weight: 600;
-  color: #0d6efd;
+/* ============================================
+   ДАТА СОЗДАНИЯ
+   ============================================ */
+.lesson-created {
+  font-size: 13px;
+  color: #495057;
   white-space: nowrap;
 }
 
+/* ============================================
+   ОБРАЗОВАНИЕ
+   ============================================ */
+.lesson-education {
+  font-size: 12px;
+  color: #495057;
+  max-width: 200px;
+}
+
+.lesson-education .edu-line {
+  display: block;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.edu-level {
+  font-weight: 500;
+  color: #0d6efd;
+}
+
+.edu-faculty {
+  color: #495057;
+}
+
+.edu-course {
+  color: #6c757d;
+}
+
+.edu-empty {
+  color: #adb5bd;
+  font-size: 13px;
+}
+
+/* ============================================
+   НАЗВАНИЕ
+   ============================================ */
 .lesson-title {
   font-size: 14px;
   font-weight: 600;
   color: #212529;
   display: block;
+}
+
+.lesson-specialty {
+  display: block;
+  font-size: 12px;
+  color: #495057;
+  margin-top: 2px;
 }
 
 .lesson-notes {
@@ -152,10 +265,11 @@ const handleRowClick = () => {
   margin-top: 2px;
 }
 
+/* ============================================
+   ОБЫЧНЫЕ ЯЧЕЙКИ
+   ============================================ */
 .group-cell,
-.teacher-cell,
-.date-cell,
-.time-cell {
+.teacher-cell {
   color: #495057;
   white-space: nowrap;
 }
@@ -168,6 +282,26 @@ const handleRowClick = () => {
 
 .status-cell {
   white-space: nowrap;
+}
+
+/* ============================================
+   КОГДА (дата + время)
+   ============================================ */
+.when-cell {
+  font-size: 13px;
+  color: #495057;
+  white-space: nowrap;
+}
+
+.when-cell .when-date {
+  display: block;
+  font-weight: 500;
+}
+
+.when-cell .when-time {
+  display: block;
+  font-size: 12px;
+  color: #6c757d;
 }
 
 /* ============================================

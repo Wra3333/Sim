@@ -14,9 +14,9 @@
     >
       <div class="drawer-header">
         <h3>
-          <IconEdit v-if="lesson" class="header-icon" />
+          <IconEdit v-if="currentLesson" class="header-icon" />
           <IconPlus v-else class="header-icon" />
-          {{ lesson ? 'Редактировать занятие' : 'Создать занятие' }}
+          {{ currentLesson ? 'Редактировать занятие' : 'Создать занятие' }}
         </h3>
         <button class="btn-close" @click="close">×</button>
       </div>
@@ -98,20 +98,65 @@
             </div>
           </div>
 
-          <!-- КАТЕГОРИЯ УЧАСТНИКОВ -->
+          <!-- УРОВЕНЬ ОБРАЗОВАНИЯ -->
           <div class="form-group">
             <label>
               <IconUser class="label-icon" />
-              Категория участников
+              Уровень образования
             </label>
             <select v-model="form.participant_type" class="form-control">
-              <option value="">Не указана</option>
-              <option value="student">Студенты</option>
-              <option value="intern">Интерны</option>
-              <option value="resident">Ординаторы</option>
-              <option value="doctor">Врачи</option>
-              <option value="nurse">Медсестры</option>
+              <option value="">Не указан</option>
+              <option
+                v-for="level in EDUCATION_LEVELS"
+                :key="level.value"
+                :value="level.value"
+              >
+                {{ level.label }}
+              </option>
             </select>
+          </div>
+
+          <!-- ФАКУЛЬТЕТ И СПЕЦИАЛЬНОСТЬ -->
+          <div class="form-row">
+            <div class="form-group">
+              <label>
+                <IconTemplates class="label-icon" />
+                Факультет
+              </label>
+              <AutocompleteInput
+                v-model="form.faculty"
+                :options="FACULTIES"
+                placeholder="Начните вводить..."
+              />
+            </div>
+            <div class="form-group">
+              <label>
+                <IconFileText class="label-icon" />
+                Специальность
+              </label>
+              <AutocompleteInput
+                v-model="form.specialty"
+                :options="availableSpecialties"
+                :placeholder="form.participant_type ? 'Выберите или введите своё' : 'Сначала выберите уровень'"
+              />
+            </div>
+          </div>
+
+          <!-- КУРС -->
+          <div class="form-row" v-if="showCourseField">
+            <div class="form-group">
+              <label>
+                <IconCalendar class="label-icon" />
+                Курс
+              </label>
+              <select v-model.number="form.course" class="form-control">
+                <option value="">— Не указан —</option>
+                <option v-for="c in availableCourses" :key="c" :value="c">
+                  {{ c }} курс
+                </option>
+              </select>
+            </div>
+            <div class="form-group"></div>
           </div>
 
           <!-- Шаблон -->
@@ -170,7 +215,6 @@
               Оборудование
             </label>
             
-            <!-- ✅ Убран :only-working="true" — теперь видны все, включая неисправные -->
             <EquipmentSelect
               v-model="equipmentList"
               :equipment-options="allEquipment"
@@ -200,9 +244,16 @@ import { ref, watch, onMounted, computed, onBeforeUnmount } from 'vue';
 import { useEquipmentStore, useTemplatesStore } from '../../stores';
 import { useToastStore } from '../../stores/toastStore';
 import { useFormatters } from '../../composables/useFormatters';
-import { useStatusClasses } from '../../composables/useStatusClasses';
 import EquipmentSelect from '../../components/EquipmentSelect.vue';
+import AutocompleteInput from '../../components/AutocompleteInput.vue';
 import { lessonsApi } from '../../api';
+import {
+  EDUCATION_LEVELS,
+  FACULTIES,
+  getSpecialtiesForLevel,
+  getCoursesForLevel,
+  hasCourses
+} from '../../constants/education';
 import {
   IconEdit,
   IconPlus,
@@ -233,10 +284,12 @@ const templatesStore = useTemplatesStore();
 const toast = useToastStore();
 
 const { formatDate } = useFormatters();
-const { getEquipmentStatusClass } = useStatusClasses();
 
 const loading = ref(false);
 const equipmentList = ref([]);
+
+// Локальная копия занятия — обновляется только при открытии drawer'а.
+const currentLesson = ref(null);
 
 const availableGroups = ref([
   'ФИ-21', 'ФИ-22', 'ФИ-23',
@@ -256,7 +309,10 @@ const form = ref({
   template_id: null,
   status: 'Запланировано',
   notes: '',
-  participant_type: ''
+  participant_type: '',
+  faculty: '',
+  specialty: '',
+  course: ''
 });
 
 const activeTemplates = computed(() => {
@@ -265,6 +321,29 @@ const activeTemplates = computed(() => {
 
 const allEquipment = computed(() => {
   return equipmentStore.allEquipment || [];
+});
+
+// ============================================
+//  ЗАВИСИМОСТИ УРОВЕНЬ → СПЕЦИАЛЬНОСТЬ / КУРС
+// ============================================
+const availableSpecialties = computed(() =>
+  getSpecialtiesForLevel(form.value.participant_type)
+);
+
+const availableCourses = computed(() =>
+  getCoursesForLevel(form.value.participant_type)
+);
+
+const showCourseField = computed(() =>
+  hasCourses(form.value.participant_type)
+);
+
+// Сброс специальности и курса при смене уровня
+watch(() => form.value.participant_type, (newLevel, oldLevel) => {
+  if (newLevel !== oldLevel) {
+    form.value.specialty = '';
+    form.value.course = '';
+  }
 });
 
 // ============================================
@@ -294,7 +373,10 @@ const resetForm = () => {
     template_id: null,
     status: 'Запланировано',
     notes: '',
-    participant_type: ''
+    participant_type: '',
+    faculty: '',
+    specialty: '',
+    course: ''
   };
   equipmentList.value = [];
 };
@@ -314,7 +396,10 @@ const fillForm = (val) => {
     template_id: val.template_id || null,
     status: val.status || 'Запланировано',
     notes: val.notes || '',
-    participant_type: val.participant_type || ''
+    participant_type: val.participant_type || '',
+    faculty: val.faculty || '',
+    specialty: val.specialty || '',
+    course: val.course || ''
   };
 
   if (val.equipment_list && Array.isArray(val.equipment_list)) {
@@ -331,7 +416,7 @@ const loadTemplateEquipment = () => {
   if (form.value.template_id) {
     const template = templatesStore.getById(form.value.template_id);
     if (template) {
-      if (!props.lesson) {
+      if (!currentLesson.value) {
         form.value.title = template.title || '';
       }
 
@@ -352,7 +437,7 @@ const loadTemplateEquipment = () => {
 const clearTemplate = () => {
   form.value.template_id = null;
   equipmentList.value = [];
-  if (!props.lesson) {
+  if (!currentLesson.value) {
     form.value.title = '';
   }
   toast.info('Шаблон удален');
@@ -393,11 +478,20 @@ const submit = async () => {
     return;
   }
 
+  // Блокируем «Требует ремонта», «В ремонте», «Списан»
+  // и write_off «На списание» / «Списан».
+  // «Исправен» и «Частично неисправен» — разрешены.
   const invalidEquipment = [];
   for (const id of equipmentList.value) {
     const eq = equipmentStore.getById(id);
-    if (eq && eq.working_status !== 'Исправен') {
-      invalidEquipment.push(`${eq.name} (статус: ${eq.working_status})`);
+    if (eq && (
+      eq.working_status === 'Требует ремонта' ||
+      eq.working_status === 'В ремонте' ||
+      eq.working_status === 'Списан' ||
+      eq.write_off_status === 'На списание' ||
+      eq.write_off_status === 'Списан'
+    )) {
+      invalidEquipment.push(`${eq.name} (статус: ${eq.working_status}, списание: ${eq.write_off_status})`);
     }
   }
 
@@ -426,11 +520,14 @@ const submit = async () => {
       notes: form.value.notes || '',
       equipment_list: equipmentWithQuantity,
       template_id: form.value.template_id,
-      participant_type: form.value.participant_type || ''
+      participant_type: form.value.participant_type || '',
+      faculty: form.value.faculty || '',
+      specialty: form.value.specialty || '',
+      course: form.value.course || null
     };
 
-    if (props.lesson) {
-      await lessonsApi.update(props.lesson.id, data);
+    if (currentLesson.value) {
+      await lessonsApi.update(currentLesson.value.id, data);
       toast.success('Занятие обновлено');
     } else {
       await lessonsApi.create(data);
@@ -442,7 +539,6 @@ const submit = async () => {
     }
 
     emit('save');
-    close();
   } catch (error) {
     console.error('Ошибка сохранения:', error);
     toast.error(error?.response?.data?.message || 'Ошибка сохранения');
@@ -459,25 +555,14 @@ watch(() => props.visible, (val) => {
 
   if (!val) return;
 
-  if (props.lesson) {
-    fillForm(props.lesson);
+  currentLesson.value = props.lesson ?? null;
+
+  if (currentLesson.value) {
+    fillForm(currentLesson.value);
   } else {
     resetForm();
   }
 }, { immediate: false });
-
-// ============================================
-//  WATCH: lesson (когда drawer уже открыт)
-// ============================================
-watch(() => props.lesson, (val) => {
-  if (!props.visible) return;
-
-  if (val) {
-    fillForm(val);
-  } else {
-    resetForm();
-  }
-});
 
 // ============================================
 //  ОБРАБОТЧИКИ
@@ -569,7 +654,6 @@ onBeforeUnmount(() => {
   border-bottom: 1px solid #e9ecef;
   flex-shrink: 0;
   background: white;
-  border-radius: 0;
 }
 
 .drawer-header h3 {
@@ -807,19 +891,19 @@ textarea.form-control {
   .drawer {
     width: 90%;
   }
-  
+
   .drawer-header {
     padding: 16px 20px;
   }
-  
+
   .drawer-body {
     padding: 16px 20px;
   }
-  
+
   .form-row {
     grid-template-columns: 1fr;
   }
-  
+
   .template-select-wrapper {
     flex-direction: column;
   }
@@ -829,15 +913,15 @@ textarea.form-control {
   .drawer {
     width: 100%;
   }
-  
+
   .drawer-header h3 {
     font-size: 17px;
   }
-  
+
   .form-actions {
     flex-direction: column;
   }
-  
+
   .form-actions .btn {
     width: 100%;
     justify-content: center;

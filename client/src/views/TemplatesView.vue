@@ -7,10 +7,11 @@
       </h2>
       <p>Управление шаблонами занятий</p>
 
-      <ProblemTemplatesAlert 
-        :templates="templatesItems" 
-        :equipment-list="allEquipment" 
-        :on-edit-click="openEditForm" 
+      <ProblemTemplatesAlert
+        v-if="!loading"
+        :templates="templatesItems"
+        :equipment-list="allEquipment"
+        :on-edit-click="openEditForm"
       />
 
       <div class="toolbar">
@@ -46,11 +47,11 @@
 
         <div class="filter-group">
           <label>Поиск</label>
-          <input 
-            v-model="templatesFilters.search" 
-            type="text" 
-            class="form-control" 
-            placeholder="Поиск по названию..." 
+          <input
+            v-model="templatesFilters.search"
+            type="text"
+            class="form-control"
+            placeholder="Поиск по названию..."
           />
         </div>
 
@@ -62,11 +63,10 @@
         </div>
       </div>
 
-      <!-- СПИСОК -->
-      <div v-if="loading" class="text-center">
-        <IconLoading class="loading-icon" />
-        Загрузка...
-      </div>
+      <!-- СКЕЛЕТОН -->
+      <TemplatesTableSkeleton v-if="loading" />
+
+      <!-- ПУСТО -->
       <div v-else-if="filteredTemplates.length === 0" class="empty-state">
         <IconList class="empty-icon" />
         <span>Нет шаблонов</span>
@@ -77,125 +77,145 @@
         <table class="templates-table">
           <thead>
             <tr>
-              <th style="width: 80px;">ID</th>
-              <th style="min-width: 150px;">Название</th>
-              <th style="min-width: 120px;">Дисциплина</th>
+              <th
+                class="sortable"
+                :class="{ 'sort-active': sortField === 'created_at' }"
+                style="width: 110px;"
+                @click="toggleSort('created_at')"
+              >
+                Дата создания
+                <span class="sort-icon" v-if="sortField === 'created_at'">
+                  {{ sortDirection === 'desc' ? '↓' : '↑' }}
+                </span>
+              </th>
+              <th
+                class="sortable"
+                :class="{ 'sort-active': sortField === 'title' }"
+                style="min-width: 150px;"
+                @click="toggleSort('title')"
+              >
+                Название
+                <span class="sort-icon" v-if="sortField === 'title'">
+                  {{ sortDirection === 'desc' ? '↓' : '↑' }}
+                </span>
+              </th>
+              <th
+                class="sortable"
+                :class="{ 'sort-active': sortField === 'discipline' }"
+                style="min-width: 120px;"
+                @click="toggleSort('discipline')"
+              >
+                Дисциплина
+                <span class="sort-icon" v-if="sortField === 'discipline'">
+                  {{ sortDirection === 'desc' ? '↓' : '↑' }}
+                </span>
+              </th>
               <th style="min-width: 150px;">Оборудование</th>
-              <th style="width: 100px;">Статус</th>
+              <th
+                class="sortable"
+                :class="{ 'sort-active': sortField === 'status' }"
+                style="width: 100px;"
+                @click="toggleSort('status')"
+              >
+                Статус
+                <span class="sort-icon" v-if="sortField === 'status'">
+                  {{ sortDirection === 'desc' ? '↓' : '↑' }}
+                </span>
+              </th>
               <th style="width: 130px;">Действия</th>
             </tr>
           </thead>
           <tbody>
-            <TemplateCard 
-              v-for="template in paginatedItems" 
-              :key="template.id" 
+            <TemplateCard
+              v-for="template in paginatedItems"
+              :key="template.id"
               :template="template"
-              :all-equipment="allEquipment" 
-              @row-click="handleRowClick" 
-              @edit="openEditForm" 
-              @delete="deleteTemplate" 
+              :all-equipment="allEquipment"
+              @row-click="handleRowClick"
+              @edit="openEditForm"
+              @delete="deleteTemplate"
             />
           </tbody>
         </table>
       </div>
 
       <!-- ПАГИНАЦИЯ -->
-      <Pagination 
-        v-if="showPagination" 
-        v-model:current-page="currentPage" 
+      <Pagination
+        v-if="!loading && showPagination"
+        v-model:current-page="currentPage"
         :total-pages="totalPages"
-        :loading="loading" 
+        :loading="loading"
       />
 
       <!-- ФОРМА -->
-      <TemplateFormDrawer 
-        :visible="showForm" 
-        :template="editingItem" 
-        @close="closeForm" 
-        @save="onSaved" 
+      <TemplateFormDrawer
+        :visible="showForm"
+        :template="editingItem"
+        @close="closeForm"
+        @save="onSaved"
       />
 
-      <ConfirmModal 
-        v-model:visible="show" 
-        :title="config.title" 
+      <ConfirmModal
+        v-model:visible="show"
+        :title="config.title"
         :message="config.message"
-        :confirm-text="config.confirmText" 
-        :cancel-text="config.cancelText" 
+        :confirm-text="config.confirmText"
+        :cancel-text="config.cancelText"
         :confirm-variant="config.confirmVariant"
-        @confirm="onConfirm" 
-        @cancel="onCancel" 
+        @confirm="onConfirm"
+        @cancel="onCancel"
       />
     </div>
 
     <div class="templates-sidebar">
-      <ProblemEquipmentSidebar 
-        :lessons="lessonsItems" 
-        :templates="templatesItems" 
+      <ProblemEquipmentSidebar
+        :lessons="lessonsItems"
+        :templates="templatesItems"
         :equipment-list="allEquipment"
-        :limit="3" 
-        :show-actions="false" 
-        :on-lesson-click="(id) => router.push(`/lessons/${id}`)"
-        :on-equipment-click="(id) => router.push(`/equipment/${id}`)"
-        :on-template-click="(id) => router.push(`/templates/${id}`)" 
+        :limit="3"
+        :show-actions="false"
       />
 
-      <div class="sidebar-card">
-        <h4>
-          <IconList class="h-icon" />
-          Дисциплины
-        </h4>
-        <div class="filter-list">
-          <div 
-            v-for="discipline in uniqueDisciplines" 
-            :key="discipline" 
-            class="filter-item"
-            :class="{ active: templatesFilters.discipline === discipline }"
-            @click="toggleDiscipline(discipline)"
-          >
-            <span class="filter-name">{{ discipline }}</span>
-            <span class="filter-count">{{ getDisciplineCount(discipline) }}</span>
-          </div>
-          <div v-if="uniqueDisciplines.length === 0" class="filter-item empty">
-            Нет дисциплин
-          </div>
-        </div>
-      </div>
+      <SidebarFilterList
+        title="Дисциплины"
+        :icon="IconList"
+        :items="uniqueDisciplines"
+        :selected="templatesFilters.discipline"
+        :count-fn="getDisciplineCount"
+        empty-text="Нет дисциплин"
+        @select="toggleDiscipline"
+      />
     </div>
   </div>
 </template>
 
 <script setup>
-import { ref, computed, onMounted, onActivated, watch, onBeforeUnmount, nextTick } from 'vue';
-import { useRoute, useRouter } from 'vue-router';
+import { ref, computed, onMounted, onActivated, watch, onBeforeUnmount } from 'vue';
 import { storeToRefs } from 'pinia';
 import { useTemplatesStore, useLessonsStore, useEquipmentStore } from '../stores';
-import { useAppStore } from '../stores/appStore';
+import { useUiStore } from '../stores/ui.store';
 import { useToastStore } from '../stores/toastStore';
+import { useUrlSync } from '../composables/useUrlSync';
 import { useConfirm } from '../composables/useConfirm';
 import TemplateFormDrawer from '../components/templates/TemplateFormDrawer.vue';
 import TemplateCard from '../components/templates/TemplateCard.vue';
+import TemplatesTableSkeleton from '../components/templates/TemplatesTableSkeleton.vue';
 import ConfirmModal from '../components/ConfirmModal.vue';
 import ProblemEquipmentSidebar from '../components/ProblemEquipmentSidebar.vue';
 import ProblemTemplatesAlert from '../components/ProblemTemplatesAlert.vue';
 import Pagination from '../components/Pagination.vue';
+import SidebarFilterList from '../components/SidebarFilterList.vue';
 import {
   IconTemplates,
   IconPlus,
   IconReset,
-  IconList,
-  IconLoading
+  IconList
 } from '../components/icons';
-
-// ============================================
-// ROUTER
-// ============================================
-const router = useRouter();
-const route = useRoute();
 
 // ============================================
 // STORE
 // ============================================
-const appStore = useAppStore();
+const uiStore = useUiStore();
 const templatesStore = useTemplatesStore();
 const lessonsStore = useLessonsStore();
 const equipmentStore = useEquipmentStore();
@@ -206,34 +226,87 @@ const { show, config, confirm, onConfirm, onCancel } = useConfirm();
 const { items: templatesItems } = storeToRefs(templatesStore);
 const { items: lessonsItems } = storeToRefs(lessonsStore);
 const { allEquipment } = storeToRefs(equipmentStore);
-const { filters, pagination } = storeToRefs(appStore);
+const { filters, pagination, editing } = storeToRefs(uiStore);
+
+// ============================================
+// URL ↔ STORE
+// ============================================
+const { openFromUrl } = useUrlSync({
+  resolvers: {
+    template: async (id) => {
+      if (templatesItems.value.length === 0) {
+        await templatesStore.fetchAll();
+      }
+      return templatesItems.value.find((t) => t.id === id) ?? null;
+    }
+  }
+});
 
 // ============================================
 // СОСТОЯНИЕ
 // ============================================
 const loading = ref(true);
-const showForm = ref(false);
-const editingItem = ref(null);
-let isUpdatingFromUrl = false;
 
 // ============================================
-// ФИЛЬТРЫ ИЗ APPSTORE
+// DRAWER
 // ============================================
-const templatesFilters = computed({
-  get: () => filters.value.templates || { status: '', discipline: '', search: '' },
+const editingItem = computed(() =>
+  templatesItems.value.find((t) => t.id === editing.value.template) || null
+);
+
+const showForm = computed({
+  get: () =>
+    (editing.value.template !== null && editingItem.value !== null)
+    || uiStore.creating.template,
   set: (val) => {
-    filters.value.templates = val;
+    if (!val) uiStore.closeEdit('template');
   }
 });
 
 // ============================================
-// ПАГИНАЦИЯ ИЗ APPSTORE
+// ФИЛЬТРЫ И СОРТИРОВКА
+// ============================================
+const templatesFilters = computed({
+  get: () => filters.value.templates || {
+    status: '',
+    discipline: '',
+    search: '',
+    sortField: 'created_at',
+    sortDirection: 'desc'
+  },
+  set: (val) => { filters.value.templates = val; }
+});
+
+const sortField = computed({
+  get: () => templatesFilters.value.sortField || 'created_at',
+  set: (val) => {
+    templatesFilters.value = { ...templatesFilters.value, sortField: val };
+  }
+});
+
+const sortDirection = computed({
+  get: () => templatesFilters.value.sortDirection || 'desc',
+  set: (val) => {
+    templatesFilters.value = { ...templatesFilters.value, sortDirection: val };
+  }
+});
+
+const toggleSort = (field) => {
+  if (sortField.value === field) {
+    sortDirection.value = sortDirection.value === 'desc' ? 'asc' : 'desc';
+  } else {
+    sortField.value = field;
+    sortDirection.value = 'desc';
+  }
+  resetPage();
+};
+
+// ============================================
+// ПАГИНАЦИЯ
 // ============================================
 const templatesPagination = computed({
   get: () => pagination.value.templates || { page: 1, size: 7 },
-  set: (val) => {
-    pagination.value.templates = val;
-  }
+  set: (val) => { pagination.value.templates = val; }
 });
 
 const currentPage = computed({
@@ -244,7 +317,7 @@ const currentPage = computed({
 });
 
 // ============================================
-// ФИЛЬТРАЦИЯ
+// ФИЛЬТРАЦИЯ + СОРТИРОВКА
 // ============================================
 const filterConfig = {
   status: {
@@ -273,19 +346,50 @@ const filterConfig = {
 
 const filteredTemplates = computed(() => {
   const list = [...templatesItems.value];
+
+  const field = sortField.value;
+  const dir = sortDirection.value === 'desc' ? -1 : 1;
+
+  list.sort((a, b) => {
+    let va, vb;
+
+    if (field === 'created_at') {
+      va = new Date(a.created_at).getTime() || 0;
+      vb = new Date(b.created_at).getTime() || 0;
+      return (va - vb) * dir;
+    }
+
+    if (field === 'title') {
+      va = (a.title || '').toLowerCase();
+      vb = (b.title || '').toLowerCase();
+    } else if (field === 'discipline') {
+      va = (a.discipline || '').toLowerCase();
+      vb = (b.discipline || '').toLowerCase();
+    } else if (field === 'status') {
+      va = a.is_active ? 0 : 1;
+      vb = b.is_active ? 0 : 1;
+    } else {
+      return 0;
+    }
+
+    if (va < vb) return -1 * dir;
+    if (va > vb) return 1 * dir;
+    return 0;
+  });
+
   const allFilters = { ...templatesFilters.value };
 
-  return list.filter(item => {
+  return list.filter((item) => {
     let result = true;
-    for (const [key, config] of Object.entries(filterConfig)) {
+    for (const [key, cfg] of Object.entries(filterConfig)) {
       const filterValue = allFilters[key];
       if (filterValue !== undefined && filterValue !== null && filterValue !== '') {
         if (Array.isArray(filterValue)) {
           if (filterValue.length > 0) {
-            result = result && config.filterFn(item, filterValue);
+            result = result && cfg.filterFn(item, filterValue);
           }
         } else {
-          result = result && config.filterFn(item, filterValue);
+          result = result && cfg.filterFn(item, filterValue);
         }
       }
     }
@@ -298,50 +402,42 @@ const filteredTemplates = computed(() => {
 // ============================================
 const uniqueDisciplines = computed(() => {
   const disciplines = templatesItems.value
-    .map(t => t.discipline)
-    .filter(d => d && d.trim() !== '');
+    .map((t) => t.discipline)
+    .filter((d) => d && d.trim() !== '');
   return [...new Set(disciplines)].sort();
 });
 
-const getDisciplineCount = (discipline) => {
-  return templatesItems.value.filter(t => t.discipline === discipline).length;
-};
+const getDisciplineCount = (discipline) =>
+  templatesItems.value.filter((t) => t.discipline === discipline).length;
 
-// ✅ TOGGLE: клик по дисциплине — если уже выбрана, снимаем
 const toggleDiscipline = (discipline) => {
   if (templatesFilters.value.discipline === discipline) {
     templatesFilters.value = { ...templatesFilters.value, discipline: '' };
   } else {
     templatesFilters.value = { ...templatesFilters.value, discipline };
   }
-  applyFilters();
+  resetPage();
 };
 
 // ============================================
 // ПАГИНАЦИЯ
 // ============================================
 const pageSize = 7;
+const resetPage = () => { currentPage.value = 1; };
 
-const totalPages = computed(() => {
-  return Math.ceil(filteredTemplates.value.length / pageSize) || 1;
-});
+const totalPages = computed(() =>
+  Math.ceil(filteredTemplates.value.length / pageSize) || 1
+);
 
 const paginatedItems = computed(() => {
   const start = (currentPage.value - 1) * pageSize;
-  const end = start + pageSize;
-  return filteredTemplates.value.slice(start, end);
+  return filteredTemplates.value.slice(start, start + pageSize);
 });
 
-const showPagination = computed(() => {
-  return filteredTemplates.value.length > pageSize;
-});
-
-const resetPage = () => {
-  currentPage.value = 1;
-};
+const showPagination = computed(() => filteredTemplates.value.length > pageSize);
 
 // ============================================
-// ЗАГРУЗКА ДАННЫХ
+// ЗАГРУЗКА
 // ============================================
 const loadData = async () => {
   loading.value = true;
@@ -351,7 +447,6 @@ const loadData = async () => {
       lessonsStore.fetchAll(),
       equipmentStore.fetchAll()
     ]);
-    resetPage();
   } catch (error) {
     console.error('Error loading data:', error);
     toast.error('Ошибка загрузки данных');
@@ -360,12 +455,8 @@ const loadData = async () => {
   }
 };
 
-const applyFilters = () => {
-  resetPage();
-};
-
 const resetAllFilters = () => {
-  appStore.resetFilters('templates');
+  uiStore.resetFilters('templates');
   resetPage();
 };
 
@@ -377,11 +468,8 @@ const handleKeydown = (e) => {
     const tag = e.target.tagName.toLowerCase();
     if (tag !== 'input' && tag !== 'textarea' && tag !== 'select') {
       e.preventDefault();
-      if (showForm.value) {
-        closeForm();
-      } else {
-        openCreateForm();
-      }
+      if (showForm.value) closeForm();
+      else openCreateForm();
     }
   }
 };
@@ -389,45 +477,14 @@ const handleKeydown = (e) => {
 // ============================================
 // МЕТОДЫ
 // ============================================
-const openCreateForm = () => {
-  isUpdatingFromUrl = true;
-  editingItem.value = null;
-  showForm.value = true;
-  appStore.closeEdit('template');
-  const query = { ...route.query };
-  delete query.template_edit;
-  router.replace({ query });
-  setTimeout(() => {
-    isUpdatingFromUrl = false;
-  }, 100);
-};
+const openCreateForm = () => uiStore.openCreate('template');
 
 const openEditForm = (template) => {
-  if (!template) return;
-  isUpdatingFromUrl = true;
-  editingItem.value = template;
-  showForm.value = true;
-  if (template.id) {
-    appStore.openEdit('template', template.id);
-  }
-  setTimeout(() => {
-    isUpdatingFromUrl = false;
-  }, 100);
+  if (!template?.id) return;
+  uiStore.openEdit('template', template.id);
 };
 
-const closeForm = () => {
-  isUpdatingFromUrl = true;
-  showForm.value = false;
-  appStore.closeEdit('template');
-  const query = { ...route.query };
-  if (query.template_edit) {
-    delete query.template_edit;
-    router.replace({ query });
-  }
-  setTimeout(() => {
-    isUpdatingFromUrl = false;
-  }, 100);
-};
+const closeForm = () => uiStore.closeEdit('template');
 
 const onSaved = () => {
   closeForm();
@@ -458,77 +515,18 @@ const deleteTemplate = async (id) => {
 };
 
 // ============================================
-// ОТКРЫТИЕ ИЗ URL
-// ============================================
-const openFromUrl = async () => {
-  if (isUpdatingFromUrl) return false;
-
-  const templateEdit = route.query.template_edit;
-
-  if (templateEdit) {
-    const id = parseInt(templateEdit, 10);
-    if (!isNaN(id) && id > 0) {
-      if (showForm.value && editingItem.value?.id === id) {
-        return true;
-      }
-
-      if (templatesItems.value.length === 0) {
-        await templatesStore.fetchAll();
-      }
-      const template = templatesItems.value.find(t => t.id === id);
-      if (template) {
-        if (showForm.value && editingItem.value?.id !== id) {
-          closeForm();
-          await nextTick();
-        }
-        openEditForm(template);
-        return true;
-      } else {
-        toast.warning(`Шаблон с ID ${id} не найден`);
-        if (showForm.value) {
-          closeForm();
-        }
-      }
-    }
-  }
-  return false;
-};
-
-// ============================================
 // WATCH
 // ============================================
 watch(
-  [() => templatesFilters.value.status, () => templatesFilters.value.discipline, () => templatesFilters.value.search],
+  [
+    () => templatesFilters.value.status,
+    () => templatesFilters.value.discipline,
+    () => templatesFilters.value.search
+  ],
   () => {
     resetPage();
   },
   { deep: true }
-);
-
-watch(currentPage, (newPage) => {
-  const query = { ...route.query };
-  query.t_p = newPage || 1;
-  router.replace({ query });
-});
-
-watch(
-  () => route.query.template_edit,
-  async (newVal) => {
-    if (isUpdatingFromUrl) return;
-
-    if (newVal) {
-      await openFromUrl();
-    } else {
-      if (showForm.value && !isUpdatingFromUrl) {
-        isUpdatingFromUrl = true;
-        showForm.value = false;
-        setTimeout(() => {
-          isUpdatingFromUrl = false;
-        }, 500);
-        appStore.closeEdit('template');
-      }
-    }
-  }
 );
 
 // ============================================
@@ -537,14 +535,9 @@ watch(
 onMounted(async () => {
   await loadData();
 
-  if (route.query.t_p) {
-    const page = parseInt(route.query.t_p, 10);
-    if (!isNaN(page) && page > 0) {
-      currentPage.value = page;
-    }
-  }
-
-  await openFromUrl();
+  const { found, item, id } = await openFromUrl('template', { queryKey: 'templates_edit' });
+  if (found) openEditForm(item);
+  else if (id) toast.warning(`Шаблон с ID ${id} не найден`);
 
   document.addEventListener('keydown', handleKeydown);
 });
@@ -751,6 +744,31 @@ p {
   white-space: nowrap;
 }
 
+/* ============================================
+   СОРТИРУЕМЫЕ ЗАГОЛОВКИ
+   ============================================ */
+.templates-table th.sortable {
+  cursor: pointer;
+  user-select: none;
+  transition: background 0.15s;
+}
+
+.templates-table th.sortable:hover {
+  background: #e9ecef;
+}
+
+.templates-table th.sort-active {
+  color: #0d6efd;
+}
+
+.sort-icon {
+  display: inline-block;
+  margin-left: 4px;
+  font-size: 12px;
+  color: #0d6efd;
+  font-weight: 700;
+}
+
 .templates-table td {
   padding: 10px 16px;
   border-bottom: 1px solid #e9ecef;
@@ -759,91 +777,6 @@ p {
 
 .templates-table td:last-child {
   cursor: default;
-}
-
-/* ============================================
-   САЙДБАР
-   ============================================ */
-.sidebar-card {
-  background: white;
-  border-radius: 8px;
-  padding: 16px;
-  border: 1px solid #e9ecef;
-  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.06);
-}
-
-.sidebar-card h4 {
-  font-size: 14px;
-  font-weight: 600;
-  margin: 0 0 10px 0;
-  color: #212529;
-  display: flex;
-  align-items: center;
-  gap: 6px;
-}
-
-.sidebar-card h4 .h-icon {
-  width: 16px;
-  height: 16px;
-  stroke: #212529;
-}
-
-.filter-list {
-  display: flex;
-  flex-direction: column;
-  gap: 4px;
-  max-height: 150px;
-  overflow-y: auto;
-}
-
-.filter-item {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  padding: 6px 10px;
-  border-radius: 4px;
-  cursor: pointer;
-  transition: all 0.15s;
-  font-size: 13px;
-  border: 1px solid transparent;
-}
-
-.filter-item:hover {
-  background: #f8f9fa;
-  border-color: #e9ecef;
-}
-
-.filter-item.active {
-  background: #e7f1ff;
-  border-color: #0d6efd;
-  color: #0d6efd;
-}
-
-.filter-item .filter-name {
-  font-weight: 500;
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
-}
-
-.filter-item .filter-count {
-  font-size: 12px;
-  color: #6c757d;
-  background: #e9ecef;
-  padding: 0 8px;
-  border-radius: 10px;
-  flex-shrink: 0;
-}
-
-.filter-item.active .filter-count {
-  background: #0d6efd;
-  color: white;
-}
-
-.filter-item.empty {
-  cursor: default;
-  color: #6c757d;
-  justify-content: center;
 }
 
 /* ============================================
@@ -865,28 +798,6 @@ p {
   stroke: #6c757d;
 }
 
-.text-center {
-  text-align: center;
-  padding: 20px;
-  color: #6c757d;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  gap: 8px;
-}
-
-.text-center .loading-icon {
-  width: 20px;
-  height: 20px;
-  stroke: #6c757d;
-  animation: spin 1s linear infinite;
-}
-
-@keyframes spin {
-  from { transform: rotate(0deg); }
-  to { transform: rotate(360deg); }
-}
-
 /* ============================================
    АДАПТИВНОСТЬ
    ============================================ */
@@ -905,11 +816,6 @@ p {
     width: 100%;
     flex-direction: row;
     flex-wrap: wrap;
-  }
-
-  .templates-sidebar .sidebar-card {
-    flex: 1;
-    min-width: 200px;
   }
 }
 

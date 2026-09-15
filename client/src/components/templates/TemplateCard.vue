@@ -3,7 +3,7 @@
     class="template-card-row"
     @click="handleRowClick"
   >
-    <td class="template-id">#{{ template.id }}</td>
+    <td class="template-date">{{ formatDate(template.created_at) }}</td>
 
     <td>
       <strong class="template-title">{{ template.title }}</strong>
@@ -62,12 +62,15 @@
 
 <script setup>
 import { computed } from 'vue';
+import { useFormatters } from '../../composables/useFormatters';
 import {
   IconCheck,
   IconAlert,
   IconEdit,
   IconTrash
 } from '../icons';
+
+const { formatDate } = useFormatters();
 
 // ============================================
 //  PROPS
@@ -111,16 +114,26 @@ const equipmentList = computed(() => {
 
 const equipmentCount = computed(() => equipmentList.value.length);
 
+// Проблемное оборудование — «Требует ремонта», «В ремонте», «Списан»
+// и write_off «На списание» / «Списан».
+// «Исправен» и «Частично неисправен» — не проблемные.
+const isEquipmentProblematic = (eq) => {
+  if (!eq) return false;
+  return (
+    eq.working_status === 'Требует ремонта' ||
+    eq.working_status === 'В ремонте' ||
+    eq.working_status === 'Списан' ||
+    eq.write_off_status === 'На списание' ||
+    eq.write_off_status === 'Списан'
+  );
+};
+
 const equipmentPreview = computed(() => {
   return equipmentList.value.slice(0, 3).map(item => {
     const eq = props.allEquipment.find(e => e.id === item.equipment_id);
     if (!eq) return 'Оборудование #' + item.equipment_id;
 
-    const isBroken =
-      eq.working_status !== 'Исправен' ||
-      eq.write_off_status === 'Списан' ||
-      eq.write_off_status === 'На списание' ||
-      eq.is_archived;
+    const isBroken = isEquipmentProblematic(eq);
 
     return isBroken ? `${eq.name} (${eq.working_status})` : eq.name;
   });
@@ -131,12 +144,7 @@ const isPreviewBroken = (index) => {
   if (!item) return false;
   const eq = props.allEquipment.find(e => e.id === item.equipment_id);
   if (!eq) return false;
-  return (
-    eq.working_status !== 'Исправен' ||
-    eq.write_off_status === 'Списан' ||
-    eq.write_off_status === 'На списание' ||
-    eq.is_archived
-  );
+  return isEquipmentProblematic(eq);
 };
 </script>
 
@@ -163,9 +171,10 @@ const isPreviewBroken = (index) => {
   line-height: 1.4;
 }
 
-.template-id {
-  font-weight: 600;
-  color: #0d6efd;
+.template-date {
+  font-size: 13px;
+  color: #495057;
+  white-space: nowrap;
 }
 
 .template-title {

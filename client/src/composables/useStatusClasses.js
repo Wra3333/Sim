@@ -28,6 +28,7 @@ export function useStatusClasses() {
   const getEquipmentStatusClass = (status) => {
     const map = {
       'Исправен': 'badge-success',
+      'Частично неисправен': 'badge-warning', 
       'Требует ремонта': 'badge-warning',
       'В ремонте': 'badge-danger'
     };

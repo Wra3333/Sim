@@ -98,10 +98,10 @@ import { useAuthStore } from '../../stores/auth.store';
 import {
   IconLogo,
   IconUser,
-  IconInbox,   // Используем вместо IconMail
+  IconInbox,   
   IconLock,
   IconAlert,
-  IconPlus,    // Используем вместо IconUserPlus
+  IconPlus,    
 } from '../../components/icons';
 
 const router = useRouter();

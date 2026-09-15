@@ -12,9 +12,9 @@
     >
       <div class="drawer-header">
         <h3>
-          <IconEdit v-if="repair" class="header-icon" />
+          <IconEdit v-if="currentRepair" class="header-icon" />
           <IconPlus v-else class="header-icon" />
-          {{ repair ? 'Редактировать заявку' : 'Создать заявку о неисправности' }}
+          {{ currentRepair ? 'Редактировать заявку' : 'Создать заявку о неисправности' }}
         </h3>
         <button class="btn-close" @click="close">×</button>
       </div>
@@ -89,7 +89,7 @@
             <button type="submit" class="btn btn-primary" :disabled="loading">
               <IconSave v-if="!loading" class="btn-icon" />
               <IconLoading v-else class="btn-icon spin" />
-              {{ loading ? 'Сохранение...' : (repair ? 'Обновить заявку' : 'Создать заявку') }}
+              {{ loading ? 'Сохранение...' : (currentRepair ? 'Обновить заявку' : 'Создать заявку') }}
             </button>
           </div>
         </form>
@@ -127,6 +127,13 @@ const emit = defineEmits(['close', 'save']);
 const toast = useToastStore();
 const equipmentList = ref([]);
 const loading = ref(false);
+
+// ============================================
+//  ЛОКАЛЬНАЯ КОПИЯ ЗАЯВКИ
+// ============================================
+// Обновляется ТОЛЬКО при открытии drawer'а (visible: false → true).
+// При закрытии остаётся прежней — заголовок и форма не «моргают».
+const currentRepair = ref(null);
 
 const form = ref({
   equipment_ids: [],
@@ -216,34 +223,6 @@ const resetForm = () => {
 };
 
 // ============================================
-//  WATCH: visible
-// ============================================
-watch(() => props.visible, (val) => {
-  toggleBodyScroll(val);
-
-  if (!val) return;
-
-  if (props.repair) {
-    fillForm(props.repair);
-  } else {
-    resetForm();
-  }
-}, { immediate: false });
-
-// ============================================
-//  WATCH: repair (когда drawer уже открыт)
-// ============================================
-watch(() => props.repair, (val) => {
-  if (!props.visible) return;
-
-  if (val) {
-    fillForm(val);
-  } else {
-    resetForm();
-  }
-});
-
-// ============================================
 //  ЗАГРУЗКА ОБОРУДОВАНИЯ
 // ============================================
 const loadEquipment = async () => {
@@ -300,8 +279,8 @@ const submit = async () => {
       repair_possibility: form.value.repair_possibility
     };
 
-    if (props.repair) {
-      await repairsApi.update(props.repair.id, payload);
+    if (currentRepair.value) {
+      await repairsApi.update(currentRepair.value.id, payload);
       toast.success('Заявка обновлена');
     } else {
       const result = await repairsApi.create(payload);
@@ -309,13 +288,31 @@ const submit = async () => {
     }
 
     emit('save');
-    close();
   } catch (error) {
     toast.error(error?.response?.data?.message || 'Ошибка сохранения');
   } finally {
     loading.value = false;
   }
 };
+
+// ============================================
+//  WATCH: visible
+// ============================================
+// При открытии фиксируем текущую заявку и заполняем форму один раз.
+// При закрытии ничего не трогаем — drawer ещё анимируется.
+watch(() => props.visible, (val) => {
+  toggleBodyScroll(val);
+
+  if (!val) return;
+
+  currentRepair.value = props.repair ?? null;
+
+  if (currentRepair.value) {
+    fillForm(currentRepair.value);
+  } else {
+    resetForm();
+  }
+}, { immediate: false });
 
 // ============================================
 //  LIFECYCLE

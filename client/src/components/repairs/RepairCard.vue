@@ -7,7 +7,7 @@
     }"
     @click="handleRowClick"
   >
-    <td class="repair-id">#{{ repair.id }}</td>
+    <td class="repair-date">{{ formatDate(repair.detection_date) }}</td>
 
     <td>
       <strong class="equipment-name">{{ repair.equipment?.name || 'Оборудование' }}</strong>
@@ -24,8 +24,6 @@
         Списан
       </span>
     </td>
-
-    <td class="date-cell">{{ formatDate(repair.detection_date) }}</td>
 
     <td class="detected-by-cell">{{ repair.detected_by || '—' }}</td>
 
@@ -89,7 +87,6 @@
         </button>
 
         <button 
-          v-if="!repair.is_resolved" 
           class="btn btn-sm btn-outline-danger" 
           @click="$emit('delete', repair.id)"
           title="Удалить"
@@ -182,10 +179,9 @@ const getPossibilityClass = (value) => {
   line-height: 1.4;
 }
 
-.repair-id {
-  font-weight: 600;
-  color: #0d6efd;
-  font-size: 14px;
+.repair-date {
+  font-size: 13px;
+  color: #495057;
   white-space: nowrap;
 }
 
@@ -218,7 +214,6 @@ const getPossibilityClass = (value) => {
   word-break: break-word;
 }
 
-.date-cell,
 .detected-by-cell,
 .resolved-by-cell {
   color: #495057;
@@ -314,7 +309,7 @@ const getPossibilityClass = (value) => {
 }
 
 /* ============================================
-   КНОПКИ — уменьшенные
+   КНОПКИ
    ============================================ */
 .actions-cell {
   padding-left: 10px;
@@ -322,7 +317,7 @@ const getPossibilityClass = (value) => {
 
 .table-actions {
   display: flex;
-  gap: 4px;                         /* ✅ было 6px */
+  gap: 4px;
   flex-wrap: nowrap;
   justify-content: flex-end;
 }
@@ -345,22 +340,20 @@ const getPossibilityClass = (value) => {
   stroke: currentColor;
 }
 
-/* ✅ Уменьшенная кнопка */
 .btn-sm {
   padding: 0;
   border-radius: 5px;
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  width: 26px;                      /* ✅ было 30px */
-  height: 26px;                     /* ✅ было 30px */
+  width: 26px;
+  height: 26px;
   flex-shrink: 0;
 }
 
-/* ✅ Уменьшенная иконка внутри кнопки */
 .table-actions .btn .btn-icon {
-  width: 13px;                      /* ✅ было 16px */
-  height: 13px;                     /* ✅ было 16px */
+  width: 13px;
+  height: 13px;
 }
 
 .btn-success {

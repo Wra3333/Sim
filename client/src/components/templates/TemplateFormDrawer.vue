@@ -9,9 +9,9 @@
       <div class="drawer">
         <div class="drawer-header">
           <h3>
-            <IconEdit v-if="template" class="header-icon" />
+            <IconEdit v-if="currentTemplate" class="header-icon" />
             <IconPlus v-else class="header-icon" />
-            {{ template ? 'Редактировать шаблон' : 'Создать шаблон' }}
+            {{ currentTemplate ? 'Редактировать шаблон' : 'Создать шаблон' }}
           </h3>
           <button class="btn-close" @click="close">×</button>
         </div>
@@ -102,7 +102,7 @@
       </div>
     </div>
 
-    <!-- ✅ ВЫНЕСЕННАЯ МОДАЛКА -->
+    <!-- ВЫНЕСЕННАЯ МОДАЛКА -->
     <SyncLessonsModal
         v-if="showSyncModal"
         :lessons="linkedLessons"
@@ -148,6 +148,13 @@ const showSyncModal = ref(false);
 const linkedLessons = ref([]);
 const syncing = ref(false);
 let pendingTemplateId = null;
+
+// ============================================
+//  ЛОКАЛЬНАЯ КОПИЯ ШАБЛОНА
+// ============================================
+// Обновляется ТОЛЬКО при открытии drawer'а (visible: false → true).
+// При закрытии остаётся прежней — заголовок и форма не «моргают».
+const currentTemplate = ref(null);
 
 const form = ref({
   title: '',
@@ -237,6 +244,28 @@ const submit = async () => {
     return;
   }
 
+  // Блокируем «Требует ремонта», «В ремонте», «Списан»
+  // и write_off «На списание» / «Списан».
+  // «Исправен» и «Частично неисправен» — разрешены.
+  const invalidEquipment = [];
+  for (const id of equipmentIds.value) {
+    const eq = equipmentStore.getById(id);
+    if (eq && (
+      eq.working_status === 'Требует ремонта' ||
+      eq.working_status === 'В ремонте' ||
+      eq.working_status === 'Списан' ||
+      eq.write_off_status === 'На списание' ||
+      eq.write_off_status === 'Списан'
+    )) {
+      invalidEquipment.push(`${eq.name} (статус: ${eq.working_status}, списание: ${eq.write_off_status})`);
+    }
+  }
+
+  if (invalidEquipment.length > 0) {
+    toast.error(`Оборудование не может быть использовано в шаблоне: ${invalidEquipment.join(', ')}`);
+    return;
+  }
+
   try {
     loading.value = true;
 
@@ -255,11 +284,11 @@ const submit = async () => {
 
     let response;
 
-    if (props.template) {
-      response = await templatesStore.update(props.template.id, data);
+    if (currentTemplate.value) {
+      response = await templatesStore.update(currentTemplate.value.id, data);
 
       if (response?.hasLinkedLessons) {
-        pendingTemplateId = props.template.id;
+        pendingTemplateId = currentTemplate.value.id;
 
         const notCompleted = (response.linkedLessons || []).filter(
           l => l.status !== 'Проведено'
@@ -268,7 +297,6 @@ const submit = async () => {
         if (notCompleted.length === 0) {
           toast.info('Шаблон обновлён. Все связанные занятия уже проведены');
           emit('save');
-          close();
           loading.value = false;
           return;
         }
@@ -286,7 +314,6 @@ const submit = async () => {
     }
 
     emit('save');
-    close();
   } catch (error) {
     console.error('Ошибка:', error);
     toast.error(error?.response?.data?.message || 'Ошибка сохранения');
@@ -317,7 +344,6 @@ const handleSyncConfirm = async (selectedIds) => {
 
     resetSyncState();
     emit('save');
-    close();
   } catch (error) {
     console.error('Ошибка синхронизации:', error);
     toast.error(error?.response?.data?.message || 'Ошибка синхронизации занятий');
@@ -329,7 +355,6 @@ const handleSyncConfirm = async (selectedIds) => {
 const handleSyncCancel = () => {
   resetSyncState();
   emit('save');
-  close();
 };
 
 const resetSyncState = () => {
@@ -341,6 +366,9 @@ const resetSyncState = () => {
 // ============================================
 //  WATCH: visible
 // ============================================
+// При открытии фиксируем текущий шаблон и заполняем форму один раз.
+// При закрытии ничего не трогаем — drawer ещё анимируется, и данные
+// должны оставаться на месте, чтобы ничего не мелькало.
 watch(() => props.visible, (val) => {
   toggleBodyScroll(val);
 
@@ -349,25 +377,14 @@ watch(() => props.visible, (val) => {
     return;
   }
 
-  if (props.template) {
-    fillForm(props.template);
+  currentTemplate.value = props.template ?? null;
+
+  if (currentTemplate.value) {
+    fillForm(currentTemplate.value);
   } else {
     resetForm();
   }
 }, { immediate: false });
-
-// ============================================
-//  WATCH: template (когда drawer уже открыт)
-// ============================================
-watch(() => props.template, (val) => {
-  if (!props.visible) return;
-
-  if (val) {
-    fillForm(val);
-  } else {
-    resetForm();
-  }
-});
 
 // ============================================
 //  LIFECYCLE

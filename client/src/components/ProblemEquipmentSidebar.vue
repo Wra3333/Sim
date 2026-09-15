@@ -50,9 +50,9 @@
           class="problem-item"
         >
           <span class="problem-name">{{ eq.name }}</span>
-          <span class="problem-status" :class="eq.working_status === 'В ремонте' ? 'status-bad' : 'status-warn'">
+          <span class="problem-status" :class="getProblemStatusClass(eq)">
             <IconAlert class="status-icon" />
-            {{ eq.working_status }}
+            {{ getProblemStatusText(eq) }}
           </span>
         </div>
         <div v-if="problemEquipment.length > limit" class="show-more" @click="toggleExpand('equipment')">
@@ -123,40 +123,55 @@ const goToTemplates = () => {
   router.push('/templates');
 };
 
-//  Получить статус оборудования
-const getEquipmentStatus = (id) => {
-  const eq = props.equipmentList.find(e => e.id === id);
-  if (!eq) return 'Неизвестно';
-  if (eq.write_off_status === 'Списан') return 'Списан';
-  return eq.working_status;
+// ============================================
+//  ПРОВЕРКА: ПРОБЛЕМНОЕ ЛИ ОБОРУДОВАНИЕ
+// ============================================
+// Проблемное — «Требует ремонта», «В ремонте», «Списан»,
+// а также write_off «На списание» / «Списан».
+// «Исправен» и «Частично неисправен» — допустимы.
+const isEquipmentProblematic = (eq) => {
+  if (!eq) return false;
+  return (
+    eq.working_status === 'Требует ремонта' ||
+    eq.working_status === 'В ремонте' ||
+    eq.working_status === 'Списан' ||
+    eq.write_off_status === 'На списание' ||
+    eq.write_off_status === 'Списан'
+  );
 };
 
-//  Проверить, есть ли у занятия проблемное оборудование
+const getEquipmentById = (id) => {
+  return props.equipmentList.find(e => e.id === id) || null;
+};
+
+// ============================================
+//  ПРОБЛЕМНЫЕ ЗАНЯТИЯ
+// ============================================
 const isLessonProblem = (lesson) => {
   if (!lesson.equipment_list || lesson.equipment_list.length === 0) return false;
   if (lesson.status !== 'Запланировано') return false;
-  
+
   for (const item of lesson.equipment_list) {
-    const status = getEquipmentStatus(item.equipment_id);
-    if (status !== 'Исправен') return true;
+    const eq = getEquipmentById(item.equipment_id);
+    if (isEquipmentProblematic(eq)) return true;
   }
   return false;
 };
 
-//  ПРОБЛЕМНЫЕ ЗАНЯТИЯ
 const problemLessons = computed(() => {
   return props.lessons.filter(lesson => isLessonProblem(lesson));
 });
 
-// ⚠️ ПРОБЛЕМНОЕ ОБОРУДОВАНИЕ
+// ============================================
+//  ПРОБЛЕМНОЕ ОБОРУДОВАНИЕ
+// ============================================
 const problemEquipment = computed(() => {
-  return props.equipmentList.filter(e => 
-    e.working_status !== 'Исправен' || 
-    e.write_off_status === 'Списан'
-  );
+  return props.equipmentList.filter(eq => isEquipmentProblematic(eq));
 });
 
-// 📋 ШАБЛОНЫ С ПРОБЛЕМНЫМ ОБОРУДОВАНИЕМ
+// ============================================
+//  ПРОБЛЕМНЫЕ ШАБЛОНЫ
+// ============================================
 const problemTemplates = computed(() => {
   const problemIds = problemEquipment.value.map(e => e.id);
   return props.templates.filter(t => {
@@ -166,10 +181,34 @@ const problemTemplates = computed(() => {
   });
 });
 
+// ============================================
 //  ЕСТЬ ЛИ КАКИЕ-ЛИБО ПРОБЛЕМЫ
+// ============================================
 const hasProblems = computed(() => {
   return problemLessons.value.length > 0 || problemTemplates.value.length > 0;
 });
+
+// ============================================
+//  ОТОБРАЖЕНИЕ СТАТУСА ОБОРУДОВАНИЯ
+// ============================================
+const getProblemStatusText = (eq) => {
+  if (!eq) return 'Неизвестно';
+  if (eq.write_off_status === 'Списан') return 'Списан';
+  return eq.working_status;
+};
+
+const getProblemStatusClass = (eq) => {
+  if (!eq) return 'status-warn';
+  if (
+    eq.working_status === 'Требует ремонта' ||
+    eq.working_status === 'Списан' ||
+    eq.write_off_status === 'На списание' ||
+    eq.write_off_status === 'Списан'
+  ) {
+    return 'status-bad';
+  }
+  return 'status-warn';
+};
 </script>
 
 <style scoped>
@@ -199,7 +238,6 @@ const hasProblems = computed(() => {
   padding: 12px 16px;
 }
 
-/* Статистика - в столбик */
 .stats-list {
   display: flex;
   flex-direction: column;
@@ -270,7 +308,6 @@ const hasProblems = computed(() => {
   flex-shrink: 0;
 }
 
-/* Заголовок карточки с бейджем */
 .card-header {
   display: flex;
   justify-content: space-between;
@@ -335,7 +372,6 @@ const hasProblems = computed(() => {
   stroke: #6c757d;
 }
 
-/* Списки проблем */
 .problem-list {
   display: flex;
   flex-direction: column;
