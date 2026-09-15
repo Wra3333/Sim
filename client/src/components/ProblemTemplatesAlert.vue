@@ -107,11 +107,11 @@ const getEquipmentName = (id) => {
   return eq ? eq.name : 'Неизвестно';
 };
 
-// ПОЛУЧАЕМ КЛАСС ДЛЯ СТАТУСА ОБОРУДОВАНИЯ
 const getEquipmentStatusClass = (id) => {
   const status = getEquipmentStatus(id);
   const classes = {
     'Исправен': 'status-ok',
+    'Частично неисправен': 'status-ok',
     'В ремонте': 'status-warning',
     'Требует ремонта': 'status-danger',
     'Списан': 'status-danger'
@@ -119,12 +119,25 @@ const getEquipmentStatusClass = (id) => {
   return classes[status] || '';
 };
 
+// Проблемное оборудование — то, которое нельзя использовать.
+// «Исправен» и «Частично неисправен» — допустимы.
+const isEquipmentProblematic = (id) => {
+  const eq = props.equipmentList.find(e => e.id === id);
+  if (!eq) return false;
+  return (
+    eq.working_status === 'Требует ремонта' ||
+    eq.working_status === 'В ремонте' ||
+    eq.working_status === 'Списан' ||
+    eq.write_off_status === 'На списание' ||
+    eq.write_off_status === 'Списан'
+  );
+};
+
 const isTemplateProblem = (template) => {
   if (!template.equipment_list || template.equipment_list.length === 0) return false;
-  
+
   for (const item of template.equipment_list) {
-    const status = getEquipmentStatus(item.equipment_id);
-    if (status !== 'Исправен') return true;
+    if (isEquipmentProblematic(item.equipment_id)) return true;
   }
   return false;
 };
@@ -386,7 +399,7 @@ const problemTemplates = computed(() => {
     flex-direction: column;
     align-items: stretch;
   }
-  
+
   .problem-item-actions {
     align-self: flex-end;
   }

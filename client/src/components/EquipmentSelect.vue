@@ -42,7 +42,7 @@
       <div class="options-header">
         <span class="found-count">Найдено: {{ filteredItems.length }}</span>
         <button
-          v-if="filteredItems.length > 1"
+          v-if="unselectedFilteredItems.length > 1"
           type="button"
           class="select-all-btn"
           @mousedown.prevent="selectAllFiltered"
@@ -51,27 +51,49 @@
         </button>
       </div>
 
-      <div
-        v-for="item in filteredItems"
-        :key="item.id"
-        class="option-item"
-        :class="{
-          selected: isSelected(item.id),
-          broken: isBroken(item)
-        }"
-        @click="toggleSelect(item)"
-      >
-        <input
-          type="checkbox"
-          :checked="isSelected(item.id)"
-          @click.stop
-          tabindex="-1"
-        />
-        <span class="name">{{ item.name }}</span>
-        <span class="inv">Инв. № {{ item.inventory_number }}</span>
-        <span class="status" :class="getStatusClass(item)">
-          {{ getStatusText(item) }}
-        </span>
+      <!-- ВЫБРАННЫЕ элементы (вверху) -->
+      <div v-if="selectedFilteredItems.length > 0" class="options-group">
+        <div class="options-group-label">
+          Выбранные ({{ selectedFilteredItems.length }})
+        </div>
+        <div
+          v-for="item in selectedFilteredItems"
+          :key="item.id"
+          class="option-item selected"
+          :class="{ broken: isBroken(item) }"
+          @mousedown.prevent="toggleSelect(item)"
+        >
+          <input type="checkbox" :checked="true" @click.stop tabindex="-1" />
+          <span class="name">{{ item.name }}</span>
+          <span class="inv">Инв. № {{ item.inventory_number }}</span>
+          <span class="status" :class="getStatusClass(item)">
+            {{ getStatusText(item) }}
+          </span>
+        </div>
+      </div>
+
+      <!-- НЕВЫБРАННЫЕ элементы (внизу) -->
+      <div v-if="unselectedFilteredItems.length > 0" class="options-group">
+        <div
+          v-if="selectedFilteredItems.length > 0"
+          class="options-group-label"
+        >
+          Доступные ({{ unselectedFilteredItems.length }})
+        </div>
+        <div
+          v-for="item in unselectedFilteredItems"
+          :key="item.id"
+          class="option-item"
+          :class="{ broken: isBroken(item) }"
+          @mousedown.prevent="toggleSelect(item)"
+        >
+          <input type="checkbox" :checked="false" @click.stop tabindex="-1" />
+          <span class="name">{{ item.name }}</span>
+          <span class="inv">Инв. № {{ item.inventory_number }}</span>
+          <span class="status" :class="getStatusClass(item)">
+            {{ getStatusText(item) }}
+          </span>
+        </div>
       </div>
     </div>
 
@@ -150,7 +172,7 @@ const availableEquipment = computed(() => {
   return props.equipmentOptions;
 });
 
-// Фильтр по поиску
+// Все отфильтрованные по поиску
 const filteredItems = computed(() => {
   const query = searchQuery.value.toLowerCase().trim();
   const list = availableEquipment.value;
@@ -170,6 +192,16 @@ const filteredItems = computed(() => {
       status.includes(query)
     );
   });
+});
+
+// ВЫБРАННЫЕ из отфильтрованных (вверху)
+const selectedFilteredItems = computed(() => {
+  return filteredItems.value.filter(eq => selectedIds.value.includes(eq.id));
+});
+
+// НЕВЫБРАННЫЕ из отфильтрованных (внизу)
+const unselectedFilteredItems = computed(() => {
+  return filteredItems.value.filter(eq => !selectedIds.value.includes(eq.id));
 });
 
 const brokenCount = computed(() => {
@@ -237,12 +269,12 @@ const toggleSelect = (item) => {
   showDropdown.value = true;
 };
 
-// Выбрать все из отфильтрованного
+// Выбрать все из НЕвыбранных (в отфильтрованном)
 const selectAllFiltered = () => {
   const current = [...selectedIds.value];
   const added = [];
 
-  for (const item of filteredItems.value) {
+  for (const item of unselectedFilteredItems.value) {
     if (!current.includes(item.id)) {
       current.push(item.id);
       added.push(item);
@@ -404,7 +436,7 @@ defineExpose({
   background: #fff;
   border: 1px solid #ced4da;
   border-radius: 4px;
-  max-height: 260px;
+  max-height: 300px;
   overflow-y: auto;
   z-index: 9999;
   margin-top: 4px;
@@ -420,7 +452,7 @@ defineExpose({
   background: #f8f9fa;
   position: sticky;
   top: 0;
-  z-index: 1;
+  z-index: 2;
   font-size: 12px;
 }
 
@@ -441,6 +473,30 @@ defineExpose({
 
 .select-all-btn:hover {
   background: #e9ecef;
+}
+
+/* ============================================
+   ГРУППЫ В СПИСКЕ
+   ============================================ */
+.options-group {
+  border-bottom: 1px solid #f1f3f5;
+}
+
+.options-group:last-child {
+  border-bottom: none;
+}
+
+.options-group-label {
+  padding: 6px 12px;
+  font-size: 11px;
+  font-weight: 600;
+  color: #6c757d;
+  background: #f8f9fa;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  position: sticky;
+  top: 33px; /* высота .options-header */
+  z-index: 1;
 }
 
 .option-item {

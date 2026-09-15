@@ -9,9 +9,9 @@
     <div class="drawer" :class="{ 'drawer-open': open }">
       <div class="drawer-header">
         <h3>
-          <IconEdit v-if="equipment" class="header-icon" />
+          <IconEdit v-if="currentEquipment" class="header-icon" />
           <IconPlus v-else class="header-icon" />
-          {{ equipment ? 'Редактировать оборудование' : 'Добавить оборудование' }}
+          {{ currentEquipment ? 'Редактировать оборудование' : 'Добавить оборудование' }}
         </h3>
         <button class="btn-close" @click="close">×</button>
       </div>
@@ -76,6 +76,7 @@
               <label>Состояние</label>
               <select v-model="form.working_status" class="form-control">
                 <option value="Исправен">Исправен</option>
+                <option value="Частично неисправен">Частично неисправен</option>
                 <option value="Требует ремонта">Требует ремонта</option>
                 <option value="В ремонте">В ремонте</option>
               </select>
@@ -134,7 +135,6 @@
               :equipment-id="equipmentId"
               :files="form.additional_files || []"
               @update:files="updateFiles"
-              @fileDeleted="handleFileDeleted"
             />
             <div v-else class="alert-info">
               Сохраните оборудование, чтобы загружать файлы
@@ -184,6 +184,14 @@ const API_URL = 'http://localhost:3000/uploads/';
 
 const formRef = ref(null);
 const submitting = ref(false);
+
+// ============================================
+//  ЛОКАЛЬНАЯ КОПИЯ ОБОРУДОВАНИЯ
+// ============================================
+// Обновляется ТОЛЬКО при открытии drawer'а (open: false → true).
+// При закрытии остаётся прежней — заголовок и форма не «моргают».
+const currentEquipment = ref(null);
+
 const form = ref({
   inventory_number: '',
   inventory_name: '',
@@ -208,9 +216,9 @@ const previewUrl = ref('');
 const selectedFile = ref(null);
 const isFileUpload = ref(false);
 
-const equipmentId = computed(() => props.equipment?.id || null);
+const equipmentId = computed(() => currentEquipment.value?.id || null);
 
-const currentPhotoUrl = computed(() => 
+const currentPhotoUrl = computed(() =>
   form.value.photo ? `${API_URL}${form.value.photo}` : null
 );
 
@@ -228,6 +236,9 @@ const allExistingTags = computed(() => {
   return Array.from(tags).sort();
 });
 
+// ============================================
+//  СКРОЛЛ
+// ============================================
 const toggleBodyScroll = (disable) => {
   if (disable) {
     document.documentElement.style.overflow = 'hidden';
@@ -236,38 +247,53 @@ const toggleBodyScroll = (disable) => {
   }
 };
 
-const updateFiles = (files) => {
-  form.value.additional_files = files;
+// ============================================
+//  СБРОС ФОРМЫ
+// ============================================
+const resetForm = () => {
+  form.value = {
+    inventory_number: '',
+    inventory_name: '',
+    name: '',
+    photo: '',
+    year_of_release: '',
+    description: '',
+    purchase_basis: '',
+    working_status: 'Исправен',
+    write_off_status: 'На балансе',
+    price: '',
+    country: '',
+    manufacturer: '',
+    original_name: '',
+    realism_class: '',
+    tags: [],
+    additional_files: []
+  };
+  previewUrl.value = '';
+  selectedFile.value = null;
+  isFileUpload.value = false;
+  isAccordionOpen.value = false;
 };
 
-// ✅ ОБРАБОТЧИК УДАЛЕНИЯ ФАЙЛА
-const handleFileDeleted = async ({ equipmentId, fileId }) => {
-  console.log('📝 [EquipmentDrawer] Файл удален, обновляем стор...');
-  
-  try {
-    await store.deleteFile(equipmentId, fileId);
-    console.log('✅ Стор обновлен');
-    
-    const updatedEquipment = store.getById(equipmentId);
-    if (updatedEquipment) {
-      form.value.additional_files = updatedEquipment.additional_files || [];
-      emit('update:equipment', updatedEquipment);
-      console.log('✅ Форма обновлена');
-      toast.success('Файл удален');
-    } else {
-      console.warn('⚠️ Оборудование не найдено в сторе');
-      // Если не найдено - перезагружаем все данные
-      await store.fetchAll();
-      const refreshedEquipment = store.getById(equipmentId);
-      if (refreshedEquipment) {
-        form.value.additional_files = refreshedEquipment.additional_files || [];
-        emit('update:equipment', refreshedEquipment);
-      }
-    }
-  } catch (error) {
-    console.error('❌ Ошибка удаления файла:', error);
-    toast.error(error?.response?.data?.message || "Ошибка удаления файла");
-  }
+// ============================================
+//  ЗАПОЛНЕНИЕ ИЗ EQUIPMENT
+// ============================================
+const fillForm = (val) => {
+  form.value = {
+    ...val,
+    tags: val.tags || [],
+    additional_files: val.additional_files || []
+  };
+  previewUrl.value = '';
+  selectedFile.value = null;
+  isFileUpload.value = false;
+};
+
+// ============================================
+//  ФАЙЛЫ
+// ============================================
+const updateFiles = (files) => {
+  form.value.additional_files = files;
 };
 
 const handleFileUpload = (event) => {
@@ -295,11 +321,11 @@ const handleFileUpload = (event) => {
 };
 
 const deletePhoto = async () => {
-  if (!props.equipment?.id) return;
+  if (!currentEquipment.value?.id) return;
   if (!form.value.photo) return;
 
   try {
-    await equipmentApi.deletePhoto(props.equipment.id);
+    await equipmentApi.deletePhoto(currentEquipment.value.id);
     form.value.photo = null;
     await store.fetchAll();
     toast.success('Фото удалено');
@@ -316,21 +342,21 @@ const close = () => {
 
 const submit = async () => {
   if (submitting.value) return;
-  
+
   try {
     submitting.value = true;
-    
+
     const data = { ...form.value };
-    
+
     const nullableFields = ['price', 'country', 'manufacturer', 'original_name', 'realism_class', 'year_of_release'];
     nullableFields.forEach(key => {
       if (!data[key] || data[key] === '') data[key] = null;
     });
-    
+
     if (!data.tags || data.tags.length === 0) data.tags = [];
     if (!data.additional_files || data.additional_files.length === 0) data.additional_files = [];
 
-    let equipmentId = props.equipment?.id;
+    let equipmentId = currentEquipment.value?.id;
 
     if (equipmentId) {
       await store.update(equipmentId, data);
@@ -351,7 +377,6 @@ const submit = async () => {
 
     await store.fetchAll();
     emit('save');
-    close();
   } catch (error) {
     console.error('Ошибка сохранения:', error);
     toast.error(error?.response?.data?.message || "Ошибка сохранения");
@@ -360,6 +385,9 @@ const submit = async () => {
   }
 };
 
+// ============================================
+//  ENTER
+// ============================================
 let enterPressCount = 0;
 let enterTimer = null;
 let isClosing = false;
@@ -368,18 +396,18 @@ const handleKeydown = (e) => {
   if (e.key !== 'Enter' || !props.open) return;
   if (e.target.tagName === 'TEXTAREA') return;
   if (e.target.tagName === 'BUTTON') return;
-  
+
   e.preventDefault();
-  
+
   enterPressCount++;
-  
+
   if (enterPressCount >= 2) {
     enterPressCount = 0;
     if (enterTimer) {
       clearTimeout(enterTimer);
       enterTimer = null;
     }
-    
+
     if (!isClosing) {
       isClosing = true;
       close();
@@ -389,7 +417,7 @@ const handleKeydown = (e) => {
     }
     return;
   }
-  
+
   if (enterTimer) {
     clearTimeout(enterTimer);
   }
@@ -404,21 +432,15 @@ const handleKeydown = (e) => {
   }, 300);
 };
 
-watch(() => props.equipment, (val) => {
-  if (val) {
-    form.value = {
-      ...val,
-      tags: val.tags || [],
-      additional_files: val.additional_files || []
-    };
-    previewUrl.value = '';
-    selectedFile.value = null;
-    isFileUpload.value = false;
-  }
-}, { immediate: true });
-
+// ============================================
+//  WATCH: open
+// ============================================
+// При открытии фиксируем текущее оборудование и заполняем форму один раз.
+// При закрытии ничего не трогаем — drawer ещё анимируется, и данные
+// должны оставаться на месте, чтобы ничего не мелькало.
 watch(() => props.open, (val) => {
   toggleBodyScroll(val);
+
   if (!val) {
     enterPressCount = 0;
     if (enterTimer) {
@@ -426,9 +448,21 @@ watch(() => props.open, (val) => {
       enterTimer = null;
     }
     isClosing = false;
+    return;
   }
-}, { immediate: true });
 
+  currentEquipment.value = props.equipment ?? null;
+
+  if (currentEquipment.value) {
+    fillForm(currentEquipment.value);
+  } else {
+    resetForm();
+  }
+}, { immediate: false });
+
+// ============================================
+//  LIFECYCLE
+// ============================================
 onBeforeUnmount(() => {
   document.removeEventListener('keydown', handleKeydown);
   toggleBodyScroll(false);

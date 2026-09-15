@@ -7,10 +7,11 @@
       </h2>
       <p>Управление занятиями</p>
 
-      <ProblemLessonsAlert 
-        :lessons="lessonsItems" 
-        :equipment-list="allEquipment" 
-        :on-replace-click="openEditForm" 
+      <ProblemLessonsAlert
+        v-if="!loading"
+        :lessons="lessonsItems"
+        :equipment-list="allEquipment"
+        :on-replace-click="openEditForm"
       />
 
       <div class="toolbar">
@@ -48,23 +49,28 @@
 
           <div class="filter-group">
             <label>Поиск</label>
-            <input v-model="lessonsFilters.search" type="text" class="form-control" placeholder="Поиск по названию..." />
+            <input
+              v-model="lessonsFilters.search"
+              type="text"
+              class="form-control"
+              placeholder="Поиск по названию..."
+            />
           </div>
 
           <div class="filter-group date-filters">
             <label>Дата</label>
             <div class="date-inputs">
-              <input 
-                v-model="lessonsFilters.dateFrom" 
-                type="date" 
-                class="form-control date-input" 
+              <input
+                v-model="lessonsFilters.dateFrom"
+                type="date"
+                class="form-control date-input"
                 placeholder="От"
               />
               <span class="date-separator">—</span>
-              <input 
-                v-model="lessonsFilters.dateTo" 
-                type="date" 
-                class="form-control date-input" 
+              <input
+                v-model="lessonsFilters.dateTo"
+                type="date"
+                class="form-control date-input"
                 placeholder="До"
               />
             </div>
@@ -79,11 +85,10 @@
         </div>
       </div>
 
-      <!-- СПИСОК -->
-      <div v-if="loading" class="text-center">
-        <IconLoading class="loading-icon" />
-        Загрузка...
-      </div>
+      <!-- СКЕЛЕТОН -->
+      <LessonsTableSkeleton v-if="loading" />
+
+      <!-- ПУСТО -->
       <div v-else-if="filteredLessons.length === 0" class="empty-state">
         <IconList class="empty-icon" />
         <span>Нет занятий</span>
@@ -94,14 +99,54 @@
         <table class="lessons-table">
           <thead>
             <tr>
-              <th style="width: 80px;">ID</th>
-              <th style="min-width: 150px;">Название</th>
-              <th style="min-width: 100px;">Группа</th>
+              <th
+                class="sortable"
+                :class="{ 'sort-active': sortField === 'created_at' }"
+                style="width: 110px;"
+                @click="toggleSort('created_at')"
+              >
+                Дата создания
+                <span class="sort-icon" v-if="sortField === 'created_at'">
+                  {{ sortDirection === 'desc' ? '↓' : '↑' }}
+                </span>
+              </th>
+              <th style="min-width: 180px;">Образование</th>
+              <th
+                class="sortable"
+                :class="{ 'sort-active': sortField === 'title' }"
+                style="min-width: 150px;"
+                @click="toggleSort('title')"
+              >
+                Название
+                <span class="sort-icon" v-if="sortField === 'title'">
+                  {{ sortDirection === 'desc' ? '↓' : '↑' }}
+                </span>
+              </th>
+              <th style="min-width: 130px;">Группа</th>
               <th style="min-width: 120px;">Преподаватель</th>
-              <th style="width: 110px;">Дата</th>
-              <th style="width: 100px;">Время</th>
+              <th
+                class="sortable"
+                :class="{ 'sort-active': sortField === 'date' }"
+                style="width: 160px;"
+                @click="toggleSort('date')"
+              >
+                Когда
+                <span class="sort-icon" v-if="sortField === 'date'">
+                  {{ sortDirection === 'desc' ? '↓' : '↑' }}
+                </span>
+              </th>
               <th style="width: 90px;">Студентов</th>
-              <th style="width: 120px;">Статус</th>
+              <th
+                class="sortable"
+                :class="{ 'sort-active': sortField === 'status' }"
+                style="width: 140px;"
+                @click="toggleSort('status')"
+              >
+                Статус
+                <span class="sort-icon" v-if="sortField === 'status'">
+                  {{ sortDirection === 'desc' ? '↓' : '↑' }}
+                </span>
+              </th>
               <th style="width: 160px;">Действия</th>
             </tr>
           </thead>
@@ -120,19 +165,19 @@
       </div>
 
       <!-- ПАГИНАЦИЯ -->
-      <Pagination 
-        v-if="showPagination" 
-        v-model:current-page="currentPage" 
+      <Pagination
+        v-if="!loading && showPagination"
+        v-model:current-page="currentPage"
         :total-pages="totalPages"
-        :loading="loading" 
+        :loading="loading"
       />
 
       <!-- LessonFormDrawer -->
-      <LessonFormDrawer 
-        :visible="showForm" 
-        :lesson="editingItem" 
-        @close="closeForm" 
-        @save="onSaved" 
+      <LessonFormDrawer
+        :visible="showForm"
+        :lesson="editingItem"
+        @close="closeForm"
+        @save="onSaved"
       />
 
       <ConfirmModal
@@ -148,71 +193,45 @@
     </div>
 
     <div class="lessons-sidebar">
-      <ProblemEquipmentSidebar 
-        :lessons="lessonsItems" 
-        :templates="templatesItems" 
-        :equipment-list="allEquipment" 
-        :limit="3" 
+      <ProblemEquipmentSidebar
+        :lessons="lessonsItems"
+        :templates="templatesItems"
+        :equipment-list="allEquipment"
+        :limit="3"
       />
 
-      <div class="sidebar-card">
-        <h4>
-          <IconUsers class="h-icon" />
-          Группы
-        </h4>
-        <div class="group-list">
-          <div 
-            v-for="group in uniqueGroups" 
-            :key="group" 
-            class="group-item"
-            :class="{ active: lessonsFilters.group === group }" 
-            @click="toggleGroup(group)"
-          >
-            <span class="group-name">{{ group }}</span>
-            <span class="group-count">{{ getGroupCount(group) }}</span>
-          </div>
-          <div v-if="uniqueGroups.length === 0" class="group-item empty">
-            Нет групп
-          </div>
-        </div>
-      </div>
+      <LessonsAdvancedFilters />
     </div>
   </div>
 </template>
 
 <script setup>
-import { ref, computed, onMounted, onActivated, watch, onBeforeUnmount, nextTick } from 'vue';
-import { useRoute, useRouter } from 'vue-router';
+import { ref, computed, onMounted, onActivated, watch, onBeforeUnmount } from 'vue';
 import { storeToRefs } from 'pinia';
 import { useLessonsStore, useTemplatesStore, useEquipmentStore } from '../stores';
-import { useAppStore } from '../stores/appStore';
+import { useUiStore } from '../stores/ui.store';
 import { useToastStore } from '../stores/toastStore';
+import { useUrlSync } from '../composables/useUrlSync';
 import { useConfirm } from '../composables/useConfirm';
 import LessonCard from '../components/lessons/LessonCard.vue';
 import LessonFormDrawer from '../components/lessons/LessonFormDrawer.vue';
+import LessonsTableSkeleton from '../components/lessons/LessonsTableSkeleton.vue';
 import ConfirmModal from '../components/ConfirmModal.vue';
 import ProblemLessonsAlert from '../components/ProblemLessonsAlert.vue';
 import ProblemEquipmentSidebar from '../components/ProblemEquipmentSidebar.vue';
+import LessonsAdvancedFilters from '../components/lessons/LessonsAdvancedFilters.vue';
 import Pagination from '../components/Pagination.vue';
 import {
   IconLessons,
   IconPlus,
   IconReset,
-  IconLoading,
-  IconList,
-  IconUsers
+  IconList
 } from '../components/icons';
-
-// ============================================
-//  ROUTER
-// ============================================
-const route = useRoute();
-const router = useRouter();
 
 // ============================================
 //  STORE
 // ============================================
-const appStore = useAppStore();
+const uiStore = useUiStore();
 const lessonsStore = useLessonsStore();
 const templatesStore = useTemplatesStore();
 const equipmentStore = useEquipmentStore();
@@ -223,66 +242,133 @@ const { show, config, confirm, onConfirm, onCancel } = useConfirm();
 const { items: lessonsItems } = storeToRefs(lessonsStore);
 const { items: templatesItems } = storeToRefs(templatesStore);
 const { allEquipment } = storeToRefs(equipmentStore);
-const { filters, pagination } = storeToRefs(appStore);
+const { filters, pagination, editing } = storeToRefs(uiStore);
+
+// ============================================
+//  URL ↔ STORE
+// ============================================
+const { openFromUrl } = useUrlSync({
+  resolvers: {
+    lesson: async (id) => {
+      if (lessonsItems.value.length === 0) {
+        await lessonsStore.fetchAll();
+      }
+      return lessonsItems.value.find((l) => l.id === id) ?? null;
+    }
+  }
+});
 
 // ============================================
 //  СОСТОЯНИЕ
 // ============================================
 const loading = ref(true);
-const showForm = ref(false);
-const editingItem = ref(null);
-let isUpdatingFromUrl = false;
 
 // ============================================
-//  ФИЛЬТРЫ ИЗ APPSTORE
+//  DRAWER
 // ============================================
-const lessonsFilters = computed({
-  get: () => filters.value.lessons || { status: '', group: '', search: '', dateFrom: '', dateTo: '' },
+const editingItem = computed(() =>
+  lessonsItems.value.find((l) => l.id === editing.value.lesson) || null
+);
+
+const showForm = computed({
+  get: () =>
+    (editing.value.lesson !== null && editingItem.value !== null)
+    || uiStore.creating.lesson,
   set: (val) => {
-    filters.value.lessons = val;
+    if (!val) uiStore.closeEdit('lesson');
   }
 });
 
 // ============================================
-//  ПАГИНАЦИЯ ИЗ APPSTORE
+//  ФИЛЬТРЫ И СОРТИРОВКА
+// ============================================
+const lessonsFilters = computed({
+  get: () => filters.value.lessons || {
+    status: '',
+    group: '',
+    search: '',
+    dateFrom: '',
+    dateTo: '',
+    faculty: '',
+    specialty: '',
+    course: '',
+    participant_type: '',
+    teacher: '',
+    sortField: 'created_at',
+    sortDirection: 'desc'
+  },
+  set: (val) => { filters.value.lessons = val; }
+});
+
+const sortField = computed({
+  get: () => lessonsFilters.value.sortField || 'created_at',
+  set: (val) => {
+    lessonsFilters.value = { ...lessonsFilters.value, sortField: val };
+  }
+});
+
+const sortDirection = computed({
+  get: () => lessonsFilters.value.sortDirection || 'desc',
+  set: (val) => {
+    lessonsFilters.value = { ...lessonsFilters.value, sortDirection: val };
+  }
+});
+
+const toggleSort = (field) => {
+  if (sortField.value === field) {
+    sortDirection.value = sortDirection.value === 'desc' ? 'asc' : 'desc';
+  } else {
+    sortField.value = field;
+    sortDirection.value = 'desc';
+  }
+  resetPage();
+};
+
+// ============================================
+//  ПАГИНАЦИЯ
 // ============================================
 const lessonsPagination = computed({
   get: () => pagination.value.lessons || { page: 1, size: 7 },
-  set: (val) => {
-    pagination.value.lessons = val;
-  }
+  set: (val) => { pagination.value.lessons = val; }
 });
 
 const currentPage = computed({
   get: () => lessonsPagination.value.page || 1,
-  set: (val) => {
-    lessonsPagination.value = { ...lessonsPagination.value, page: val };
-  }
+  set: (val) => { lessonsPagination.value = { ...lessonsPagination.value, page: val }; }
 });
 
 // ============================================
-//  ФИЛЬТРАЦИЯ
+//  ФИЛЬТРАЦИЯ + СОРТИРОВКА
 // ============================================
 const filterConfig = {
   status: {
-    filterFn: (item, value) => {
-      if (!value) return true;
-      return item.status === value;
-    }
+    filterFn: (item, value) => !value || item.status === value
   },
   group: {
-    filterFn: (item, value) => {
-      if (!value) return true;
-      return item.group === value;
-    }
+    filterFn: (item, value) => !value || item.group === value
+  },
+  faculty: {
+    filterFn: (item, value) => !value || item.faculty === value
+  },
+  specialty: {
+    filterFn: (item, value) => !value || item.specialty === value
+  },
+  course: {
+    filterFn: (item, value) => !value || String(item.course) === String(value)
+  },
+  participant_type: {
+    filterFn: (item, value) => !value || item.participant_type === value
+  },
+  teacher: {
+    filterFn: (item, value) => !value || item.teacher === value
   },
   search: {
     filterFn: (item, value) => {
       if (!value) return true;
       const query = value.toLowerCase().trim();
-      return item.title?.toLowerCase().includes(query) ||
-             item.teacher?.toLowerCase().includes(query) ||
-             item.group?.toLowerCase().includes(query);
+      return item.title?.toLowerCase().includes(query)
+          || item.teacher?.toLowerCase().includes(query)
+          || item.group?.toLowerCase().includes(query);
     }
   },
   dateFrom: {
@@ -305,19 +391,54 @@ const filterConfig = {
 
 const filteredLessons = computed(() => {
   const list = [...lessonsItems.value];
+
+  const field = sortField.value;
+  const dir = sortDirection.value === 'desc' ? -1 : 1;
+
+  list.sort((a, b) => {
+    let va, vb;
+
+    if (field === 'created_at') {
+      va = new Date(a.created_at).getTime() || 0;
+      vb = new Date(b.created_at).getTime() || 0;
+      return (va - vb) * dir;
+    }
+
+    if (field === 'date') {
+      va = new Date(a.date).getTime() || 0;
+      vb = new Date(b.date).getTime() || 0;
+      return (va - vb) * dir;
+    }
+
+    if (field === 'title') {
+      va = (a.title || '').toLowerCase();
+      vb = (b.title || '').toLowerCase();
+    } else if (field === 'status') {
+      const order = { 'Запланировано': 0, 'Проведено': 1, 'Отменено': 2 };
+      va = order[a.status] ?? 99;
+      vb = order[b.status] ?? 99;
+    } else {
+      return 0;
+    }
+
+    if (va < vb) return -1 * dir;
+    if (va > vb) return 1 * dir;
+    return 0;
+  });
+
   const allFilters = { ...lessonsFilters.value };
 
   return list.filter(item => {
     let result = true;
-    for (const [key, config] of Object.entries(filterConfig)) {
+    for (const [key, cfg] of Object.entries(filterConfig)) {
       const filterValue = allFilters[key];
       if (filterValue !== undefined && filterValue !== null && filterValue !== '') {
         if (Array.isArray(filterValue)) {
           if (filterValue.length > 0) {
-            result = result && config.filterFn(item, filterValue);
+            result = result && cfg.filterFn(item, filterValue);
           }
         } else {
-          result = result && config.filterFn(item, filterValue);
+          result = result && cfg.filterFn(item, filterValue);
         }
       }
     }
@@ -330,49 +451,30 @@ const filteredLessons = computed(() => {
 // ============================================
 const uniqueGroups = computed(() => {
   const groups = lessonsItems.value
-    .map(item => item.group)
-    .filter(g => g && g.trim() !== '');
+    .map((item) => item.group)
+    .filter((g) => g && g.trim() !== '');
   return [...new Set(groups)].sort();
 });
-
-const getGroupCount = (groupName) => {
-  return lessonsItems.value.filter(item => item.group === groupName).length;
-};
-
-const toggleGroup = (group) => {
-  if (lessonsFilters.value.group === group) {
-    lessonsFilters.value = { ...lessonsFilters.value, group: '' };
-  } else {
-    lessonsFilters.value = { ...lessonsFilters.value, group };
-  }
-  applyFilters();
-};
 
 // ============================================
 //  ПАГИНАЦИЯ
 // ============================================
 const pageSize = 7;
+const resetPage = () => { currentPage.value = 1; };
 
-const totalPages = computed(() => {
-  return Math.ceil(filteredLessons.value.length / pageSize) || 1;
-});
+const totalPages = computed(() =>
+  Math.ceil(filteredLessons.value.length / pageSize) || 1
+);
 
 const paginatedItems = computed(() => {
   const start = (currentPage.value - 1) * pageSize;
-  const end = start + pageSize;
-  return filteredLessons.value.slice(start, end);
+  return filteredLessons.value.slice(start, start + pageSize);
 });
 
-const showPagination = computed(() => {
-  return filteredLessons.value.length > pageSize;
-});
-
-const resetPage = () => {
-  currentPage.value = 1;
-};
+const showPagination = computed(() => filteredLessons.value.length > pageSize);
 
 // ============================================
-//  ЗАГРУЗКА ДАННЫХ
+//  ЗАГРУЗКА
 // ============================================
 const loadData = async () => {
   loading.value = true;
@@ -382,7 +484,6 @@ const loadData = async () => {
       templatesStore.fetchAll(),
       equipmentStore.fetchAll()
     ]);
-    resetPage();
   } catch (error) {
     console.error('Error loading data:', error);
     toast.error('Ошибка загрузки данных');
@@ -391,12 +492,8 @@ const loadData = async () => {
   }
 };
 
-const applyFilters = () => {
-  resetPage();
-};
-
 const resetAllFilters = () => {
-  appStore.resetFilters('lessons');
+  uiStore.resetFilters('lessons');
   resetPage();
 };
 
@@ -408,11 +505,8 @@ const handleKeydown = (e) => {
     const tag = e.target.tagName.toLowerCase();
     if (tag !== 'input' && tag !== 'textarea' && tag !== 'select') {
       e.preventDefault();
-      if (showForm.value) {
-        closeForm();
-      } else {
-        openCreateForm();
-      }
+      if (showForm.value) closeForm();
+      else openCreateForm();
     }
   }
 };
@@ -420,48 +514,14 @@ const handleKeydown = (e) => {
 // ============================================
 //  МЕТОДЫ
 // ============================================
-const openCreateForm = () => {
-  isUpdatingFromUrl = true;
-  editingItem.value = null;
-  showForm.value = true;
-  appStore.closeEdit('lesson');
-  const query = { ...route.query };
-  delete query.lesson_edit;
-  router.replace({ query });
-  setTimeout(() => {
-    isUpdatingFromUrl = false;
-  }, 100);
-};
+const openCreateForm = () => uiStore.openCreate('lesson');
 
 const openEditForm = (lesson) => {
-  if (!lesson) return;
-  isUpdatingFromUrl = true;
-  editingItem.value = lesson;
-  showForm.value = true;
-  if (lesson.id) {
-    appStore.openEdit('lesson', lesson.id);
-  }
-  setTimeout(() => {
-    isUpdatingFromUrl = false;
-  }, 100);
+  if (!lesson?.id) return;
+  uiStore.openEdit('lesson', lesson.id);
 };
 
-const closeForm = () => {
-  isUpdatingFromUrl = true;
-  showForm.value = false;
-  setTimeout(() => {
-    editingItem.value = null;
-  }, 500);
-  appStore.closeEdit('lesson');
-  const query = { ...route.query };
-  if (query.lesson_edit) {
-    delete query.lesson_edit;
-    router.replace({ query });
-  }
-  setTimeout(() => {
-    isUpdatingFromUrl = false;
-  }, 100);
-};
+const closeForm = () => uiStore.closeEdit('lesson');
 
 const onSaved = () => {
   closeForm();
@@ -507,79 +567,25 @@ const deleteLesson = async (id) => {
 };
 
 // ============================================
-//  ОТКРЫТИЕ ИЗ URL
-// ============================================
-const openFromUrl = async () => {
-  if (isUpdatingFromUrl) return false;
-
-  const lessonEdit = route.query.lesson_edit;
-
-  if (lessonEdit) {
-    const id = parseInt(lessonEdit, 10);
-    if (!isNaN(id) && id > 0) {
-      if (showForm.value && editingItem.value?.id === id) {
-        return true;
-      }
-
-      if (lessonsItems.value.length === 0) {
-        await lessonsStore.fetchAll();
-      }
-      const lesson = lessonsItems.value.find(l => l.id === id);
-      if (lesson) {
-        if (showForm.value && editingItem.value?.id !== id) {
-          closeForm();
-          await nextTick();
-        }
-        openEditForm(lesson);
-        return true;
-      } else {
-        toast.warning(`Занятие с ID ${id} не найдено`);
-        if (showForm.value) {
-          closeForm();
-        }
-      }
-    }
-  }
-  return false;
-};
-
-// ============================================
 //  WATCH
 // ============================================
 watch(
-  [() => lessonsFilters.value.status, () => lessonsFilters.value.group,
-   () => lessonsFilters.value.search, () => lessonsFilters.value.dateFrom, () => lessonsFilters.value.dateTo],
+  [
+    () => lessonsFilters.value.status,
+    () => lessonsFilters.value.group,
+    () => lessonsFilters.value.faculty,
+    () => lessonsFilters.value.specialty,
+    () => lessonsFilters.value.course,
+    () => lessonsFilters.value.participant_type,
+    () => lessonsFilters.value.teacher,
+    () => lessonsFilters.value.search,
+    () => lessonsFilters.value.dateFrom,
+    () => lessonsFilters.value.dateTo
+  ],
   () => {
     resetPage();
   },
   { deep: true }
-);
-
-watch(currentPage, (newPage) => {
-  const query = { ...route.query };
-  query.l_p = newPage || 1;
-  router.replace({ query });
-});
-
-watch(
-  () => route.query.lesson_edit,
-  async (newVal) => {
-    if (isUpdatingFromUrl) return;
-
-    if (newVal) {
-      await openFromUrl();
-    } else {
-      if (showForm.value && !isUpdatingFromUrl) {
-        isUpdatingFromUrl = true;
-        showForm.value = false;
-        setTimeout(() => {
-          editingItem.value = null;
-          isUpdatingFromUrl = false;
-        }, 500);
-        appStore.closeEdit('lesson');
-      }
-    }
-  }
 );
 
 // ============================================
@@ -588,14 +594,9 @@ watch(
 onMounted(async () => {
   await loadData();
 
-  if (route.query.l_p) {
-    const page = parseInt(route.query.l_p, 10);
-    if (!isNaN(page) && page > 0) {
-      currentPage.value = page;
-    }
-  }
-
-  await openFromUrl();
+  const { found, item, id } = await openFromUrl('lesson');
+  if (found) openEditForm(item);
+  else if (id) toast.warning(`Занятие с ID ${id} не найдено`);
 
   document.addEventListener('keydown', handleKeydown);
 });
@@ -677,7 +678,7 @@ p {
 }
 
 /* ============================================
-   КНОПКИ (используются в родителе)
+   КНОПКИ
    ============================================ */
 .btn {
   padding: 6px 16px;
@@ -835,84 +836,28 @@ p {
 }
 
 /* ============================================
-   САЙДБАР
+   СОРТИРУЕМЫЕ ЗАГОЛОВКИ
    ============================================ */
-.sidebar-card {
-  background: white;
-  border-radius: 8px;
-  padding: 16px;
-  border: 1px solid #e9ecef;
-  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.06);
-}
-
-.sidebar-card h4 {
-  font-size: 14px;
-  font-weight: 600;
-  margin: 0 0 10px 0;
-  color: #212529;
-  display: flex;
-  align-items: center;
-  gap: 6px;
-}
-
-.sidebar-card h4 .h-icon {
-  width: 16px;
-  height: 16px;
-  stroke: #212529;
-}
-
-.group-list {
-  display: flex;
-  flex-direction: column;
-  gap: 4px;
-  max-height: 170px;
-  overflow-y: auto;
-}
-
-.group-item {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  padding: 6px 10px;
-  border-radius: 4px;
+.lessons-table th.sortable {
   cursor: pointer;
-  transition: all 0.15s;
-  font-size: 13px;
-  border: 1px solid transparent;
+  user-select: none;
+  transition: background 0.15s;
 }
 
-.group-item:hover {
-  background: #f8f9fa;
-  border-color: #e9ecef;
+.lessons-table th.sortable:hover {
+  background: #e9ecef;
 }
 
-.group-item.active {
-  background: #e7f1ff;
-  border-color: #0d6efd;
+.lessons-table th.sort-active {
   color: #0d6efd;
 }
 
-.group-item .group-name {
-  font-weight: 500;
-}
-
-.group-item .group-count {
+.sort-icon {
+  display: inline-block;
+  margin-left: 4px;
   font-size: 12px;
-  color: #6c757d;
-  background: #e9ecef;
-  padding: 0 8px;
-  border-radius: 10px;
-}
-
-.group-item.active .group-count {
-  background: #0d6efd;
-  color: white;
-}
-
-.group-item.empty {
-  cursor: default;
-  color: #6c757d;
-  justify-content: center;
+  color: #0d6efd;
+  font-weight: 700;
 }
 
 /* ============================================
@@ -934,28 +879,6 @@ p {
   stroke: #6c757d;
 }
 
-.text-center {
-  text-align: center;
-  padding: 20px;
-  color: #6c757d;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  gap: 8px;
-}
-
-.text-center .loading-icon {
-  width: 20px;
-  height: 20px;
-  stroke: #6c757d;
-  animation: spin 1s linear infinite;
-}
-
-@keyframes spin {
-  from { transform: rotate(0deg); }
-  to { transform: rotate(360deg); }
-}
-
 /* ============================================
    АДАПТИВНОСТЬ
    ============================================ */
@@ -974,11 +897,6 @@ p {
     width: 100%;
     flex-direction: row;
     flex-wrap: wrap;
-  }
-
-  .lessons-sidebar .sidebar-card {
-    flex: 1;
-    min-width: 200px;
   }
 }
 

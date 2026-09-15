@@ -369,7 +369,6 @@ const confirmDelete = (fileId) => {
   showDeleteModal.value = true;
 };
 
-// ✅ ИСПРАВЛЕННЫЙ МЕТОД УДАЛЕНИЯ
 const handleDelete = async () => {
   console.log('🗑️ [FilesManager] handleDelete вызван');
   console.log('🗑️ deleteFileId:', deleteFileId.value);

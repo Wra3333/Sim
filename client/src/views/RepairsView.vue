@@ -34,7 +34,7 @@
     <div class="filters">
       <div class="filter-group">
         <label>Статус</label>
-        <select v-model="filterStatus" class="form-control">
+        <select v-model="repairsFilters.status" class="form-control">
           <option value="">Все статусы</option>
           <option value="new">Новая</option>
           <option value="resolved">Устранена</option>
@@ -43,15 +43,18 @@
 
       <div class="filter-group">
         <label>Оборудование</label>
-        <EquipmentMultiSelect v-model="filterEquipmentIds" :equipment-options="equipmentItems"
-          placeholder="Введите название или инв. номер..." />
+        <EquipmentMultiSelect
+          v-model="filterEquipmentIds"
+          :equipment-options="equipmentItems"
+          placeholder="Введите название или инв. номер..."
+        />
       </div>
 
       <div class="filter-group date-filters">
         <label>От</label>
-        <input v-model="filterDateFrom" type="date" class="form-control" />
+        <input v-model="repairsFilters.dateFrom" type="date" class="form-control" />
         <label>До</label>
-        <input v-model="filterDateTo" type="date" class="form-control" />
+        <input v-model="repairsFilters.dateTo" type="date" class="form-control" />
       </div>
 
       <div class="filter-group actions">
@@ -62,66 +65,125 @@
       </div>
     </div>
 
-    <!-- ТАБЛИЦА -->
-    <div v-if="loading" class="text-center">
-      <IconLoading class="loading-icon" />
-      Загрузка...
-    </div>
+    <!-- СКЕЛЕТОН -->
+    <RepairsTableSkeleton v-if="loading" />
+
+    <!-- ПУСТО -->
     <div v-else-if="filteredRepairs.length === 0" class="empty-state">
       <IconList class="empty-icon" />
       <span>Заявок не найдено</span>
     </div>
+
+    <!-- ТАБЛИЦА -->
     <div v-else class="table-container">
       <table class="repairs-table">
         <thead>
           <tr>
-            <th style="width: 70px;">№</th>
-            <th style="min-width: 220px;">Оборудование</th>
+            <th
+              class="sortable"
+              :class="{ 'sort-active': sortField === 'detection_date' }"
+              style="width: 120px;"
+              @click="toggleSort('detection_date')"
+            >
+              Дата
+              <span class="sort-icon" v-if="sortField === 'detection_date'">
+                {{ sortDirection === 'desc' ? '↓' : '↑' }}
+              </span>
+            </th>
+            <th
+              class="sortable"
+              :class="{ 'sort-active': sortField === 'equipment' }"
+              style="min-width: 220px;"
+              @click="toggleSort('equipment')"
+            >
+              Оборудование
+              <span class="sort-icon" v-if="sortField === 'equipment'">
+                {{ sortDirection === 'desc' ? '↓' : '↑' }}
+              </span>
+            </th>
             <th style="min-width: 280px;">Описание</th>
-            <th style="width: 120px;">Дата</th>
             <th style="min-width: 140px;">Кто выявил</th>
             <th style="min-width: 220px;">Возможность устранения</th>
-            <th style="width: 140px;">Статус</th>
+            <th
+              class="sortable"
+              :class="{ 'sort-active': sortField === 'status' }"
+              style="width: 140px;"
+              @click="toggleSort('status')"
+            >
+              Статус
+              <span class="sort-icon" v-if="sortField === 'status'">
+                {{ sortDirection === 'desc' ? '↓' : '↑' }}
+              </span>
+            </th>
             <th style="min-width: 140px;">Кто устранил</th>
             <th style="width: 170px;">Действия</th>
           </tr>
         </thead>
         <tbody>
-          <RepairCard v-for="repair in paginatedItems" :key="repair.id" :repair="repair" @row-click="handleRowClick"
-            @resolve="openResolveModal" @edit-resolved-by="openEditResolvedBy" @edit="openEditForm"
-            @delete="confirmDelete" />
+          <RepairCard
+            v-for="repair in paginatedItems"
+            :key="repair.id"
+            :repair="repair"
+            @row-click="handleRowClick"
+            @resolve="openResolveModal"
+            @edit-resolved-by="openEditResolvedBy"
+            @edit="openEditForm"
+            @delete="confirmDelete"
+          />
         </tbody>
       </table>
     </div>
 
     <!-- ПАГИНАЦИЯ -->
-    <Pagination v-if="showPagination" v-model:current-page="currentPage" :total-pages="totalPages" :loading="loading" />
+    <Pagination
+      v-if="!loading && showPagination"
+      v-model:current-page="currentPage"
+      :total-pages="totalPages"
+      :loading="loading"
+    />
 
     <!-- МОДАЛКИ -->
-    <RepairFormDrawer :visible="showForm" :repair="editingRepair" @close="closeForm" @save="onRepairSaved" />
+    <RepairFormDrawer
+      :visible="showForm"
+      :repair="editingRepair"
+      @close="closeForm"
+      @save="onRepairSaved"
+    />
 
-    <ConfirmModal v-model:visible="show" :title="config.title" :message="config.message"
-      :confirm-text="config.confirmText" :cancel-text="config.cancelText" :confirm-variant="config.confirmVariant"
-      @confirm="onConfirm" @cancel="onCancel" />
+    <ConfirmModal
+      v-model:visible="show"
+      :title="config.title"
+      :message="config.message"
+      :confirm-text="config.confirmText"
+      :cancel-text="config.cancelText"
+      :confirm-variant="config.confirmVariant"
+      @confirm="onConfirm"
+      @cancel="onCancel"
+    />
 
-    <ResolveRepairModal v-model:visible="showResolveModal" :repair="resolvingRepair" :is-editing="isEditingResolvedBy"
-      @close="closeResolveModal" @resolve="loadRepairs" />
+    <ResolveRepairModal
+      v-model:visible="showResolveModal"
+      :repair="resolvingRepair"
+      :is-editing="isEditingResolvedBy"
+      @close="closeResolveModal"
+      @resolve="loadRepairs"
+    />
   </div>
 </template>
 
 <script setup>
-import { ref, computed, onMounted, onActivated, watch, nextTick, onUnmounted } from 'vue';
-import { useRoute, useRouter } from 'vue-router';
+import { ref, computed, onMounted, onActivated, watch, onBeforeUnmount } from 'vue';
 import { storeToRefs } from 'pinia';
 import { useRepairsStore, useEquipmentStore } from '../stores';
-import { useAppStore } from '../stores/appStore';
+import { useUiStore } from '../stores/ui.store';
 import { useToastStore } from '../stores/toastStore';
+import { useUrlSync } from '../composables/useUrlSync';
 import { useConfirm } from '../composables/useConfirm';
-import { useFormatters } from '../composables/useFormatters';
 import RepairFormDrawer from '../components/repairs/RepairFormDrawer.vue';
 import ConfirmModal from '../components/ConfirmModal.vue';
 import ResolveRepairModal from '../components/repairs/ResolveRepairModal.vue';
 import RepairCard from '../components/repairs/RepairCard.vue';
+import RepairsTableSkeleton from '../components/repairs/RepairsTableSkeleton.vue';
 import EquipmentMultiSelect from '../components/EquipmentMultiSelect.vue';
 import Pagination from '../components/Pagination.vue';
 import {
@@ -130,95 +192,129 @@ import {
   IconCheck,
   IconAlert,
   IconReset,
-  IconList,
-  IconLoading
+  IconList
 } from '../components/icons';
 
 // ============================================
 // STORE
 // ============================================
-const route = useRoute();
-const router = useRouter();
-const appStore = useAppStore();
+const uiStore = useUiStore();
 const repairsStore = useRepairsStore();
 const equipmentStore = useEquipmentStore();
 const toast = useToastStore();
 
 const { show, config, confirm, onConfirm, onCancel } = useConfirm();
-const { formatDate } = useFormatters();
 
 const { items: repairsItems } = storeToRefs(repairsStore);
 const { items: equipmentItems } = storeToRefs(equipmentStore);
-const { filters, pagination, editing } = storeToRefs(appStore);
+const { filters, pagination, editing } = storeToRefs(uiStore);
 
 // ============================================
-// СОСТОЯНИЕ ИЗ APPSTORE
+// URL ↔ STORE
+// ============================================
+const { openFromUrl } = useUrlSync({
+  resolvers: {
+    repair: async (id) => {
+      if (repairsItems.value.length === 0) {
+        await repairsStore.fetchAll();
+      }
+      return repairsItems.value.find((r) => r.id === id) ?? null;
+    }
+  }
+});
+
+// ============================================
+// ФИЛЬТРЫ И СОРТИРОВКА
 // ============================================
 const repairsFilters = computed({
-  get: () => filters.value.repairs || { status: '', equipmentIds: [], dateFrom: '', dateTo: '' },
+  get: () => filters.value.repairs || {
+    status: '',
+    equipmentIds: [],
+    dateFrom: '',
+    dateTo: '',
+    sortField: 'detection_date',
+    sortDirection: 'desc'
+  },
+  set: (val) => { filters.value.repairs = val; }
+});
+
+const sortField = computed({
+  get: () => repairsFilters.value.sortField || 'detection_date',
   set: (val) => {
-    filters.value.repairs = val;
+    repairsFilters.value = { ...repairsFilters.value, sortField: val };
   }
 });
 
-const filterStatus = computed({
-  get: () => repairsFilters.value.status,
+const sortDirection = computed({
+  get: () => repairsFilters.value.sortDirection || 'desc',
   set: (val) => {
-    repairsFilters.value = { ...repairsFilters.value, status: val };
-    currentPage.value = 1;
+    repairsFilters.value = { ...repairsFilters.value, sortDirection: val };
   }
 });
+
+const toggleSort = (field) => {
+  if (sortField.value === field) {
+    sortDirection.value = sortDirection.value === 'desc' ? 'asc' : 'desc';
+  } else {
+    sortField.value = field;
+    sortDirection.value = 'desc';
+  }
+  resetPage();
+};
 
 const filterEquipmentIds = computed({
-  get: () => repairsFilters.value.equipmentIds,
+  get: () => repairsFilters.value.equipmentIds || [],
   set: (val) => {
+    const current = repairsFilters.value.equipmentIds || [];
+    const same =
+      current.length === val.length &&
+      current.every((id, i) => id === val[i]);
+    if (same) return;
+
     repairsFilters.value = { ...repairsFilters.value, equipmentIds: val };
-    currentPage.value = 1;
+    resetPage();
   }
 });
 
-const filterDateFrom = computed({
-  get: () => repairsFilters.value.dateFrom,
-  set: (val) => {
-    repairsFilters.value = { ...repairsFilters.value, dateFrom: val };
-    currentPage.value = 1;
-  }
-});
-
-const filterDateTo = computed({
-  get: () => repairsFilters.value.dateTo,
-  set: (val) => {
-    repairsFilters.value = { ...repairsFilters.value, dateTo: val };
-    currentPage.value = 1;
-  }
-});
-
+// ============================================
+// ПАГИНАЦИЯ
+// ============================================
 const repairsPagination = computed({
   get: () => pagination.value.repairs || { page: 1, size: 8 },
-  set: (val) => {
-    pagination.value.repairs = val;
-  }
+  set: (val) => { pagination.value.repairs = val; }
 });
 
 const currentPage = computed({
   get: () => repairsPagination.value.page || 1,
-  set: (val) => {
-    repairsPagination.value = { ...repairsPagination.value, page: val };
-  }
+  set: (val) => { repairsPagination.value.page = val; }
+});
+
+// ============================================
+// DRAWER РЕДАКТИРОВАНИЯ
+// ============================================
+const editingRepair = computed(() => {
+  const id = editing.value.repair;
+  if (!id) return null;
+  return repairsItems.value.find((r) => r.id === id) || null;
+});
+
+const showForm = computed({
+  get: () =>
+    (editing.value.repair !== null && editingRepair.value !== null)
+    || uiStore.creating.repair,
+  set: (val) => { if (!val) uiStore.closeEdit('repair'); }
 });
 
 // ============================================
 // ЛОКАЛЬНОЕ СОСТОЯНИЕ
 // ============================================
 const loading = ref(true);
-const showForm = ref(false);
-const editingRepair = ref(null);
 const showResolveModal = ref(false);
 const resolvingRepair = ref(null);
 const isEditingResolvedBy = ref(false);
 
 // ============================================
-// ФИЛЬТРАЦИЯ
+// ФИЛЬТРАЦИЯ + СОРТИРОВКА
 // ============================================
 const filterConfig = {
   status: {
@@ -232,7 +328,7 @@ const filterConfig = {
   equipmentIds: {
     filterFn: (item, value) => {
       if (!value || value.length === 0) return true;
-      const ids = value.map(id => Number(id));
+      const ids = value.map((id) => Number(id));
       return ids.includes(item.equipment_id);
     }
   },
@@ -256,19 +352,47 @@ const filterConfig = {
 
 const filteredRepairs = computed(() => {
   const list = [...repairsItems.value];
+
+  const field = sortField.value;
+  const dir = sortDirection.value === 'desc' ? -1 : 1;
+
+  list.sort((a, b) => {
+    let va, vb;
+
+    if (field === 'detection_date') {
+      va = new Date(a.detection_date).getTime() || 0;
+      vb = new Date(b.detection_date).getTime() || 0;
+      return (va - vb) * dir;
+    }
+
+    if (field === 'equipment') {
+      va = (a.equipment?.name || '').toLowerCase();
+      vb = (b.equipment?.name || '').toLowerCase();
+    } else if (field === 'status') {
+      va = a.is_resolved ? 1 : 0;
+      vb = b.is_resolved ? 1 : 0;
+    } else {
+      return 0;
+    }
+
+    if (va < vb) return -1 * dir;
+    if (va > vb) return 1 * dir;
+    return 0;
+  });
+
   const allFilters = { ...repairsFilters.value };
 
-  return list.filter(item => {
+  return list.filter((item) => {
     let result = true;
-    for (const [key, config] of Object.entries(filterConfig)) {
+    for (const [key, cfg] of Object.entries(filterConfig)) {
       const filterValue = allFilters[key];
       if (filterValue !== undefined && filterValue !== null && filterValue !== '') {
         if (Array.isArray(filterValue)) {
           if (filterValue.length > 0) {
-            result = result && config.filterFn(item, filterValue);
+            result = result && cfg.filterFn(item, filterValue);
           }
         } else {
-          result = result && config.filterFn(item, filterValue);
+          result = result && cfg.filterFn(item, filterValue);
         }
       }
     }
@@ -281,35 +405,30 @@ const filteredRepairs = computed(() => {
 // ============================================
 const pageSize = 8;
 
-const totalPages = computed(() => {
-  return Math.ceil(filteredRepairs.value.length / pageSize) || 1;
-});
+const totalPages = computed(() =>
+  Math.ceil(filteredRepairs.value.length / pageSize) || 1
+);
 
 const paginatedItems = computed(() => {
   const start = (currentPage.value - 1) * pageSize;
-  const end = start + pageSize;
-  return filteredRepairs.value.slice(start, end);
+  return filteredRepairs.value.slice(start, start + pageSize);
 });
 
-const showPagination = computed(() => {
-  return filteredRepairs.value.length > pageSize;
-});
+const showPagination = computed(() => filteredRepairs.value.length > pageSize);
 
-const resetPage = () => {
-  currentPage.value = 1;
-};
+const resetPage = () => { currentPage.value = 1; };
 
 // ============================================
 // СТАТИСТИКА
 // ============================================
 const stats = computed(() => ({
   total: repairsItems.value.length,
-  resolved: repairsItems.value.filter(r => r.is_resolved).length,
-  active: repairsItems.value.filter(r => !r.is_resolved).length
+  resolved: repairsItems.value.filter((r) => r.is_resolved).length,
+  active: repairsItems.value.filter((r) => !r.is_resolved).length
 }));
 
 // ============================================
-// ЗАГРУЗКА ДАННЫХ
+// ЗАГРУЗКА
 // ============================================
 const loadRepairs = async () => {
   loading.value = true;
@@ -327,39 +446,31 @@ const loadRepairs = async () => {
 // МЕТОДЫ
 // ============================================
 const resetAllFilters = () => {
-  appStore.resetFilters('repairs');
-  currentPage.value = 1;
+  uiStore.resetFilters('repairs');
+  resetPage();
 };
 
-const openCreateForm = () => {
-  editingRepair.value = null;
-  showForm.value = true;
-  appStore.closeEdit('repair');
-};
+const openCreateForm = () => uiStore.openCreate('repair');
 
 const openEditForm = (repair) => {
-  if (!repair) return;
-  console.log('✏️ Открытие редактирования заявки:', repair.id);
-  editingRepair.value = repair;
-  showForm.value = true;
-  if (repair.id) {
-    appStore.openEdit('repair', repair.id);
-  }
+  if (!repair?.id) return;
+  uiStore.openEdit('repair', repair.id);
 };
 
-const closeForm = () => {
-  showForm.value = false;
-  setTimeout(() => {
-    editingRepair.value = null;
-  }, 500);
-  appStore.closeEdit('repair');
-};
+const closeForm = () => uiStore.closeEdit('repair');
 
 const onRepairSaved = () => {
   closeForm();
   loadRepairs();
 };
 
+const handleRowClick = (repair) => {
+  if (!repair.is_resolved) openEditForm(repair);
+};
+
+// ============================================
+// RESOLVE MODAL
+// ============================================
 const openResolveModal = (repair) => {
   resolvingRepair.value = repair;
   isEditingResolvedBy.value = false;
@@ -378,12 +489,9 @@ const closeResolveModal = () => {
   isEditingResolvedBy.value = false;
 };
 
-const handleRowClick = (repair) => {
-  if (!repair.is_resolved) {
-    openEditForm(repair);
-  }
-};
-
+// ============================================
+// УДАЛЕНИЕ
+// ============================================
 const confirmDelete = async (id) => {
   const confirmed = await confirm({
     title: 'Удаление заявки',
@@ -398,8 +506,7 @@ const confirmDelete = async (id) => {
       await loadRepairs();
       toast.success('Заявка удалена');
     } catch (error) {
-      const msg = error.response?.data?.message || 'Ошибка удаления';
-      toast.error(msg);
+      toast.error(error.response?.data?.message || 'Ошибка удаления');
     }
   }
 };
@@ -412,66 +519,24 @@ const handleKeydown = (e) => {
     const tag = e.target.tagName.toLowerCase();
     if (tag !== 'input' && tag !== 'textarea' && tag !== 'select') {
       e.preventDefault();
-      if (showForm.value) {
-        closeForm();
-      } else {
-        openCreateForm();
-      }
+      if (showForm.value) closeForm();
+      else openCreateForm();
     }
   }
-};
-
-// ============================================
-// АВТОМАТИЧЕСКОЕ ОТКРЫТИЕ ИЗ URL
-// ============================================
-const openFromUrl = async () => {
-  const repairEdit = route.query.repair_edit;
-
-  if (repairEdit) {
-    const id = parseInt(repairEdit, 10);
-    if (!isNaN(id) && id > 0) {
-      if (showForm.value && editingRepair.value?.id === id) {
-        return true;
-      }
-
-      if (repairsItems.value.length === 0) {
-        await repairsStore.fetchAll();
-      }
-
-      const repair = repairsItems.value.find(r => r.id === id);
-      if (repair) {
-        if (showForm.value) {
-          closeForm();
-        }
-        await nextTick();
-        openEditForm(repair);
-        return true;
-      } else {
-        toast.warning(`Заявка с ID ${id} не найдена`);
-      }
-    }
-  }
-
-  return false;
 };
 
 // ============================================
 // WATCH
 // ============================================
 watch(
-  () => route.query.repair_edit,
-  async (newVal) => {
-    if (newVal) {
-      await openFromUrl();
-    } else {
-      if (showForm.value && editingRepair.value) {
-        showForm.value = false;
-        setTimeout(() => {
-          editingRepair.value = null;
-        }, 500);
-        appStore.closeEdit('repair');
-      }
-    }
+  [
+    () => repairsFilters.value.status,
+    () => JSON.stringify(repairsFilters.value.equipmentIds || []),
+    () => repairsFilters.value.dateFrom,
+    () => repairsFilters.value.dateTo
+  ],
+  () => {
+    resetPage();
   }
 );
 
@@ -484,7 +549,10 @@ onMounted(async () => {
     equipmentStore.fetchAll()
   ]);
 
-  await openFromUrl();
+  const { found, item, id } = await openFromUrl('repair', { queryKey: 'repairs_edit' });
+  if (found) openEditForm(item);
+  else if (id) toast.warning(`Заявка с ID ${id} не найдена`);
+
   document.addEventListener('keydown', handleKeydown);
 });
 
@@ -496,15 +564,13 @@ onActivated(async () => {
   }
 });
 
-onUnmounted(() => {
+onBeforeUnmount(() => {
   document.removeEventListener('keydown', handleKeydown);
 });
 </script>
 
 <style scoped>
-.repairs-view {
-  padding: 0;
-}
+.repairs-view { padding: 0; }
 
 /* ============================================
    ТУЛБАР
@@ -534,10 +600,7 @@ onUnmounted(() => {
   stroke: #212529;
 }
 
-.toolbar-left .count {
-  color: #6c757d;
-  font-size: 14px;
-}
+.toolbar-left .count { color: #6c757d; font-size: 14px; }
 
 .toolbar-right {
   display: flex;
@@ -567,10 +630,7 @@ onUnmounted(() => {
   font-weight: 600;
 }
 
-.stats-badges {
-  display: flex;
-  gap: 6px;
-}
+.stats-badges { display: flex; gap: 6px; }
 
 /* ============================================
    БЕЙДЖИ СТАТИСТИКИ
@@ -585,21 +645,9 @@ onUnmounted(() => {
   gap: 4px;
 }
 
-.badge .badge-icon {
-  width: 14px;
-  height: 14px;
-  stroke: currentColor;
-}
-
-.badge-success {
-  background: #d1e7dd;
-  color: #0f5132;
-}
-
-.badge-warning {
-  background: #fff3cd;
-  color: #664d03;
-}
+.badge .badge-icon { width: 14px; height: 14px; stroke: currentColor; }
+.badge-success { background: #d1e7dd; color: #0f5132; }
+.badge-warning { background: #fff3cd; color: #664d03; }
 
 /* ============================================
    КНОПКИ
@@ -616,33 +664,11 @@ onUnmounted(() => {
   gap: 6px;
 }
 
-.btn .btn-icon {
-  width: 16px;
-  height: 16px;
-  stroke: currentColor;
-}
-
-.btn-primary {
-  background: #0d6efd;
-  color: white;
-  border-color: #0d6efd;
-}
-
-.btn-primary:hover {
-  background: #0b5ed7;
-  border-color: #0a58ca;
-}
-
-.btn-outline-secondary {
-  background: transparent;
-  color: #6c757d;
-  border: 1px solid #6c757d;
-}
-
-.btn-outline-secondary:hover {
-  background: #6c757d;
-  color: white;
-}
+.btn .btn-icon { width: 16px; height: 16px; stroke: currentColor; }
+.btn-primary { background: #0d6efd; color: white; border-color: #0d6efd; }
+.btn-primary:hover { background: #0b5ed7; border-color: #0a58ca; }
+.btn-outline-secondary { background: transparent; color: #6c757d; border: 1px solid #6c757d; }
+.btn-outline-secondary:hover { background: #6c757d; color: white; }
 
 /* ============================================
    ФИЛЬТРЫ
@@ -688,21 +714,9 @@ onUnmounted(() => {
   box-shadow: 0 0 0 0.2rem rgba(0, 123, 255, 0.25);
 }
 
-.date-filters {
-  flex-direction: row;
-  align-items: center;
-  gap: 6px;
-}
-
-.date-filters label {
-  font-size: 13px;
-  color: #888;
-  margin: 0;
-}
-
-.date-filters .form-control {
-  min-width: 130px;
-}
+.date-filters { flex-direction: row; align-items: center; gap: 6px; }
+.date-filters label { font-size: 13px; color: #888; margin: 0; }
+.date-filters .form-control { min-width: 130px; }
 
 .actions {
   flex-direction: row;
@@ -725,38 +739,7 @@ onUnmounted(() => {
   gap: 8px;
 }
 
-.empty-state .empty-icon {
-  width: 32px;
-  height: 32px;
-  stroke: #6c757d;
-}
-
-.text-center {
-  text-align: center;
-  padding: 20px;
-  color: #6c757d;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  gap: 8px;
-}
-
-.text-center .loading-icon {
-  width: 20px;
-  height: 20px;
-  stroke: #6c757d;
-  animation: spin 1s linear infinite;
-}
-
-@keyframes spin {
-  from {
-    transform: rotate(0deg);
-  }
-
-  to {
-    transform: rotate(360deg);
-  }
-}
+.empty-state .empty-icon { width: 32px; height: 32px; stroke: #6c757d; }
 
 /* ============================================
    ТАБЛИЦА
@@ -772,17 +755,15 @@ onUnmounted(() => {
 
 .repairs-table {
   width: 100%;
-  min-width: 1300px;          
+  min-width: 1300px;
   border-collapse: collapse;
   font-size: 14px;
 }
 
-.repairs-table thead {
-  background: #f8f9fa;
-}
+.repairs-table thead { background: #f8f9fa; }
 
 .repairs-table th {
-  padding: 14px 18px;              
+  padding: 14px 18px;
   text-align: left;
   font-weight: 600;
   color: #495057;
@@ -790,58 +771,52 @@ onUnmounted(() => {
   white-space: nowrap;
 }
 
+/* ============================================
+   СОРТИРУЕМЫЕ ЗАГОЛОВКИ
+   ============================================ */
+.repairs-table th.sortable {
+  cursor: pointer;
+  user-select: none;
+  transition: background 0.15s;
+}
+
+.repairs-table th.sortable:hover {
+  background: #e9ecef;
+}
+
+.repairs-table th.sort-active {
+  color: #0d6efd;
+}
+
+.sort-icon {
+  display: inline-block;
+  margin-left: 4px;
+  font-size: 12px;
+  color: #0d6efd;
+  font-weight: 700;
+}
+
 .repairs-table td {
-  padding: 14px 18px;            
+  padding: 14px 18px;
   border-bottom: 1px solid #e9ecef;
   vertical-align: middle;
 }
-
 
 /* ============================================
    АДАПТИВНОСТЬ
    ============================================ */
 @media (max-width: 1024px) {
-  .filters {
-    flex-direction: column;
-    align-items: stretch;
-  }
-
-  .filter-group {
-    min-width: 100%;
-  }
-
-  .date-filters {
-    flex-direction: row;
-    flex-wrap: wrap;
-  }
-
-  .date-filters .form-control {
-    flex: 1;
-    min-width: 120px;
-  }
+  .filters { flex-direction: column; align-items: stretch; }
+  .filter-group { min-width: 100%; }
+  .date-filters { flex-direction: row; flex-wrap: wrap; }
+  .date-filters .form-control { flex: 1; min-width: 120px; }
 }
 
 @media (max-width: 768px) {
-  .toolbar {
-    flex-direction: column;
-    align-items: stretch;
-  }
-
-  .toolbar-right {
-    flex-wrap: wrap;
-  }
-
-  .stats-badges {
-    order: -1;
-  }
-
-  .repairs-table {
-    font-size: 13px;
-  }
-
-  .repairs-table th,
-  .repairs-table td {
-    padding: 8px 10px;
-  }
+  .toolbar { flex-direction: column; align-items: stretch; }
+  .toolbar-right { flex-wrap: wrap; }
+  .stats-badges { order: -1; }
+  .repairs-table { font-size: 13px; }
+  .repairs-table th, .repairs-table td { padding: 8px 10px; }
 }
 </style>

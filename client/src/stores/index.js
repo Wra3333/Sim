@@ -6,6 +6,7 @@ import {
   lessonsApi,
   workTimeApi
 } from '../api';
+import { tabSync } from '../utils/tabSync';
 
 // ============================================
 // Store для оборудования (С ПОДДЕРЖКОЙ АРХИВА)
@@ -100,6 +101,8 @@ export const useEquipmentStore = defineStore('equipment', {
         const response = await equipmentApi.create(data);
         this.allEquipment.push(response.data);
         this.lastFetched = Date.now();
+        // ✅ Синхронизация между вкладками
+        tabSync.broadcast('equipment:created', { id: response.data.id });
         return response.data;
       } catch (error) {
         this.error = error.response?.data?.message || 'Ошибка создания';
@@ -115,6 +118,8 @@ export const useEquipmentStore = defineStore('equipment', {
           this.allEquipment[index] = response.data;
         }
         this.lastFetched = Date.now();
+        // ✅ Синхронизация между вкладками
+        tabSync.broadcast('equipment:updated', { id });
         return response.data;
       } catch (error) {
         this.error = error.response?.data?.message || 'Ошибка обновления';
@@ -129,6 +134,8 @@ export const useEquipmentStore = defineStore('equipment', {
         // Обновляем список
         await this.fetchAll();
         this.lastFetched = Date.now();
+        // ✅ Синхронизация между вкладками
+        tabSync.broadcast('equipment:deleted', { id });
       } catch (error) {
         this.error = error.response?.data?.message || 'Ошибка архивации';
         throw error;
@@ -141,6 +148,8 @@ export const useEquipmentStore = defineStore('equipment', {
         await equipmentApi.restore(id);
         await this.fetchAll();
         this.lastFetched = Date.now();
+        // ✅ Синхронизация между вкладками
+        tabSync.broadcast('equipment:restored', { id });
       } catch (error) {
         this.error = error.response?.data?.message || 'Ошибка восстановления';
         throw error;
@@ -150,28 +159,17 @@ export const useEquipmentStore = defineStore('equipment', {
     // ✅ УДАЛЕНИЕ ДОПОЛНИТЕЛЬНОГО ФАЙЛА (ОБНОВЛЕН)
     async deleteFile(equipmentId, fileId) {
       try {
-        console.log('🗑️ [Store] Удаление файла:', { equipmentId, fileId });
-        
-        // 1. Удаляем файл через API
         await equipmentApi.deleteAdditionalFile(equipmentId, fileId);
-        console.log('✅ [Store] Файл удален из БД');
-        
-        // 2. Обновляем конкретное оборудование в сторе
         const index = this.allEquipment.findIndex(item => item.id === equipmentId);
         if (index !== -1) {
-          // Получаем свежие данные с сервера для этого оборудования
           const response = await equipmentApi.getById(equipmentId);
           if (response.data) {
             this.allEquipment[index] = response.data;
             console.log('✅ [Store] Оборудование обновлено в сторе');
           }
         }
-        
-        // 3. Обновляем archivedItems и items (getters автоматически обновятся)
-        // Но для уверенности можно перезагрузить все данные
-        // await this.fetchAll();
-        
         this.lastFetched = Date.now();
+        tabSync.broadcast('equipment:updated', { id: equipmentId });
         return { success: true };
       } catch (error) {
         console.error('❌ [Store] Ошибка удаления файла:', error);
@@ -193,6 +191,8 @@ export const useEquipmentStore = defineStore('equipment', {
         console.log('✅ [Store] Все данные перезагружены');
         
         this.lastFetched = Date.now();
+        // ✅ Синхронизация между вкладками
+        tabSync.broadcast('equipment:updated', { id: equipmentId });
         return { success: true };
       } catch (error) {
         console.error('❌ [Store] Ошибка удаления файла:', error);
@@ -275,6 +275,8 @@ export const useRepairsStore = defineStore('repairs', {
         const response = await repairsApi.create(data);
         this.items.push(response.data);
         this.lastFetched = Date.now();
+        // ✅ Синхронизация между вкладками
+        tabSync.broadcast('repair:created', { id: response.data.id });
         return response.data;
       } catch (error) {
         this.error = error.response?.data?.message || 'Ошибка создания';
@@ -290,6 +292,8 @@ export const useRepairsStore = defineStore('repairs', {
           this.items[index] = response.data;
         }
         this.lastFetched = Date.now();
+        // ✅ Синхронизация между вкладками
+        tabSync.broadcast('repair:resolved', { id });
         return response.data;
       } catch (error) {
         this.error = error.response?.data?.message || 'Ошибка закрытия';
@@ -305,6 +309,8 @@ export const useRepairsStore = defineStore('repairs', {
           this.items[index] = response.data;
         }
         this.lastFetched = Date.now();
+        // ✅ Синхронизация между вкладками
+        tabSync.broadcast('repair:updated', { id });
         return response.data;
       } catch (error) {
         this.error = error.response?.data?.message || 'Ошибка обновления';
@@ -317,6 +323,8 @@ export const useRepairsStore = defineStore('repairs', {
         await repairsApi.delete(id);
         this.items = this.items.filter(item => item.id !== id);
         this.lastFetched = Date.now();
+        // ✅ Синхронизация между вкладками
+        tabSync.broadcast('repair:deleted', { id });
       } catch (error) {
         this.error = error.response?.data?.message || 'Ошибка удаления';
         throw error;
@@ -366,6 +374,8 @@ export const useTemplatesStore = defineStore('templates', {
         const response = await templatesApi.create(data);
         this.items.push(response.data);
         this.lastFetched = Date.now();
+        // ✅ Синхронизация между вкладками
+        tabSync.broadcast('template:created', { id: response.data.id });
         return response.data;
       } catch (error) {
         this.error = error.response?.data?.message || 'Ошибка создания';
@@ -381,6 +391,8 @@ export const useTemplatesStore = defineStore('templates', {
           this.items[index] = response.data;
         }
         this.lastFetched = Date.now();
+        // ✅ Синхронизация между вкладками
+        tabSync.broadcast('template:updated', { id });
         return response.data;
       } catch (error) {
         this.error = error.response?.data?.message || 'Ошибка обновления';
@@ -393,22 +405,26 @@ export const useTemplatesStore = defineStore('templates', {
         await templatesApi.delete(id);
         this.items = this.items.filter(item => item.id !== id);
         this.lastFetched = Date.now();
+        // ✅ Синхронизация между вкладками
+        tabSync.broadcast('template:deleted', { id });
       } catch (error) {
         this.error = error.response?.data?.message || 'Ошибка удаления';
         throw error;
       }
     },
     
-async syncLessons(templateId, lessonIds = null) {
-  try {
-    const response = await templatesApi.syncLessons(templateId, lessonIds);   
-    this.lastFetched = Date.now();
-    return response.data;
-  } catch (error) {
-    this.error = error.response?.data?.message || 'Ошибка синхронизации';
-    throw error;
-  }
-}
+    async syncLessons(templateId, lessonIds = null) {
+      try {
+        const response = await templatesApi.syncLessons(templateId, lessonIds);   
+        this.lastFetched = Date.now();
+        // ✅ Синхронизация между вкладками
+        tabSync.broadcast('template:synced', { templateId, lessonIds });
+        return response.data;
+      } catch (error) {
+        this.error = error.response?.data?.message || 'Ошибка синхронизации';
+        throw error;
+      }
+    }
   }
 });
 
@@ -462,6 +478,8 @@ export const useLessonsStore = defineStore('lessons', {
         const response = await lessonsApi.create(data);
         this.items.push(response.data);
         this.lastFetched = Date.now();
+        // ✅ Синхронизация между вкладками
+        tabSync.broadcast('lesson:created', { id: response.data.id });
         return response.data;
       } catch (error) {
         this.error = error.response?.data?.message || 'Ошибка создания';
@@ -477,6 +495,8 @@ export const useLessonsStore = defineStore('lessons', {
           this.items[index] = response.data;
         }
         this.lastFetched = Date.now();
+        // ✅ Синхронизация между вкладками
+        tabSync.broadcast('lesson:updated', { id });
         return response.data;
       } catch (error) {
         this.error = error.response?.data?.message || 'Ошибка обновления';
@@ -492,6 +512,8 @@ export const useLessonsStore = defineStore('lessons', {
           this.items[index] = response.data;
         }
         this.lastFetched = Date.now();
+        // ✅ Синхронизация между вкладками
+        tabSync.broadcast('lesson:completed', { id });
         return response.data;
       } catch (error) {
         this.error = error.response?.data?.message || 'Ошибка завершения';
@@ -504,6 +526,8 @@ export const useLessonsStore = defineStore('lessons', {
         await lessonsApi.delete(id);
         this.items = this.items.filter(item => item.id !== id);
         this.lastFetched = Date.now();
+        // ✅ Синхронизация между вкладками
+        tabSync.broadcast('lesson:deleted', { id });
       } catch (error) {
         this.error = error.response?.data?.message || 'Ошибка удаления';
         throw error;
@@ -598,6 +622,8 @@ export const useWorkTimeStore = defineStore('worktime', {
         const response = await workTimeApi.create(data);
         this.items.push(response.data);
         this.lastFetched = Date.now();
+        // ✅ Синхронизация между вкладками
+        tabSync.broadcast('worktime:created', { id: response.data.id });
         return response.data;
       } catch (error) {
         this.error = error.response?.data?.message || 'Ошибка создания';

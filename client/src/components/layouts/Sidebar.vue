@@ -85,7 +85,7 @@
 import { ref, computed, onMounted, onUnmounted } from 'vue';
 import { useAuthStore } from '../../stores/auth.store';
 import { useRouter } from 'vue-router';
-import { useAppStore } from '../../stores/appStore';
+import { useUiStore } from '../../stores/ui.store';
 import IconLogo from '../icons/IconLogo.vue';
 import {
   IconDashboard,
@@ -102,15 +102,15 @@ import {
 
 const authStore = useAuthStore();
 const router = useRouter();
-const appStore = useAppStore();
+const uiStore = useUiStore();
 
 const loggingOut = ref(false);
 
-const sidebarVisible = computed(() => appStore.sidebar.visible);
+const sidebarVisible = computed(() => uiStore.sidebar.visible);
 
-const showSidebar = () => appStore.showSidebar();
-const hideSidebar = () => appStore.hideSidebar();
-const toggleSidebar = () => appStore.toggleSidebar();
+const showSidebar = () => uiStore.showSidebar();
+const hideSidebar = () => uiStore.hideSidebar();
+const toggleSidebar = () => uiStore.toggleSidebar();
 
 // ============================================
 //  ВЫХОД

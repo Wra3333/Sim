@@ -1,6 +1,5 @@
 <template>
   <div v-if="problemLessons.length > 0">
-    <!-- БЛОК ПРОБЛЕМНЫХ ЗАНЯТИЙ -->
     <div class="problem-alert">
       <div class="problem-alert-content">
         <div class="problem-alert-icon">
@@ -18,7 +17,6 @@
       </div>
     </div>
 
-    <!-- Список проблемных занятий -->
     <div v-if="showProblemLessons && problemLessons.length > 0" class="problem-list">
       <div 
         v-for="lesson in problemLessons" 
@@ -103,11 +101,11 @@ const getEquipmentName = (id) => {
   return eq ? eq.name : 'Неизвестно';
 };
 
-// ПОЛУЧАЕМ КЛАСС ДЛЯ СТАТУСА ОБОРУДОВАНИЯ
 const getEquipmentStatusClass = (id) => {
   const status = getEquipmentStatus(id);
   const classes = {
     'Исправен': 'status-ok',
+    'Частично неисправен': 'status-ok',
     'В ремонте': 'status-warning',
     'Требует ремонта': 'status-danger',
     'Списан': 'status-danger'
@@ -115,13 +113,26 @@ const getEquipmentStatusClass = (id) => {
   return classes[status] || '';
 };
 
+// Проблемное оборудование — то, которое нельзя использовать.
+// «Исправен» и «Частично неисправен» — допустимы.
+const isEquipmentProblematic = (id) => {
+  const eq = props.equipmentList.find(e => e.id === id);
+  if (!eq) return false;
+  return (
+    eq.working_status === 'Требует ремонта' ||
+    eq.working_status === 'В ремонте' ||
+    eq.working_status === 'Списан' ||
+    eq.write_off_status === 'На списание' ||
+    eq.write_off_status === 'Списан'
+  );
+};
+
 const isLessonProblem = (lesson) => {
   if (!lesson.equipment_list || lesson.equipment_list.length === 0) return false;
   if (lesson.status !== 'Запланировано') return false;
-  
+
   for (const item of lesson.equipment_list) {
-    const status = getEquipmentStatus(item.equipment_id);
-    if (status !== 'Исправен') return true;
+    if (isEquipmentProblematic(item.equipment_id)) return true;
   }
   return false;
 };
@@ -141,9 +152,7 @@ const formatDate = (date) => {
 </script>
 
 <style scoped>
-/* ==========================================
-   АЛАРТ
-   ========================================== */
+/* без изменений */
 .problem-alert {
   background: #f8fafc;
   border: 1px solid #dee2e6;
@@ -217,9 +226,6 @@ const formatDate = (date) => {
   stroke: currentColor;
 }
 
-/* ==========================================
-   СПИСОК
-   ========================================== */
 .problem-list {
   display: flex;
   flex-direction: column;
@@ -266,7 +272,6 @@ const formatDate = (date) => {
   stroke: #6c757d;
 }
 
-/* ОБОРУДОВАНИЕ С ЦВЕТОВОЙ ИНДИКАЦИЕЙ */
 .problem-item-equipment {
   display: flex;
   flex-wrap: wrap;
@@ -293,13 +298,11 @@ const formatDate = (date) => {
   stroke: #6c757d;
 }
 
-/* СТАТУСЫ ОБОРУДОВАНИЯ С ЦВЕТАМИ */
 .equipment-tag .equipment-tag-status {
   font-weight: 500;
   margin-left: 2px;
 }
 
-/* Исправен */
 .equipment-tag.status-ok {
   background: #e8f5e9;
   border-color: #a5d6a7;
@@ -309,7 +312,6 @@ const formatDate = (date) => {
   color: #2e7d32;
 }
 
-/* В ремонте */
 .equipment-tag.status-warning {
   background: #fff3e0;
   border-color: #ffcc80;
@@ -319,7 +321,6 @@ const formatDate = (date) => {
   color: #e65100;
 }
 
-/* Требует ремонта / Списан */
 .equipment-tag.status-danger {
   background: #fce4ec;
   border-color: #ef9a9a;
@@ -357,15 +358,12 @@ const formatDate = (date) => {
   stroke: currentColor;
 }
 
-/* ==========================================
-   АДАПТИВНОСТЬ
-   ========================================== */
 @media (max-width: 768px) {
   .problem-item {
     flex-direction: column;
     align-items: stretch;
   }
-  
+
   .problem-item-actions {
     align-self: flex-end;
   }

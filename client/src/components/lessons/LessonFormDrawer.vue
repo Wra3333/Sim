@@ -14,9 +14,9 @@
     >
       <div class="drawer-header">
         <h3>
-          <IconEdit v-if="lesson" class="header-icon" />
+          <IconEdit v-if="currentLesson" class="header-icon" />
           <IconPlus v-else class="header-icon" />
-          {{ lesson ? 'Редактировать занятие' : 'Создать занятие' }}
+          {{ currentLesson ? 'Редактировать занятие' : 'Создать занятие' }}
         </h3>
         <button class="btn-close" @click="close">×</button>
       </div>
@@ -98,20 +98,65 @@
             </div>
           </div>
 
-          <!-- КАТЕГОРИЯ УЧАСТНИКОВ -->
+          <!-- УРОВЕНЬ ОБРАЗОВАНИЯ -->
           <div class="form-group">
             <label>
               <IconUser class="label-icon" />
-              Категория участников
+              Уровень образования
             </label>
             <select v-model="form.participant_type" class="form-control">
-              <option value="">Не указана</option>
-              <option value="student">Студенты</option>
-              <option value="intern">Интерны</option>
-              <option value="resident">Ординаторы</option>
-              <option value="doctor">Врачи</option>
-              <option value="nurse">Медсестры</option>
+              <option value="">Не указан</option>
+              <option
+                v-for="level in EDUCATION_LEVELS"
+                :key="level.value"
+                :value="level.value"
+              >
+                {{ level.label }}
+              </option>
             </select>
+          </div>
+
+          <!-- ФАКУЛЬТЕТ И СПЕЦИАЛЬНОСТЬ -->
+          <div class="form-row">
+            <div class="form-group">
+              <label>
+                <IconTemplates class="label-icon" />
+                Факультет
+              </label>
+              <AutocompleteInput
+                v-model="form.faculty"
+                :options="FACULTIES"
+                placeholder="Начните вводить..."
+              />
+            </div>
+            <div class="form-group">
+              <label>
+                <IconFileText class="label-icon" />
+                Специальность
+              </label>
+              <AutocompleteInput
+                v-model="form.specialty"
+                :options="availableSpecialties"
+                :placeholder="form.participant_type ? 'Выберите или введите своё' : 'Сначала выберите уровень'"
+              />
+            </div>
+          </div>
+
+          <!-- КУРС -->
+          <div class="form-row" v-if="showCourseField">
+            <div class="form-group">
+              <label>
+                <IconCalendar class="label-icon" />
+                Курс
+              </label>
+              <select v-model.number="form.course" class="form-control">
+                <option value="">— Не указан —</option>
+                <option v-for="c in availableCourses" :key="c" :value="c">
+                  {{ c }} курс
+                </option>
+              </select>
+            </div>
+            <div class="form-group"></div>
           </div>
 
           <!-- Шаблон -->
@@ -170,7 +215,6 @@
               Оборудование
             </label>
             
-            <!-- ✅ Убран :only-working="true" — теперь видны все, включая неисправные -->
             <EquipmentSelect
               v-model="equipmentList"
               :equipment-options="allEquipment"
@@ -200,9 +244,16 @@ import { ref, watch, onMounted, computed, onBeforeUnmount } from 'vue';
 import { useEquipmentStore, useTemplatesStore } from '../../stores';
 import { useToastStore } from '../../stores/toastStore';
 import { useFormatters } from '../../composables/useFormatters';
-import { useStatusClasses } from '../../composables/useStatusClasses';
 import EquipmentSelect from '../../components/EquipmentSelect.vue';
+import AutocompleteInput from '../../components/AutocompleteInput.vue';
 import { lessonsApi } from '../../api';
+import {
+  EDUCATION_LEVELS,
+  FACULTIES,
+  getSpecialtiesForLevel,
+  getCoursesForLevel,
+  hasCourses
+} from '../../constants/education';
 import {
   IconEdit,
   IconPlus,
@@ -221,9 +272,6 @@ import {
   IconLoading
 } from '../icons';
 
-// ============================================
-//  PROPS & EMITS
-// ============================================
 const props = defineProps({
   visible: { type: Boolean, default: false },
   lesson: { type: Object, default: null }
@@ -231,26 +279,18 @@ const props = defineProps({
 
 const emit = defineEmits(['close', 'save']);
 
-// ============================================
-//  STORE
-// ============================================
 const equipmentStore = useEquipmentStore();
 const templatesStore = useTemplatesStore();
 const toast = useToastStore();
 
-// ============================================
-//  КОМПОЗАБЛЫ
-// ============================================
 const { formatDate } = useFormatters();
-const { getEquipmentStatusClass } = useStatusClasses();
 
-// ============================================
-//  СОСТОЯНИЕ
-// ============================================
 const loading = ref(false);
 const equipmentList = ref([]);
 
-// ✅ ДОСТУПНЫЕ ГРУППЫ
+// Локальная копия занятия — обновляется только при открытии drawer'а.
+const currentLesson = ref(null);
+
 const availableGroups = ref([
   'ФИ-21', 'ФИ-22', 'ФИ-23',
   'ЛД-31', 'ЛД-32',
@@ -269,23 +309,45 @@ const form = ref({
   template_id: null,
   status: 'Запланировано',
   notes: '',
-  participant_type: '' // ✅ ТОЛЬКО КАТЕГОРИЯ
+  participant_type: '',
+  faculty: '',
+  specialty: '',
+  course: ''
 });
 
-// ============================================
-//  ВЫЧИСЛЯЕМЫЕ
-// ============================================
 const activeTemplates = computed(() => {
   return templatesStore.items.filter(t => t.is_active === true);
 });
 
-// ✅ Берём ВСЁ оборудование (включая архивированные/неисправные)
 const allEquipment = computed(() => {
   return equipmentStore.allEquipment || [];
 });
 
 // ============================================
-//  БЛОКИРОВКА СКРОЛЛА
+//  ЗАВИСИМОСТИ УРОВЕНЬ → СПЕЦИАЛЬНОСТЬ / КУРС
+// ============================================
+const availableSpecialties = computed(() =>
+  getSpecialtiesForLevel(form.value.participant_type)
+);
+
+const availableCourses = computed(() =>
+  getCoursesForLevel(form.value.participant_type)
+);
+
+const showCourseField = computed(() =>
+  hasCourses(form.value.participant_type)
+);
+
+// Сброс специальности и курса при смене уровня
+watch(() => form.value.participant_type, (newLevel, oldLevel) => {
+  if (newLevel !== oldLevel) {
+    form.value.specialty = '';
+    form.value.course = '';
+  }
+});
+
+// ============================================
+//  СКРОЛЛ
 // ============================================
 const toggleBodyScroll = (disable) => {
   if (disable) {
@@ -296,16 +358,68 @@ const toggleBodyScroll = (disable) => {
 };
 
 // ============================================
+//  СБРОС ФОРМЫ
+// ============================================
+const resetForm = () => {
+  const today = new Date().toISOString().split('T')[0];
+  form.value = {
+    title: '',
+    group: '',
+    teacher: '',
+    students_count: 0,
+    date: today,
+    start_time: '09:00',
+    end_time: '11:00',
+    template_id: null,
+    status: 'Запланировано',
+    notes: '',
+    participant_type: '',
+    faculty: '',
+    specialty: '',
+    course: ''
+  };
+  equipmentList.value = [];
+};
+
+// ============================================
+//  ЗАПОЛНЕНИЕ ИЗ LESSON
+// ============================================
+const fillForm = (val) => {
+  form.value = {
+    title: val.title || '',
+    group: val.group || '',
+    teacher: val.teacher || '',
+    students_count: val.students_count || 0,
+    date: val.date || '',
+    start_time: val.start_time || '',
+    end_time: val.end_time || '',
+    template_id: val.template_id || null,
+    status: val.status || 'Запланировано',
+    notes: val.notes || '',
+    participant_type: val.participant_type || '',
+    faculty: val.faculty || '',
+    specialty: val.specialty || '',
+    course: val.course || ''
+  };
+
+  if (val.equipment_list && Array.isArray(val.equipment_list)) {
+    equipmentList.value = val.equipment_list.map(item => item.equipment_id);
+  } else {
+    equipmentList.value = [];
+  }
+};
+
+// ============================================
 //  МЕТОДЫ
 // ============================================
 const loadTemplateEquipment = () => {
   if (form.value.template_id) {
     const template = templatesStore.getById(form.value.template_id);
     if (template) {
-      if (!props.lesson) {
+      if (!currentLesson.value) {
         form.value.title = template.title || '';
       }
-      
+
       if (template?.equipment_list) {
         let equipList = template.equipment_list;
         if (typeof equipList === 'string') {
@@ -323,7 +437,7 @@ const loadTemplateEquipment = () => {
 const clearTemplate = () => {
   form.value.template_id = null;
   equipmentList.value = [];
-  if (!props.lesson) {
+  if (!currentLesson.value) {
     form.value.title = '';
   }
   toast.info('Шаблон удален');
@@ -364,12 +478,20 @@ const submit = async () => {
     return;
   }
 
-  // ✅ Проверяем, что выбрано только исправное оборудование
+  // Блокируем «Требует ремонта», «В ремонте», «Списан»
+  // и write_off «На списание» / «Списан».
+  // «Исправен» и «Частично неисправен» — разрешены.
   const invalidEquipment = [];
   for (const id of equipmentList.value) {
     const eq = equipmentStore.getById(id);
-    if (eq && eq.working_status !== 'Исправен') {
-      invalidEquipment.push(`${eq.name} (статус: ${eq.working_status})`);
+    if (eq && (
+      eq.working_status === 'Требует ремонта' ||
+      eq.working_status === 'В ремонте' ||
+      eq.working_status === 'Списан' ||
+      eq.write_off_status === 'На списание' ||
+      eq.write_off_status === 'Списан'
+    )) {
+      invalidEquipment.push(`${eq.name} (статус: ${eq.working_status}, списание: ${eq.write_off_status})`);
     }
   }
 
@@ -398,11 +520,14 @@ const submit = async () => {
       notes: form.value.notes || '',
       equipment_list: equipmentWithQuantity,
       template_id: form.value.template_id,
-      participant_type: form.value.participant_type || ''
+      participant_type: form.value.participant_type || '',
+      faculty: form.value.faculty || '',
+      specialty: form.value.specialty || '',
+      course: form.value.course || null
     };
 
-    if (props.lesson) {
-      await lessonsApi.update(props.lesson.id, data);
+    if (currentLesson.value) {
+      await lessonsApi.update(currentLesson.value.id, data);
       toast.success('Занятие обновлено');
     } else {
       await lessonsApi.create(data);
@@ -414,7 +539,6 @@ const submit = async () => {
     }
 
     emit('save');
-    close();
   } catch (error) {
     console.error('Ошибка сохранения:', error);
     toast.error(error?.response?.data?.message || 'Ошибка сохранения');
@@ -424,54 +548,21 @@ const submit = async () => {
 };
 
 // ============================================
-//  WATCH
-// ============================================
-watch(() => props.lesson, (val) => {
-  if (val) {
-    form.value = {
-      title: val.title || '',
-      group: val.group || '',
-      teacher: val.teacher || '',
-      students_count: val.students_count || 0,
-      date: val.date || '',
-      start_time: val.start_time || '',
-      end_time: val.end_time || '',
-      template_id: val.template_id || null,
-      status: val.status || 'Запланировано',
-      notes: val.notes || '',
-      participant_type: val.participant_type || ''
-    };
-    
-    if (val.equipment_list && Array.isArray(val.equipment_list)) {
-      equipmentList.value = val.equipment_list.map(item => item.equipment_id);
-    } else {
-      equipmentList.value = [];
-    }
-  } else {
-    const today = new Date().toISOString().split('T')[0];
-    form.value = {
-      title: '',
-      group: '',
-      teacher: '',
-      students_count: 0,
-      date: today,
-      start_time: '09:00',
-      end_time: '11:00',
-      template_id: null,
-      status: 'Запланировано',
-      notes: '',
-      participant_type: ''
-    };
-    equipmentList.value = [];
-  }
-}, { immediate: true });
-
-// ============================================
-//  БЛОКИРОВКА СКРОЛЛА ПРИ ОТКРЫТИИ/ЗАКРЫТИИ
+//  WATCH: visible
 // ============================================
 watch(() => props.visible, (val) => {
   toggleBodyScroll(val);
-}, { immediate: true });
+
+  if (!val) return;
+
+  currentLesson.value = props.lesson ?? null;
+
+  if (currentLesson.value) {
+    fillForm(currentLesson.value);
+  } else {
+    resetForm();
+  }
+}, { immediate: false });
 
 // ============================================
 //  ОБРАБОТЧИКИ
@@ -495,10 +586,9 @@ const handleKeydown = (e) => {
 onMounted(async () => {
   await Promise.all([
     templatesStore.fetchAll(),
-    // ✅ Загружаем ВСЁ оборудование
     equipmentStore.fetchAll()
   ]);
-  
+
   document.addEventListener('keydown', handleKeydown);
 });
 
@@ -564,7 +654,6 @@ onBeforeUnmount(() => {
   border-bottom: 1px solid #e9ecef;
   flex-shrink: 0;
   background: white;
-  border-radius: 0;
 }
 
 .drawer-header h3 {
@@ -802,19 +891,19 @@ textarea.form-control {
   .drawer {
     width: 90%;
   }
-  
+
   .drawer-header {
     padding: 16px 20px;
   }
-  
+
   .drawer-body {
     padding: 16px 20px;
   }
-  
+
   .form-row {
     grid-template-columns: 1fr;
   }
-  
+
   .template-select-wrapper {
     flex-direction: column;
   }
@@ -824,15 +913,15 @@ textarea.form-control {
   .drawer {
     width: 100%;
   }
-  
+
   .drawer-header h3 {
     font-size: 17px;
   }
-  
+
   .form-actions {
     flex-direction: column;
   }
-  
+
   .form-actions .btn {
     width: 100%;
     justify-content: center;

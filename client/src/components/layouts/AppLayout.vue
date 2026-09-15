@@ -21,10 +21,10 @@ import { onMounted } from 'vue';
 import { useAuthStore } from '../../stores/auth.store';
 import Sidebar from './Sidebar.vue';
 import ToastContainer from '../ToastContainer.vue';
-import { useAppState } from '../../composables/useAppState'
+import { useUrlSync } from '../../composables/useUrlSync'
 
 const authStore = useAuthStore();
-useAppState()
+useUrlSync()
 
 onMounted(async () => {
   await authStore.init();

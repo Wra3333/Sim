@@ -26,76 +26,77 @@
 
     <!-- ФИЛЬТРЫ -->
     <div class="filters">
-      <div class="filter-group">
-        <label>Пользователь</label>
-        <input 
-          v-model="filters.user_id" 
-          type="number" 
-          class="form-control" 
-          placeholder="ID пользователя"
-          @input="applyFilters"
-        />
+      <div class="filters-row">
+        <div class="filter-group">
+          <label>Пользователь</label>
+          <input
+            v-model="filters.user_id"
+            type="number"
+            class="form-control"
+            placeholder="ID пользователя"
+          />
+        </div>
+
+        <div class="filter-group">
+          <label>Действие</label>
+          <select v-model="filters.action" class="form-control">
+            <option value="">Все действия</option>
+            <optgroup label="Авторизация">
+              <option value="login">Вход</option>
+              <option value="logout">Выход</option>
+              <option value="register">Регистрация</option>
+              <option value="change_password">Смена пароля</option>
+              <option value="refresh">Обновление токена</option>
+            </optgroup>
+            <optgroup label="Оборудование">
+              <option value="create">Создание</option>
+              <option value="update">Обновление</option>
+              <option value="delete">Удаление</option>
+              <option value="import">Импорт</option>
+              <option value="export">Экспорт</option>
+              <option value="upload_photo">Загрузка фото</option>
+              <option value="delete_photo">Удаление фото</option>
+            </optgroup>
+            <optgroup label="Занятия">
+              <option value="complete">Завершение</option>
+            </optgroup>
+            <optgroup label="Ремонты">
+              <option value="resolve">Закрытие заявки</option>
+            </optgroup>
+            <optgroup label="Шаблоны">
+              <option value="add_equipment">Добавление оборудования</option>
+              <option value="remove_equipment">Удаление оборудования</option>
+              <option value="sync">Синхронизация</option>
+            </optgroup>
+            <optgroup label="Ошибки">
+              <option value="error">Ошибка</option>
+            </optgroup>
+          </select>
+        </div>
+
+        <div class="filter-group">
+          <label>Сущность</label>
+          <select v-model="filters.entity" class="form-control">
+            <option value="">Все сущности</option>
+            <option value="auth">Авторизация</option>
+            <option value="equipment">Оборудование</option>
+            <option value="lessons">Занятия</option>
+            <option value="templates">Шаблоны</option>
+            <option value="repairs">Ремонты</option>
+            <option value="worktime">Время работы</option>
+            <option value="logs">Логи</option>
+          </select>
+        </div>
+
+        <div class="filter-group date-filters">
+          <label>От</label>
+          <input v-model="filters.date_from" type="date" class="form-control" />
+          <label>До</label>
+          <input v-model="filters.date_to" type="date" class="form-control" />
+        </div>
       </div>
 
-      <div class="filter-group">
-        <label>Действие</label>
-        <select v-model="filters.action" class="form-control" @change="applyFilters">
-          <option value="">Все действия</option>
-          <optgroup label="Авторизация">
-            <option value="login">Вход</option>
-            <option value="logout">Выход</option>
-            <option value="register">Регистрация</option>
-            <option value="change_password">Смена пароля</option>
-            <option value="refresh">Обновление токена</option>
-          </optgroup>
-          <optgroup label="Оборудование">
-            <option value="create">Создание</option>
-            <option value="update">Обновление</option>
-            <option value="delete">Удаление</option>
-            <option value="import">Импорт</option>
-            <option value="export">Экспорт</option>
-            <option value="upload_photo">Загрузка фото</option>
-            <option value="delete_photo">Удаление фото</option>
-          </optgroup>
-          <optgroup label="Занятия">
-            <option value="complete">Завершение</option>
-          </optgroup>
-          <optgroup label="Ремонты">
-            <option value="resolve">Закрытие заявки</option>
-          </optgroup>
-          <optgroup label="Шаблоны">
-            <option value="add_equipment">Добавление оборудования</option>
-            <option value="remove_equipment">Удаление оборудования</option>
-            <option value="sync">Синхронизация</option>
-          </optgroup>
-          <optgroup label="Ошибки">
-            <option value="error">Ошибка</option>
-          </optgroup>
-        </select>
-      </div>
-
-      <div class="filter-group">
-        <label>Сущность</label>
-        <select v-model="filters.entity" class="form-control" @change="applyFilters">
-          <option value="">Все сущности</option>
-          <option value="auth">Авторизация</option>
-          <option value="equipment">Оборудование</option>
-          <option value="lessons">Занятия</option>
-          <option value="templates">Шаблоны</option>
-          <option value="repairs">Ремонты</option>
-          <option value="worktime">Время работы</option>
-          <option value="logs">Логи</option>
-        </select>
-      </div>
-
-      <div class="filter-group date-filters">
-        <label>От</label>
-        <input v-model="filters.date_from" type="date" class="form-control" @change="applyFilters" />
-        <label>До</label>
-        <input v-model="filters.date_to" type="date" class="form-control" @change="applyFilters" />
-      </div>
-
-      <div class="filter-group actions">
+      <div class="filters-actions">
         <button class="btn btn-outline-secondary" @click="resetAllFilters">
           <IconReset class="btn-icon" />
           Сбросить
@@ -161,7 +162,12 @@
           <tr v-if="!logs || logs.length === 0">
             <td colspan="7" class="text-center text-muted">Нет записей</td>
           </tr>
-          <tr v-for="log in logs" :key="'row-' + log.id" @click="openDetails(log)" style="cursor: pointer;">
+          <tr
+            v-for="log in logs"
+            :key="'row-' + log.id"
+            @click="openDetails(log)"
+            style="cursor: pointer;"
+          >
             <td>{{ log.id }}</td>
             <td>
               <strong>{{ log.user_name || 'Система' }}</strong>
@@ -173,9 +179,7 @@
               </span>
             </td>
             <td>
-              <span class="badge badge-entity">
-                {{ getEntityLabel(log.entity) }}
-              </span>
+              <span class="badge badge-entity">{{ getEntityLabel(log.entity) }}</span>
             </td>
             <td>{{ log.entity_id || '—' }}</td>
             <td>
@@ -185,7 +189,11 @@
               </div>
             </td>
             <td>
-              <button v-if="log.details" class="btn btn-sm btn-outline-info" @click.stop="openDetails(log)">
+              <button
+                v-if="log.details"
+                class="btn btn-sm btn-outline-info"
+                @click.stop="openDetails(log)"
+              >
                 <IconEye class="btn-icon" />
                 Детали
               </button>
@@ -197,7 +205,7 @@
     </div>
 
     <!-- ПАГИНАЦИЯ -->
-    <Pagination 
+    <Pagination
       v-if="showPagination"
       v-model:current-page="currentPage"
       :total-pages="totalPages"
@@ -229,9 +237,7 @@
             <div class="detail-item">
               <span class="detail-label">Сущность:</span>
               <span class="detail-value">
-                <span class="badge badge-entity">
-                  {{ getEntityLabel(selectedLog.entity) }}
-                </span>
+                <span class="badge badge-entity">{{ getEntityLabel(selectedLog.entity) }}</span>
               </span>
             </div>
             <div class="detail-item">
@@ -244,18 +250,24 @@
             </div>
             <div class="detail-item">
               <span class="detail-label">Дата:</span>
-              <span class="detail-value">{{ formatDate(selectedLog.created_at) }} {{ formatTime(selectedLog.created_at) }}</span>
+              <span class="detail-value">
+                {{ formatDate(selectedLog.created_at) }} {{ formatTime(selectedLog.created_at) }}
+              </span>
             </div>
           </div>
 
           <!-- Параметры действия -->
           <div v-if="getDetailsParams(selectedLog.details)" class="params-section">
-            <div class="params-header" @click="toggleParams">
+            <div class="params-header" @click="showParams = !showParams">
               <span>Параметры действия</span>
               <span class="toggle-icon">{{ showParams ? '▼' : '▶' }}</span>
             </div>
             <div v-if="showParams" class="params-grid">
-              <div v-for="(value, key) in getDetailsParams(selectedLog.details)" :key="key" class="param-item">
+              <div
+                v-for="(value, key) in getDetailsParams(selectedLog.details)"
+                :key="key"
+                class="param-item"
+              >
                 <span class="param-key">{{ formatParamKey(key) }}:</span>
                 <span class="param-value">{{ formatParamValue(value) }}</span>
               </div>
@@ -270,7 +282,7 @@
 
           <!-- JSON -->
           <div class="json-section">
-            <div class="json-header" @click="toggleJson">
+            <div class="json-header" @click="showJson = !showJson">
               <span>JSON (сырые данные)</span>
               <span class="toggle-icon">{{ showJson ? '▼' : '▶' }}</span>
             </div>
@@ -283,7 +295,7 @@
     </div>
 
     <!-- МОДАЛ ПОДТВЕРЖДЕНИЯ ОЧИСТКИ -->
-    <ConfirmModal 
+    <ConfirmModal
       v-model:visible="showCleanupModal"
       title="Очистка логов"
       :message="cleanupMessage"
@@ -318,7 +330,7 @@ const toast = useToastStore();
 const { formatDate, formatTime } = useFormatters();
 
 // ============================================
-// СОСТОЯНИЕ
+//  СОСТОЯНИЕ
 // ============================================
 const logs = ref([]);
 const loading = ref(false);
@@ -329,13 +341,12 @@ const totalPages = ref(1);
 const showCleanupModal = ref(false);
 const cleanupMessage = ref('');
 
-// Модальное окно
 const selectedLog = ref(null);
 const showParams = ref(false);
 const showJson = ref(false);
 
 // ============================================
-// ФИЛЬТРЫ
+//  ФИЛЬТРЫ (локальные, не уходят в URL)
 // ============================================
 const filters = ref({
   user_id: '',
@@ -346,30 +357,29 @@ const filters = ref({
 });
 
 // ============================================
-// СТАТИСТИКА
+//  СТАТИСТИКА
 // ============================================
 const uniqueUsers = computed(() => {
-  const users = new Set(logs.value.map(l => l.user_id).filter(id => id));
+  const users = new Set(logs.value.map((l) => l.user_id).filter(Boolean));
   return users.size;
 });
 
 const uniqueEntities = computed(() => {
-  const entities = new Set(logs.value.map(l => l.entity).filter(e => e));
+  const entities = new Set(logs.value.map((l) => l.entity).filter(Boolean));
   return entities.size;
 });
 
 const todayLogs = computed(() => {
   const today = new Date().toDateString();
-  return logs.value.filter(l => {
-    const date = new Date(l.created_at);
-    return date.toDateString() === today;
-  }).length;
+  return logs.value.filter(
+    (l) => new Date(l.created_at).toDateString() === today
+  ).length;
 });
 
 const showPagination = computed(() => totalPages.value > 1);
 
 // ============================================
-// ЗАГРУЗКА ЛОГОВ
+//  ЗАГРУЗКА
 // ============================================
 const loadLogs = async () => {
   loading.value = true;
@@ -379,8 +389,8 @@ const loadLogs = async () => {
       limit: pageSize,
       ...filters.value
     };
-    
-    Object.keys(params).forEach(key => {
+
+    Object.keys(params).forEach((key) => {
       if (!params[key] && key !== 'page' && key !== 'limit') {
         delete params[key];
       }
@@ -390,8 +400,6 @@ const loadLogs = async () => {
     logs.value = res.data.logs || [];
     total.value = res.data.total || 0;
     totalPages.value = res.data.totalPages || 1;
-    
-    console.log('Загружено логов:', logs.value.length);
   } catch (error) {
     console.error('Ошибка загрузки логов:', error);
     toast.error('Ошибка загрузки логов');
@@ -401,7 +409,7 @@ const loadLogs = async () => {
 };
 
 // ============================================
-// ПРИМЕНЕНИЕ ФИЛЬТРОВ
+//  ПРИМЕНЕНИЕ ФИЛЬТРОВ
 // ============================================
 const applyFilters = () => {
   currentPage.value = 1;
@@ -421,7 +429,7 @@ const resetAllFilters = () => {
 };
 
 // ============================================
-// МОДАЛЬНОЕ ОКНО
+//  МОДАЛЬНОЕ ОКНО
 // ============================================
 const openDetails = (log) => {
   selectedLog.value = log;
@@ -435,16 +443,8 @@ const closeDetails = () => {
   document.body.style.overflow = '';
 };
 
-const toggleParams = () => {
-  showParams.value = !showParams.value;
-};
-
-const toggleJson = () => {
-  showJson.value = !showJson.value;
-};
-
 // ============================================
-// ОЧИСТКА ЛОГОВ
+//  ОЧИСТКА
 // ============================================
 const confirmCleanup = () => {
   cleanupMessage.value = 'Вы уверены, что хотите удалить все логи старше 90 дней? Это действие нельзя отменить!';
@@ -464,15 +464,12 @@ const handleCleanup = async () => {
 };
 
 // ============================================
-// ПАРСИНГ ДЕТАЛЕЙ
+//  ПАРСИНГ ДЕТАЛЕЙ
 // ============================================
 const parseDetails = (details) => {
   if (!details) return null;
   try {
-    if (typeof details === 'string') {
-      return JSON.parse(details);
-    }
-    return details;
+    return typeof details === 'string' ? JSON.parse(details) : details;
   } catch {
     return null;
   }
@@ -482,72 +479,70 @@ const getDetailsParams = (details) => {
   const parsed = parseDetails(details);
   if (!parsed) return null;
   const { action, duration, success, error, ...params } = parsed;
-  if (Object.keys(params).length === 0) return null;
-  return params;
+  return Object.keys(params).length === 0 ? null : params;
 };
 
 const getDetailsDuration = (details) => {
   const parsed = parseDetails(details);
-  if (!parsed) return null;
-  return parsed.duration || null;
+  return parsed?.duration || null;
 };
 
 // ============================================
-// ФОРМАТИРОВАНИЕ
+//  ФОРМАТИРОВАНИЕ
 // ============================================
 const formatParamKey = (key) => {
   const labels = {
-    'id': 'ID',
-    'user_id': 'ID пользователя',
-    'email': 'Email',
-    'name': 'Имя',
-    'title': 'Название',
-    'group': 'Группа',
-    'teacher': 'Преподаватель',
-    'students_count': 'Количество студентов',
-    'date': 'Дата',
-    'start_time': 'Время начала',
-    'end_time': 'Время окончания',
-    'status': 'Статус',
-    'notes': 'Заметки',
-    'template_id': 'ID шаблона',
-    'equipment_id': 'ID оборудования',
-    'equipment_ids': 'ID оборудования',
-    'quantity': 'Количество',
-    'inventory_number': 'Инвентарный номер',
-    'inventory_name': 'Название по инвентарю',
-    'year_of_release': 'Год выпуска',
-    'description': 'Описание',
-    'purchase_basis': 'Основание приобретения',
-    'working_status': 'Рабочий статус',
-    'write_off_status': 'Статус списания',
-    'price': 'Цена',
-    'country': 'Страна',
-    'manufacturer': 'Производитель',
-    'original_name': 'Оригинальное название',
-    'realism_class': 'Класс реалистичности',
-    'photo': 'Фото',
-    'detection_date': 'Дата обнаружения',
-    'nature_of_malfunction': 'Характер неисправности',
-    'detected_by': 'Кто обнаружил',
-    'repair_possibility': 'Возможность ремонта',
-    'resolved_by': 'Кто закрыл',
-    'resolution_date': 'Дата закрытия',
-    'resolution_status': 'Статус закрытия',
-    'write_off_reason': 'Причина списания',
-    'repair_notes': 'Примечания к ремонту',
-    'is_resolved': 'Закрыта',
-    'is_active': 'Активна',
-    'discipline': 'Дисциплина',
-    'module': 'Модуль',
-    'equipment_list': 'Список оборудования',
-    'file': 'Файл',
-    'created': 'Создано',
-    'errors': 'Ошибки',
-    'items': 'Элементы',
-    'fields': 'Поля',
-    'records': 'Записей',
-    'size': 'Размер'
+    id: 'ID',
+    user_id: 'ID пользователя',
+    email: 'Email',
+    name: 'Имя',
+    title: 'Название',
+    group: 'Группа',
+    teacher: 'Преподаватель',
+    students_count: 'Количество студентов',
+    date: 'Дата',
+    start_time: 'Время начала',
+    end_time: 'Время окончания',
+    status: 'Статус',
+    notes: 'Заметки',
+    template_id: 'ID шаблона',
+    equipment_id: 'ID оборудования',
+    equipment_ids: 'ID оборудования',
+    quantity: 'Количество',
+    inventory_number: 'Инвентарный номер',
+    inventory_name: 'Название по инвентарю',
+    year_of_release: 'Год выпуска',
+    description: 'Описание',
+    purchase_basis: 'Основание приобретения',
+    working_status: 'Рабочий статус',
+    write_off_status: 'Статус списания',
+    price: 'Цена',
+    country: 'Страна',
+    manufacturer: 'Производитель',
+    original_name: 'Оригинальное название',
+    realism_class: 'Класс реалистичности',
+    photo: 'Фото',
+    detection_date: 'Дата обнаружения',
+    nature_of_malfunction: 'Характер неисправности',
+    detected_by: 'Кто обнаружил',
+    repair_possibility: 'Возможность ремонта',
+    resolved_by: 'Кто закрыл',
+    resolution_date: 'Дата закрытия',
+    resolution_status: 'Статус закрытия',
+    write_off_reason: 'Причина списания',
+    repair_notes: 'Примечания к ремонту',
+    is_resolved: 'Закрыта',
+    is_active: 'Активна',
+    discipline: 'Дисциплина',
+    module: 'Модуль',
+    equipment_list: 'Список оборудования',
+    file: 'Файл',
+    created: 'Создано',
+    errors: 'Ошибки',
+    items: 'Элементы',
+    fields: 'Поля',
+    records: 'Записей',
+    size: 'Размер'
   };
   return labels[key] || key;
 };
@@ -564,64 +559,63 @@ const formatParamValue = (value) => {
 
 const formatDetails = (details) => {
   try {
-    if (typeof details === 'string') {
-      return JSON.stringify(JSON.parse(details), null, 2);
-    }
-    return JSON.stringify(details, null, 2);
+    return typeof details === 'string'
+      ? JSON.stringify(JSON.parse(details), null, 2)
+      : JSON.stringify(details, null, 2);
   } catch {
     return details;
   }
 };
 
 // ============================================
-// ВСПОМОГАТЕЛЬНЫЕ ФУНКЦИИ
+//  ВСПОМОГАТЕЛЬНЫЕ
 // ============================================
 const getActionClass = (action) => {
   const classes = {
-    'login': 'badge-success',
-    'logout': 'badge-secondary',
-    'register': 'badge-primary',
-    'change_password': 'badge-info',
-    'refresh': 'badge-info',
-    'create': 'badge-success',
-    'update': 'badge-warning',
-    'delete': 'badge-danger',
-    'import': 'badge-primary',
-    'export': 'badge-primary',
-    'upload_photo': 'badge-info',
-    'delete_photo': 'badge-danger',
-    'complete': 'badge-success',
-    'resolve': 'badge-success',
-    'add_equipment': 'badge-success',
-    'remove_equipment': 'badge-danger',
-    'sync': 'badge-warning',
-    'error': 'badge-danger'
+    login: 'badge-success',
+    logout: 'badge-secondary',
+    register: 'badge-primary',
+    change_password: 'badge-info',
+    refresh: 'badge-info',
+    create: 'badge-success',
+    update: 'badge-warning',
+    delete: 'badge-danger',
+    import: 'badge-primary',
+    export: 'badge-primary',
+    upload_photo: 'badge-info',
+    delete_photo: 'badge-danger',
+    complete: 'badge-success',
+    resolve: 'badge-success',
+    add_equipment: 'badge-success',
+    remove_equipment: 'badge-danger',
+    sync: 'badge-warning',
+    error: 'badge-danger'
   };
   return classes[action] || 'badge-secondary';
 };
 
 const getEntityLabel = (entity) => {
   const labels = {
-    'auth': 'Авторизация',
-    'equipment': 'Оборудование',
-    'lessons': 'Занятия',
-    'templates': 'Шаблоны',
-    'repairs': 'Ремонты',
-    'worktime': 'Время работы',
-    'logs': 'Логи'
+    auth: 'Авторизация',
+    equipment: 'Оборудование',
+    lessons: 'Занятия',
+    templates: 'Шаблоны',
+    repairs: 'Ремонты',
+    worktime: 'Время работы',
+    logs: 'Логи'
   };
   return labels[entity] || entity || '—';
 };
 
 // ============================================
-// WATCH
+//  WATCH
 // ============================================
 watch(currentPage, () => {
   loadLogs();
 });
 
 // ============================================
-// LIFECYCLE
+//  LIFECYCLE
 // ============================================
 onMounted(loadLogs);
 </script>
@@ -631,6 +625,9 @@ onMounted(loadLogs);
   padding: 0;
 }
 
+/* ============================================
+   TOOLBAR
+   ============================================ */
 .toolbar {
   display: flex;
   justify-content: space-between;
@@ -664,17 +661,34 @@ onMounted(loadLogs);
 .toolbar-right {
   display: flex;
   gap: 8px;
+  flex-wrap: wrap;
 }
 
+/* ============================================
+   ФИЛЬТРЫ
+   ============================================ */
 .filters {
   display: flex;
+  flex-direction: column;
   gap: 12px;
   margin-bottom: 20px;
-  flex-wrap: wrap;
-  align-items: flex-start;
   background: #f8f9fa;
   padding: 16px;
   border-radius: 8px;
+}
+
+.filters-row {
+  display: flex;
+  gap: 12px;
+  flex-wrap: wrap;
+  align-items: flex-end;
+}
+
+.filters-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 8px;
+  flex-wrap: wrap;
 }
 
 .filter-group {
@@ -682,7 +696,7 @@ onMounted(loadLogs);
   flex-direction: column;
   gap: 4px;
   flex: 1;
-  min-width: 140px;
+  min-width: 160px;
 }
 
 .filter-group label {
@@ -699,6 +713,7 @@ onMounted(loadLogs);
   font-size: 14px;
   background: white;
   width: 100%;
+  min-width: 0;
 }
 
 .filter-group .form-control:focus {
@@ -711,6 +726,7 @@ onMounted(loadLogs);
   flex-direction: row;
   align-items: center;
   gap: 6px;
+  flex: 0 0 auto;
 }
 
 .date-filters label {
@@ -720,15 +736,17 @@ onMounted(loadLogs);
 
 .date-filters .form-control {
   min-width: 130px;
+  flex: 1;
 }
 
-.actions {
-  flex-direction: row;
-  align-items: flex-end;
-  gap: 8px;
-  padding-top: 0;
+.filters-actions .btn {
+  flex: 0 0 auto;
+  white-space: nowrap;
 }
 
+/* ============================================
+   КНОПКИ
+   ============================================ */
 .btn {
   padding: 6px 16px;
   border: 1px solid transparent;
@@ -796,6 +814,9 @@ onMounted(loadLogs);
   font-size: 12px;
 }
 
+/* ============================================
+   СТАТИСТИКА
+   ============================================ */
 .stats-grid {
   display: grid;
   grid-template-columns: repeat(4, 1fr);
@@ -840,6 +861,9 @@ onMounted(loadLogs);
   color: #888;
 }
 
+/* ============================================
+   ТАБЛИЦА
+   ============================================ */
 .table-container {
   background: white;
   border-radius: 12px;
@@ -889,6 +913,9 @@ onMounted(loadLogs);
   margin-left: 4px;
 }
 
+/* ============================================
+   БЕЙДЖИ
+   ============================================ */
 .badge {
   padding: 2px 10px;
   border-radius: 12px;
@@ -967,11 +994,11 @@ onMounted(loadLogs);
 }
 
 @keyframes slideUp {
-  from { 
+  from {
     opacity: 0;
     transform: translateY(30px);
   }
-  to { 
+  to {
     opacity: 1;
     transform: translateY(0);
   }
@@ -1160,25 +1187,45 @@ onMounted(loadLogs);
   word-break: break-all;
 }
 
-/* Адаптивность */
+/* ============================================
+   АДАПТИВНОСТЬ
+   ============================================ */
 @media (max-width: 768px) {
-  .filters {
-    flex-direction: column;
-  }
-  
-  .filter-group {
-    min-width: 100%;
-  }
-  
-  .date-filters {
+  .filters-row {
     flex-direction: column;
     align-items: stretch;
   }
-  
+
+  .filter-group {
+    min-width: 100%;
+    flex: 1 1 100%;
+  }
+
+  .date-filters {
+    flex-direction: row;
+    flex-wrap: wrap;
+    align-items: center;
+  }
+
+  .date-filters .form-control {
+    flex: 1;
+    min-width: 120px;
+  }
+
+  .filters-actions {
+    width: 100%;
+    justify-content: stretch;
+  }
+
+  .filters-actions .btn {
+    flex: 1 1 auto;
+    justify-content: center;
+  }
+
   .stats-grid {
     grid-template-columns: 1fr 1fr;
   }
-  
+
   .toolbar {
     flex-direction: column;
     align-items: stretch;
@@ -1187,16 +1234,16 @@ onMounted(loadLogs);
   .details-grid {
     grid-template-columns: 1fr;
   }
-  
+
   .params-grid {
     grid-template-columns: 1fr;
   }
-  
+
   .detail-item {
     flex-direction: column;
     align-items: flex-start;
   }
-  
+
   .param-item {
     flex-direction: column;
     align-items: flex-start;

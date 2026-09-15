@@ -1,189 +1,215 @@
 <template>
-  <div 
-    class="equipment-card" 
-    :class="{ 'archived': equipment.is_archived }"
-    @contextmenu.prevent="handleContextMenu"
-  >
-    <div class="card-image" @click="handlePhotoClick">
-      <img v-if="photo" :src="photoUrl" alt="Фото оборудования" />
-      <div v-else class="image-placeholder">
-        <IconEquipment class="placeholder-icon" />
-      </div>
-      <div v-if="equipment.is_archived" class="archived-badge">
-        <IconArchive class="archived-icon" />
-        В архиве
-      </div>
-    </div>
-    <div class="card-body">
-      <div class="card-header">
-        <span class="inventory-number">
-          <IconTag class="inventory-icon" />
-          {{ inventoryNumber }}
-        </span>
-        <span class="badge" :class="statusClass">
-          <IconCheck v-if="workingStatus === 'Исправен'" class="badge-icon" />
-          <IconAlert v-else class="badge-icon" />
-          {{ workingStatus }}
-        </span>
-      </div>
-      <h3 class="title">
-        <IconEquipment class="title-icon" />
-        {{ equipmentName }}
-      </h3>
-      <p class="subtitle">{{ inventoryName }}</p>
-      
-      <p class="description" v-if="description || hasExtraData">
-        <IconList class="desc-icon" />
-        <span class="description-text">
-          <template v-if="description">{{ description }}</template>
-          <template v-if="description && hasExtraData">. </template>
-          <template v-if="hasExtraData">
-            <template v-if="showCountry">Страна - {{ showCountry }}</template>
-            <template v-if="showCountry && (showManufacturer || showPrice || showRealismClass || showOriginalName)">, </template>
-            <template v-if="showManufacturer">Фирма - {{ showManufacturer }}</template>
-            <template v-if="showManufacturer && (showPrice || showRealismClass || showOriginalName)">, </template>
-            <template v-if="showPrice">Стоимость - {{ showPrice }} ₽</template>
-            <template v-if="showPrice && (showRealismClass || showOriginalName)">, </template>
-            <template v-if="showRealismClass">Класс реалистичности - {{ showRealismClass }}</template>
-            <template v-if="showRealismClass && showOriginalName">, </template>
-            <template v-if="showOriginalName">Оригинальное название - {{ showOriginalName }}</template>
-          </template>
-        </span>
-      </p>
-      
-      <div class="meta">
-        <span>
-          <IconCalendar class="meta-icon" />
-          Год закупки: {{ yearOfRelease }}
-        </span>
-        <span class="badge" :class="writeOffClass">
-          <IconCheck v-if="writeOffStatus === 'На балансе'" class="badge-icon" />
-          <IconAlert v-else class="badge-icon" />
-          {{ writeOffStatus }}
-        </span>
-      </div>
-      
-      <p class="purchase-basis" v-if="purchaseBasis">
-        <IconReceipt class="purchase-icon" />
-        Основание закупки: {{ purchaseBasis }}
-      </p>
-      
-      <div class="actions" @click.stop>
-        <template v-if="equipment.is_archived">
-          <button class="btn btn-sm btn-success" @click="$emit('restore', equipment.id)">
-            <IconRestore class="btn-icon" />
-            Восстановить
-          </button>
-          <button class="btn btn-sm btn-outline-secondary" @click="$emit('history', equipment)">
-            <IconHistory class="btn-icon" />
-            История
-          </button>
-          <button class="btn btn-sm btn-danger btn-full-width" @click="$emit('deletePermanent', equipment.id)">
-            <IconTrash class="btn-icon" />
-            Удалить навсегда
-          </button>
-        </template>
-        
-        <template v-else>
-          <button class="btn btn-sm btn-outline-primary" @click="$emit('edit', equipment)">
-            <IconEdit class="btn-icon" />
-            Редактировать
-          </button>
-          <button class="btn btn-sm btn-outline-danger" @click="$emit('delete', equipment.id)">
-            <IconArchive class="btn-icon" />
-            В архив
-          </button>
-          <button class="btn btn-sm btn-outline-secondary btn-history" @click="$emit('history', equipment)">
-            <IconHistory class="btn-icon" />
-            История поломок
-          </button>
-        </template>
-      </div>
-    </div>
+  <div class="equipment-table-wrapper">
+    <table class="equipment-table">
+      <thead>
+        <tr>
+          <th>Фото</th>
+          <th>Инв. номер</th>
+          <th>Наименование</th>
+          <th>Название</th>
+          <th>Теги</th>
+          <th>Статус</th>
+          <th>Списание</th>
+          <th>Год</th>
+          <th>Действия</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr 
+          v-for="item in items" 
+          :key="item.id"
+          :class="{ 'archived-row': item.is_archived }"
+          @click="handleRowClick(item)"
+          @contextmenu.prevent="handleContextMenu($event, item)"
+        >
+          <td>
+            <div class="photo-cell">
+              <img 
+                v-if="item.photo" 
+                :src="getPhotoUrl(item.photo)" 
+                :alt="item.name"
+                class="equipment-thumbnail"
+                @error="handleImageError"
+              />
+              <div v-else class="no-photo">
+                <IconImage class="no-photo-icon" />
+              </div>
+            </div>
+          </td>
+          <td class="inventory-number">{{ item.inventory_number }}</td>
+          <td class="inventory-name">{{ item.inventory_name }}</td>
+          <td>
+            {{ item.name }}
+            <span v-if="item.is_archived" class="archived-badge-list">Архив</span>
+          </td>
+          <td>
+            <div class="tags-cell">
+              <span v-for="tag in (item.tags || [])" :key="tag" class="tag-badge">
+                #{{ tag }}
+              </span>
+              <span v-if="!item.tags || item.tags.length === 0" class="no-tags">—</span>
+            </div>
+          </td>
+          <td>
+            <span class="badge" :class="getStatusClass(item.working_status)">
+              {{ item.working_status }}
+            </span>
+          </td>
+          <td>
+            <span class="badge" :class="getWriteOffClass(item.write_off_status)">
+              {{ item.write_off_status }}
+            </span>
+          </td>
+          <td>{{ item.year_of_release || '—' }}</td>
+          <td @click.stop>
+            <div class="table-actions">
+              <template v-if="item.is_archived">
+                <button class="btn btn-sm btn-success" @click="$emit('restore', item.id)" title="Восстановить">
+                  <IconRestore class="btn-icon" />
+                </button>
+                <button class="btn btn-sm btn-danger" @click="$emit('deletePermanent', item.id)" title="Удалить навсегда">
+                  <IconTrash class="btn-icon" />
+                </button>
+                <button 
+                  class="btn btn-sm btn-outline-secondary" 
+                  @click="openFilesMenu($event, item)" 
+                  :title="getFilesCount(item) > 0 ? `Документы (${getFilesCount(item)})` : 'Документы'"
+                >
+                  <IconFolder class="btn-icon" />
+                  <span v-if="getFilesCount(item) > 0" class="files-badge">
+                    {{ getFilesCount(item) }}
+                  </span>
+                </button>
+                <button class="btn btn-sm btn-outline-secondary" @click="$emit('history', item)" title="История">
+                  <IconHistory class="btn-icon" />
+                </button>
+              </template>
+              <template v-else>
+                <button class="btn btn-sm btn-outline-primary" @click="$emit('edit', item)" title="Редактировать">
+                  <IconEdit class="btn-icon" />
+                </button>
+                <button class="btn btn-sm btn-outline-danger" @click="$emit('delete', item.id)" title="В архив">
+                  <IconArchive class="btn-icon" />
+                </button>
+                <button 
+                  class="btn btn-sm btn-outline-secondary" 
+                  @click="openFilesMenu($event, item)" 
+                  :title="getFilesCount(item) > 0 ? `Документы (${getFilesCount(item)})` : 'Документы'"
+                >
+                  <IconFolder class="btn-icon" />
+                  <span v-if="getFilesCount(item) > 0" class="files-badge">
+                    {{ getFilesCount(item) }}
+                  </span>
+                </button>
+                <button class="btn btn-sm btn-outline-secondary" @click="$emit('history', item)" title="История">
+                  <IconHistory class="btn-icon" />
+                </button>
+              </template>
+            </div>
+          </td>
+        </tr>
+      </tbody>
+    </table>
 
     <!-- КОНТЕКСТНОЕ МЕНЮ -->
     <ContextMenu
       :visible="contextMenuVisible"
       :position-x="contextMenuX"
       :position-y="contextMenuY"
-      :files="additionalFiles"
-      :equipment-id="equipment.id"
+      :files="selectedItemFiles"
+      :equipment-id="selectedItem?.id"
       @close="closeContextMenu"
-      @delete="handleDeleteFromContext"
+      @delete="handleDeleteFile"
     />
   </div>
 </template>
 
 <script setup>
 import { ref, computed, onMounted, onBeforeUnmount } from 'vue';
-import { useStatusClasses } from '../../composables/useStatusClasses';
 import { useEquipmentStore } from '../../stores';
 import { useToastStore } from '../../stores/toastStore';
+import IconImage from '../icons/IconImage.vue';
+import IconRestore from '../icons/IconRestore.vue';
+import IconTrash from '../icons/IconTrash.vue';
+import IconHistory from '../icons/IconHistory.vue';
+import IconEdit from '../icons/IconEdit.vue';
+import IconArchive from '../icons/IconArchive.vue';
+import IconFolder from '../icons/IconFolder.vue';
 import ContextMenu from './ContextMenu.vue';
-import {
-  IconEquipment,
-  IconTag,
-  IconCheck,
-  IconAlert,
-  IconCalendar,
-  IconList,
-  IconReceipt,
-  IconEdit,
-  IconTrash,
-  IconHistory,
-  IconArchive,
-  IconRestore
-} from '../icons';
 
 const props = defineProps({
-  equipment: { type: Object, required: true }
+  items: {
+    type: Array,
+    required: true,
+    default: () => []
+  }
 });
 
-// ✅ ТОЛЬКО ЭТИ ЭМИТЫ (без deleteFile)
 const emit = defineEmits([
   'edit', 'delete', 'deletePermanent', 
-  'view', 'history', 'restore', 'photoClick'
+  'history', 'restore', 'rowClick'
 ]);
 
 const equipmentStore = useEquipmentStore();
 const toast = useToastStore();
-const { getEquipmentStatusClass, getWriteOffClass } = useStatusClasses();
+
+const API_URL = 'http://localhost:3000/uploads/';
 
 const contextMenuVisible = ref(false);
 const contextMenuX = ref(0);
 const contextMenuY = ref(0);
+const selectedItem = ref(null);
 
-const additionalFiles = computed(() => {
-  const files = props.equipment.additional_files || [];
+const selectedItemFiles = computed(() => {
+  if (!selectedItem.value) return [];
+  const files = selectedItem.value.additional_files || [];
   if (Array.isArray(files) && files.length > 0 && typeof files[0] === 'object') {
     return files;
   }
   return [];
 });
 
-const handleContextMenu = (event) => {
+// ============================================
+//  ОТКРЫТИЕ КОНТЕКСТНОГО МЕНЮ
+// ============================================
+
+// ✅ Открытие по клику на иконку «Документы»
+const openFilesMenu = (event, item) => {
   event.preventDefault();
-  
+  event.stopPropagation();
+
   if (contextMenuVisible.value) {
     closeContextMenu();
     return;
   }
-  
-  let x = event.clientX;
-  let y = event.clientY;
-  
+
+  selectedItem.value = item;
+  positionMenu(event.clientX, event.clientY);
+};
+
+// ✅ Открытие по правому клику на строку
+const handleContextMenu = (event, item) => {
+  event.preventDefault();
+
+  if (contextMenuVisible.value) {
+    closeContextMenu();
+    return;
+  }
+
+  selectedItem.value = item;
+  positionMenu(event.clientX, event.clientY);
+};
+
+// ✅ Общая функция позиционирования
+const positionMenu = (x, y) => {
   const menuWidth = 380;
   const menuHeight = 420;
-  
-  if (x + menuWidth > window.innerWidth) {
-    x = window.innerWidth - menuWidth - 10;
-  }
-  if (y + menuHeight > window.innerHeight) {
-    y = window.innerHeight - menuHeight - 10;
-  }
+
+  if (x + menuWidth > window.innerWidth) x = window.innerWidth - menuWidth - 10;
+  if (y + menuHeight > window.innerHeight) y = window.innerHeight - menuHeight - 10;
   if (x < 10) x = 10;
   if (y < 10) y = 10;
-  
+
   contextMenuX.value = x;
   contextMenuY.value = y;
   contextMenuVisible.value = true;
@@ -191,10 +217,19 @@ const handleContextMenu = (event) => {
 
 const closeContextMenu = () => {
   contextMenuVisible.value = false;
+  selectedItem.value = null;
 };
 
-// ✅ ОБРАБОТЧИК УДАЛЕНИЯ (ПРЯМО В СТОР)
-const handleDeleteFromContext = async ({ equipmentId, fileId }) => {
+// ✅ Подсчёт файлов
+const getFilesCount = (item) => {
+  const files = item.additional_files || [];
+  return Array.isArray(files) ? files.length : 0;
+};
+
+// ============================================
+//  УДАЛЕНИЕ ФАЙЛА
+// ============================================
+const handleDeleteFile = async ({ equipmentId, fileId }) => {
   try {
     await equipmentStore.deleteFile(equipmentId, fileId);
     toast.success('Файл удален');
@@ -205,38 +240,39 @@ const handleDeleteFromContext = async ({ equipmentId, fileId }) => {
   closeContextMenu();
 };
 
-const statusClass = computed(() => getEquipmentStatusClass(props.equipment.working_status));
-const writeOffClass = computed(() => getWriteOffClass(props.equipment.write_off_status));
-const yearOfRelease = computed(() => props.equipment.year_of_release || '—');
-const inventoryNumber = computed(() => props.equipment.inventory_number);
-const equipmentName = computed(() => props.equipment.name);
-const inventoryName = computed(() => props.equipment.inventory_name);
-const workingStatus = computed(() => props.equipment.working_status);
-const writeOffStatus = computed(() => props.equipment.write_off_status);
-const description = computed(() => props.equipment.description);
-const photo = computed(() => props.equipment.photo);
-const purchaseBasis = computed(() => props.equipment.purchase_basis);
+// ============================================
+//  ХЕЛПЕРЫ
+// ============================================
+const getPhotoUrl = (photo) => {
+  if (!photo) return null;
+  return `${API_URL}${photo}`;
+};
 
-const showOriginalName = computed(() => props.equipment.original_name);
-const showManufacturer = computed(() => props.equipment.manufacturer);
-const showCountry = computed(() => props.equipment.country);
-const showPrice = computed(() => props.equipment.price);
-const showRealismClass = computed(() => props.equipment.realism_class);
+const handleImageError = (e) => {
+  e.target.style.display = 'none';
+};
 
-const hasExtraData = computed(() => {
-  return !!(showOriginalName.value || showManufacturer.value || 
-            showCountry.value || showPrice.value || showRealismClass.value);
-});
+const getStatusClass = (status) => {
+  const classes = {
+    'Исправен': 'badge-success',
+    'Частично неисправен': 'badge-warning',
+    'Требует ремонта': 'badge-warning',
+    'В ремонте': 'badge-danger'
+  };
+  return classes[status] || 'badge-secondary';
+};
 
-const photoUrl = computed(() => {
-  if (!props.equipment.photo) return null;
-  if (props.equipment.photo.startsWith('http')) return props.equipment.photo;
-  return `http://localhost:3000/uploads/${props.equipment.photo}`;
-});
+const getWriteOffClass = (status) => {
+  const classes = {
+    'На балансе': 'badge-success',
+    'На списание': 'badge-warning',
+    'Списан': 'badge-danger'
+  };
+  return classes[status] || 'badge-secondary';
+};
 
-const handlePhotoClick = (e) => {
-  e.stopPropagation();
-  emit('photoClick', props.equipment);
+const handleRowClick = (item) => {
+  emit('rowClick', item);
 };
 
 const handleKeydown = (event) => {
@@ -255,422 +291,293 @@ onBeforeUnmount(() => {
 </script>
 
 <style scoped>
-.equipment-card {
+.equipment-table-wrapper {
   background: white;
   border-radius: 12px;
   overflow: hidden;
   box-shadow: 0 2px 8px rgba(0, 0, 0, 0.06);
-  border: 1px solid #eef0f4;
-  transition: all 0.2s;
-  display: flex;
-  flex-direction: column;
-  position: relative;
-  cursor: default;
+  border: 1px solid #e9ecef;
+  overflow-x: auto;
 }
 
-.equipment-card.archived {
-  opacity: 0.75;
-  border-color: #ffc107;
-  background: #fffdf5;
+.equipment-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 14px;
 }
 
-.card-image {
-  height: 140px;
-  background: #f4f7fc;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  overflow: hidden;
-  position: relative;
+.equipment-table thead {
+  background: #f8f9fa;
+}
+
+.equipment-table th {
+  padding: 12px 16px;
+  text-align: left;
+  font-weight: 600;
+  color: #495057;
+  border-bottom: 2px solid #dee2e6;
+  white-space: nowrap;
+}
+
+.equipment-table td {
+  padding: 10px 16px;
+  border-bottom: 1px solid #e9ecef;
+  vertical-align: middle;
+}
+
+.equipment-table tbody tr {
   cursor: pointer;
-  transition: opacity 0.2s;
+  transition: background 0.15s;
 }
 
-.card-image:hover {
+.equipment-table tbody tr:hover {
+  background: #f0f7ff;
+}
+
+.equipment-table tbody tr.archived-row {
+  background: #fffdf5;
   opacity: 0.85;
 }
 
-.card-image img {
+.equipment-table tbody tr.archived-row:hover {
+  background: #fff8e7;
+}
+
+.equipment-table td:last-child {
+  cursor: default;
+}
+
+/* ============================================
+   ФОТО
+   ============================================ */
+.photo-cell {
+  width: 50px;
+  height: 50px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 6px;
+  overflow: hidden;
+  background: #f8f9fa;
+  border: 1px solid #e9ecef;
+}
+
+.equipment-thumbnail {
+  width: 50px;
+  height: 50px;
+  object-fit: cover;
+}
+
+.no-photo {
+  display: flex;
+  align-items: center;
+  justify-content: center;
   width: 100%;
   height: 100%;
-  object-fit: contain;
 }
 
-.image-placeholder {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  opacity: 0.3;
+.no-photo-icon {
+  width: 24px;
+  height: 24px;
+  color: #adb5bd;
 }
 
-.image-placeholder .placeholder-icon {
-  width: 48px;
-  height: 48px;
-  stroke: #6c757d;
-}
-
-.archived-badge {
-  position: absolute;
-  top: 8px;
-  right: 8px;
-  background: #ffc107;
-  color: #212529;
-  padding: 4px 10px;
-  border-radius: 12px;
-  font-size: 11px;
-  font-weight: 600;
-  display: flex;
-  align-items: center;
-  gap: 4px;
-  box-shadow: 0 2px 8px rgba(255, 193, 7, 0.3);
-}
-
-.archived-badge .archived-icon {
-  width: 14px;
-  height: 14px;
-  stroke: #212529;
-}
-
-.card-body {
-  padding: 16px;
-  display: flex;
-  flex-direction: column;
-  flex: 1;
-}
-
-.card-header {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  margin-bottom: 6px;
-}
-
+/* ============================================
+   ЯЧЕЙКИ
+   ============================================ */
 .inventory-number {
-  font-size: 12px;
   font-weight: 600;
   color: #4361ee;
-  background: #eef2ff;
-  padding: 2px 10px;
-  border-radius: 4px;
-  display: inline-flex;
-  align-items: center;
-  gap: 4px;
+  font-size: 13px;
 }
 
-.inventory-number .inventory-icon {
-  width: 12px;
-  height: 12px;
-  stroke: #4361ee;
+.inventory-name {
+  color: #6c757d;
+  font-size: 13px;
 }
 
-.title {
-  font-size: 16px;
+.archived-badge-list {
+  display: inline-block;
+  background: #fff3cd;
+  color: #856404;
+  padding: 1px 8px;
+  border-radius: 10px;
+  font-size: 10px;
   font-weight: 600;
-  margin: 0 0 2px 0;
-  color: #1a1a2e;
-  display: flex;
-  align-items: center;
-  gap: 6px;
+  margin-left: 6px;
 }
 
-.title .title-icon {
-  width: 16px;
-  height: 16px;
-  stroke: #1a1a2e;
-}
-
-.subtitle {
-  font-size: 13px;
-  color: #888;
-  margin: 0 0 6px 0;
-}
-
-.description {
-  font-size: 13px;
-  color: #444;
-  margin: 0 0 8px 0;
-  display: flex;
-  align-items: flex-start;
-  gap: 4px;
-  line-height: 1.5;
-  flex: 1;
-}
-
-.description .desc-icon {
-  width: 14px;
-  height: 14px;
-  stroke: #666;
-  flex-shrink: 0;
-  margin-top: 2px;
-}
-
-.description .description-text {
-  word-break: break-word;
-}
-
-.meta {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  font-size: 13px;
-  color: #666;
-  padding-top: 8px;
-  border-top: 1px solid #f0f0f0;
-}
-
-.meta span {
-  display: inline-flex;
-  align-items: center;
-  gap: 4px;
-}
-
-.meta .meta-icon {
-  width: 14px;
-  height: 14px;
-  stroke: #666;
-}
-
-.purchase-basis {
-  font-size: 12px;
-  color: #888;
-  margin: 4px 0 6px 0;
-  display: flex;
-  align-items: center;
-  gap: 4px;
-}
-
-.purchase-basis .purchase-icon {
-  width: 14px;
-  height: 14px;
-  stroke: #888;
-}
-
-.actions {
+.tags-cell {
   display: flex;
   flex-wrap: wrap;
-  gap: 8px;
-  margin-top: 8px;
-}
-
-.actions .btn {
-  flex: 1;
-  min-width: 60px;
-  justify-content: center;
-}
-
-.btn-full-width {
-  flex: 1 1 100% !important;
-  background: #dc3545 !important;
-  color: white !important;
-  border: 1.5px solid #dc3545 !important;
-  justify-content: center;
-}
-
-.btn-full-width:hover {
-  background: #c82333 !important;
-  border-color: #bd2130 !important;
-}
-
-.btn-full-width .btn-icon {
-  stroke: white;
-}
-
-.btn-history {
-  flex: 1 1 100% !important;
-  background: #6c757d !important;
-  color: white !important;
-  border: 1.5px solid #ced4da !important;
-  justify-content: center;
-}
-
-.btn-history:hover {
-  background: #5c636a !important;
-}
-
-.btn {
-  padding: 4px 12px;
-  border: none;
-  border-radius: 6px;
-  font-size: 12px;
-  font-weight: 500;
-  cursor: pointer;
-  transition: all 0.2s;
-  display: inline-flex;
-  align-items: center;
   gap: 4px;
-  justify-content: center;
 }
 
-.btn .btn-icon {
-  width: 14px;
-  height: 14px;
-  stroke: currentColor;
+.tag-badge {
+  display: inline-block;
+  background: #e8f0fe;
+  color: #1a73e8;
+  padding: 0 8px;
+  border-radius: 10px;
+  font-size: 11px;
+}
+
+.no-tags {
+  color: #adb5bd;
+  font-size: 13px;
+}
+
+/* ============================================
+   БЕЙДЖИ
+   ============================================ */
+.badge {
+  display: inline-block;
+  padding: 2px 10px;
+  border-radius: 12px;
+  font-size: 11px;
+  font-weight: 500;
+}
+
+.badge-success {
+  background: #d4edda;
+  color: #155724;
+}
+
+.badge-warning {
+  background: #fff3cd;
+  color: #856404;
+}
+
+.badge-danger {
+  background: #f8d7da;
+  color: #721c24;
+}
+
+.badge-secondary {
+  background: #e9ecef;
+  color: #495057;
+}
+
+/* ============================================
+   ДЕЙСТВИЯ
+   ============================================ */
+.table-actions {
+  display: flex;
+  gap: 4px;
+  flex-wrap: wrap;
+  width: 70px;
 }
 
 .btn-sm {
-  padding: 4px 12px;
+  position: relative;
+  padding: 4px 8px;
   font-size: 12px;
   border-radius: 4px;
+  border: none;
+  cursor: pointer;
+  transition: all 0.15s;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 28px;
+  height: 28px;
 }
 
-.btn-outline-primary {
+.btn-icon {
+  width: 14px;
+  height: 14px;
+}
+
+/* ✅ Бейдж с количеством файлов */
+.files-badge {
+  position: absolute;
+  top: -4px;
+  right: -4px;
+  background: #0d6efd;
+  color: white;
+  font-size: 9px;
+  font-weight: 700;
+  padding: 1px 5px;
+  border-radius: 8px;
+  min-width: 14px;
+  text-align: center;
+  line-height: 12px;
+  pointer-events: none;
+}
+
+/* Кнопки */
+.btn-sm.btn-outline-primary {
   background: transparent;
-  color: #0077c8;
-  border: 1.5px solid #0077c8;
+  color: #0d6efd;
+  border: 1px solid #0d6efd;
 }
 
-.btn-outline-primary:hover {
-  background: #0077c8;
+.btn-sm.btn-outline-primary:hover {
+  background: #0d6efd;
   color: white;
 }
 
-.btn-outline-primary:hover .btn-icon {
+.btn-sm.btn-outline-primary:hover .btn-icon {
   stroke: white;
 }
 
-.btn-outline-danger {
+.btn-sm.btn-outline-danger {
   background: transparent;
   color: #dc3545;
-  border: 1.5px solid #dc3545;
+  border: 1px solid #dc3545;
 }
 
-.btn-outline-danger:hover {
+.btn-sm.btn-outline-danger:hover {
   background: #dc3545;
   color: white;
 }
 
-.btn-outline-danger:hover .btn-icon {
+.btn-sm.btn-outline-danger:hover .btn-icon {
   stroke: white;
 }
 
-.btn-outline-secondary {
+.btn-sm.btn-outline-secondary {
   background: transparent;
   color: #6c757d;
-  border: 1.5px solid #6c757d;
+  border: 1px solid #6c757d;
 }
 
-.btn-outline-secondary:hover {
+.btn-sm.btn-outline-secondary:hover {
   background: #6c757d;
   color: white;
 }
 
-.btn-outline-secondary:hover .btn-icon {
+.btn-sm.btn-outline-secondary:hover .btn-icon {
   stroke: white;
 }
 
-.btn-success {
+.btn-sm.btn-success {
   background: #28a745;
   color: white;
-  border: 1.5px solid #28a745;
+  border: 1px solid #28a745;
 }
 
-.btn-success:hover {
+.btn-sm.btn-success:hover {
   background: #218838;
   border-color: #1e7e34;
 }
 
-.btn-success .btn-icon {
+.btn-sm.btn-success .btn-icon {
   stroke: white;
 }
 
-.btn-danger {
+.btn-sm.btn-danger {
   background: #dc3545;
   color: white;
-  border: 1.5px solid #dc3545;
+  border: 1px solid #dc3545;
 }
 
-.btn-danger:hover {
+.btn-sm.btn-danger:hover {
   background: #c82333;
   border-color: #bd2130;
 }
 
-.btn-danger .btn-icon {
+.btn-sm.btn-danger .btn-icon {
   stroke: white;
-}
-
-.badge {
-  font-size: 11px;
-  padding: 3px 10px;
-  border-radius: 12px;
-  font-weight: 500;
-  display: inline-flex;
-  align-items: center;
-  gap: 4px;
-}
-
-.badge .badge-icon {
-  width: 12px;
-  height: 12px;
-  stroke: currentColor;
-}
-
-.badge-success {
-  background: #e6f9f2;
-  color: #06d6a0;
-}
-
-.badge-warning {
-  background: #fff6e0;
-  color: #ff9f1c;
-}
-
-.badge-danger {
-  background: #fce4ec;
-  color: #ef476f;
-}
-
-/* Адаптивность */
-@media (max-width: 768px) {
-  .card-image {
-    height: 120px;
-  }
-  
-  .card-body {
-    padding: 12px;
-  }
-  
-  .title {
-    font-size: 14px;
-  }
-  
-  .actions .btn {
-    font-size: 11px;
-    padding: 3px 8px;
-  }
-  
-  .btn .btn-icon {
-    width: 12px;
-    height: 12px;
-  }
-}
-
-@media (max-width: 480px) {
-  .card-image {
-    height: 100px;
-  }
-  
-  .card-header {
-    flex-wrap: wrap;
-    gap: 4px;
-  }
-  
-  .inventory-number {
-    font-size: 10px;
-  }
-  
-  .badge {
-    font-size: 10px;
-    padding: 2px 8px;
-  }
-  
-  .description {
-    font-size: 12px;
-  }
-  
-  .meta {
-    font-size: 12px;
-    flex-wrap: wrap;
-    gap: 4px;
-  }
 }
 </style>

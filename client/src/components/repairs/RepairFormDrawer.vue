@@ -12,9 +12,9 @@
     >
       <div class="drawer-header">
         <h3>
-          <IconEdit v-if="repair" class="header-icon" />
+          <IconEdit v-if="currentRepair" class="header-icon" />
           <IconPlus v-else class="header-icon" />
-          {{ repair ? 'Редактировать заявку' : 'Создать заявку о неисправности' }}
+          {{ currentRepair ? 'Редактировать заявку' : 'Создать заявку о неисправности' }}
         </h3>
         <button class="btn-close" @click="close">×</button>
       </div>
@@ -89,7 +89,7 @@
             <button type="submit" class="btn btn-primary" :disabled="loading">
               <IconSave v-if="!loading" class="btn-icon" />
               <IconLoading v-else class="btn-icon spin" />
-              {{ loading ? 'Сохранение...' : (repair ? 'Обновить заявку' : 'Создать заявку') }}
+              {{ loading ? 'Сохранение...' : (currentRepair ? 'Обновить заявку' : 'Создать заявку') }}
             </button>
           </div>
         </form>
@@ -128,6 +128,13 @@ const toast = useToastStore();
 const equipmentList = ref([]);
 const loading = ref(false);
 
+// ============================================
+//  ЛОКАЛЬНАЯ КОПИЯ ЗАЯВКИ
+// ============================================
+// Обновляется ТОЛЬКО при открытии drawer'а (visible: false → true).
+// При закрытии остаётся прежней — заголовок и форма не «моргают».
+const currentRepair = ref(null);
+
 const form = ref({
   equipment_ids: [],
   detection_date: '',
@@ -139,16 +146,13 @@ const form = ref({
 // ============================================
 //  ДАТА
 // ============================================
-
-// Текущая дата+время в формате для <input type="datetime-local">
 const getCurrentDateTimeLocal = () => {
   const now = new Date();
   const offset = now.getTimezoneOffset();
   const local = new Date(now.getTime() - offset * 60 * 1000);
-  return local.toISOString().slice(0, 16);   // "YYYY-MM-DDTHH:MM"
+  return local.toISOString().slice(0, 16);
 };
 
-// Конвертация даты из БД → формат для <input type="datetime-local">
 const toDateTimeLocal = (dateValue) => {
   if (!dateValue) return getCurrentDateTimeLocal();
 
@@ -156,11 +160,9 @@ const toDateTimeLocal = (dateValue) => {
     let date;
 
     if (typeof dateValue === 'string') {
-      // ISO с 'Z' или '+03:00' — парсим как UTC/ISO
       if (dateValue.includes('Z') || /[+-]\d{2}:\d{2}$/.test(dateValue)) {
         date = new Date(dateValue);
       } else {
-        // Строка без таймзоны — считаем локальной
         date = new Date(dateValue.length === 16 ? dateValue + ':00' : dateValue);
       }
     } else if (dateValue instanceof Date) {
@@ -175,8 +177,7 @@ const toDateTimeLocal = (dateValue) => {
 
     const offset = date.getTimezoneOffset();
     const local = new Date(date.getTime() - offset * 60 * 1000);
-    return local.toISOString().slice(0, 16);   // "YYYY-MM-DDTHH:MM"
-
+    return local.toISOString().slice(0, 16);
   } catch (e) {
     return getCurrentDateTimeLocal();
   }
@@ -199,58 +200,27 @@ const toggleBodyScroll = (disable) => {
 const fillForm = (data) => {
   if (!data) return;
 
-  console.log('🔍 [fillForm] data.detection_date (raw):', data.detection_date);
-
-  const converted = toDateTimeLocal(data.detection_date);
-  console.log('🔍 [fillForm] → toDateTimeLocal:', converted);
-
   form.value = {
     equipment_ids: data.equipment_ids || (data.equipment_id ? [data.equipment_id] : []),
-    detection_date: converted,
+    detection_date: toDateTimeLocal(data.detection_date),
     nature_of_malfunction: data.nature_of_malfunction || '',
     detected_by: data.detected_by || '',
     repair_possibility: data.repair_possibility || 'Самостоятельно'
   };
-
-  console.log('🔍 [fillForm] form.detection_date:', form.value.detection_date);
 };
 
 // ============================================
-//  WATCH: props.repair
+//  СБРОС ФОРМЫ
 // ============================================
-watch(() => props.repair, (val) => {
-  if (val) {
-    fillForm(val);
-  }
-}, { immediate: true });
-
-// ============================================
-//  WATCH: props.visible
-// ============================================
-watch(() => props.visible, (val) => {
-  if (val && props.repair) {
-    fillForm(props.repair);
-  }
-  if (val && !props.repair) {
-    form.value = {
-      equipment_ids: props.equipmentId ? [props.equipmentId] : [],
-      detection_date: getCurrentDateTimeLocal(),
-      nature_of_malfunction: '',
-      detected_by: '',
-      repair_possibility: 'Самостоятельно'
-    };
-  }
-  toggleBodyScroll(val);
-}, { immediate: true });
-
-// ============================================
-//  WATCH: props.equipmentId
-// ============================================
-watch(() => props.equipmentId, (val) => {
-  if (val && !props.repair) {
-    form.value.equipment_ids = [val];
-  }
-}, { immediate: true });
+const resetForm = () => {
+  form.value = {
+    equipment_ids: props.equipmentId ? [props.equipmentId] : [],
+    detection_date: getCurrentDateTimeLocal(),
+    nature_of_malfunction: '',
+    detected_by: '',
+    repair_possibility: 'Самостоятельно'
+  };
+};
 
 // ============================================
 //  ЗАГРУЗКА ОБОРУДОВАНИЯ
@@ -297,7 +267,6 @@ const submit = async () => {
   try {
     loading.value = true;
 
-    // Добавляем секунды для бэкенда: "YYYY-MM-DDTHH:MM:SS"
     const detectionDate = form.value.detection_date.length === 16
       ? form.value.detection_date + ':00'
       : form.value.detection_date;
@@ -310,8 +279,8 @@ const submit = async () => {
       repair_possibility: form.value.repair_possibility
     };
 
-    if (props.repair) {
-      await repairsApi.update(props.repair.id, payload);
+    if (currentRepair.value) {
+      await repairsApi.update(currentRepair.value.id, payload);
       toast.success('Заявка обновлена');
     } else {
       const result = await repairsApi.create(payload);
@@ -319,13 +288,31 @@ const submit = async () => {
     }
 
     emit('save');
-    close();
   } catch (error) {
     toast.error(error?.response?.data?.message || 'Ошибка сохранения');
   } finally {
     loading.value = false;
   }
 };
+
+// ============================================
+//  WATCH: visible
+// ============================================
+// При открытии фиксируем текущую заявку и заполняем форму один раз.
+// При закрытии ничего не трогаем — drawer ещё анимируется.
+watch(() => props.visible, (val) => {
+  toggleBodyScroll(val);
+
+  if (!val) return;
+
+  currentRepair.value = props.repair ?? null;
+
+  if (currentRepair.value) {
+    fillForm(currentRepair.value);
+  } else {
+    resetForm();
+  }
+}, { immediate: false });
 
 // ============================================
 //  LIFECYCLE
