@@ -19,7 +19,12 @@
             Активных: {{ stats.active }}
           </span>
         </div>
-        <button class="btn btn-primary" @click="openCreateForm">
+        <!-- Создать заявку — admin, methodist, technician -->
+        <button
+          v-if="authStore.hasRole('admin', 'methodist', 'technician')"
+          class="btn btn-primary"
+          @click="openCreateForm"
+        >
           <IconPlus class="btn-icon" />
           Создать заявку
         </button>
@@ -30,7 +35,6 @@
       <span>Нажмите <kbd>Enter</kbd> для открытия/закрытия формы</span>
     </div>
 
-    <!-- ФИЛЬТРЫ -->
     <div class="filters">
       <div class="filter-group">
         <label>Статус</label>
@@ -65,16 +69,13 @@
       </div>
     </div>
 
-    <!-- СКЕЛЕТОН -->
     <RepairsTableSkeleton v-if="loading" />
 
-    <!-- ПУСТО -->
     <div v-else-if="filteredRepairs.length === 0" class="empty-state">
       <IconList class="empty-icon" />
       <span>Заявок не найдено</span>
     </div>
 
-    <!-- ТАБЛИЦА -->
     <div v-else class="table-container">
       <table class="repairs-table">
         <thead>
@@ -134,7 +135,6 @@
       </table>
     </div>
 
-    <!-- ПАГИНАЦИЯ -->
     <Pagination
       v-if="!loading && showPagination"
       v-model:current-page="currentPage"
@@ -142,7 +142,6 @@
       :loading="loading"
     />
 
-    <!-- МОДАЛКИ -->
     <RepairFormDrawer
       :visible="showForm"
       :repair="editingRepair"
@@ -177,6 +176,7 @@ import { storeToRefs } from 'pinia';
 import { useRepairsStore, useEquipmentStore } from '../stores';
 import { useUiStore } from '../stores/ui.store';
 import { useToastStore } from '../stores/toastStore';
+import { useAuthStore } from '../stores/auth.store';
 import { useUrlSync } from '../composables/useUrlSync';
 import { useConfirm } from '../composables/useConfirm';
 import RepairFormDrawer from '../components/repairs/RepairFormDrawer.vue';
@@ -202,6 +202,7 @@ const uiStore = useUiStore();
 const repairsStore = useRepairsStore();
 const equipmentStore = useEquipmentStore();
 const toast = useToastStore();
+const authStore = useAuthStore();
 
 const { show, config, confirm, onConfirm, onCancel } = useConfirm();
 
@@ -572,9 +573,6 @@ onBeforeUnmount(() => {
 <style scoped>
 .repairs-view { padding: 0; }
 
-/* ============================================
-   ТУЛБАР
-   ============================================ */
 .toolbar {
   display: flex;
   justify-content: space-between;
@@ -632,9 +630,6 @@ onBeforeUnmount(() => {
 
 .stats-badges { display: flex; gap: 6px; }
 
-/* ============================================
-   БЕЙДЖИ СТАТИСТИКИ
-   ============================================ */
 .badge {
   padding: 3px 12px;
   border-radius: 12px;
@@ -649,9 +644,6 @@ onBeforeUnmount(() => {
 .badge-success { background: #d1e7dd; color: #0f5132; }
 .badge-warning { background: #fff3cd; color: #664d03; }
 
-/* ============================================
-   КНОПКИ
-   ============================================ */
 .btn {
   padding: 6px 16px;
   border: 1px solid transparent;
@@ -670,9 +662,6 @@ onBeforeUnmount(() => {
 .btn-outline-secondary { background: transparent; color: #6c757d; border: 1px solid #6c757d; }
 .btn-outline-secondary:hover { background: #6c757d; color: white; }
 
-/* ============================================
-   ФИЛЬТРЫ
-   ============================================ */
 .filters {
   display: flex;
   gap: 12px;
@@ -726,9 +715,6 @@ onBeforeUnmount(() => {
   flex: 0 0 auto;
 }
 
-/* ============================================
-   ПУСТЫЕ СОСТОЯНИЯ
-   ============================================ */
 .empty-state {
   text-align: center;
   padding: 40px;
@@ -741,9 +727,6 @@ onBeforeUnmount(() => {
 
 .empty-state .empty-icon { width: 32px; height: 32px; stroke: #6c757d; }
 
-/* ============================================
-   ТАБЛИЦА
-   ============================================ */
 .table-container {
   background: white;
   border-radius: 12px;
@@ -771,9 +754,6 @@ onBeforeUnmount(() => {
   white-space: nowrap;
 }
 
-/* ============================================
-   СОРТИРУЕМЫЕ ЗАГОЛОВКИ
-   ============================================ */
 .repairs-table th.sortable {
   cursor: pointer;
   user-select: none;
@@ -802,9 +782,6 @@ onBeforeUnmount(() => {
   vertical-align: middle;
 }
 
-/* ============================================
-   АДАПТИВНОСТЬ
-   ============================================ */
 @media (max-width: 1024px) {
   .filters { flex-direction: column; align-items: stretch; }
   .filter-group { min-width: 100%; }

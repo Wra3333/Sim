@@ -25,11 +25,11 @@
     </div>
 
     <div v-if="loading" class="text-muted">Загрузка...</div>
-    
+
     <div v-else-if="files.length === 0" class="empty-files">
       Нет дополнительных файлов
     </div>
-    
+
     <div v-else class="files-list">
       <div
         v-for="file in files"
@@ -45,7 +45,7 @@
         </div>
         <div class="file-actions">
           <a
-            :href="getFileUrl(file.filename)"
+            :href="getAdditionalFileUrl(file.filename)"
             target="_blank"
             class="btn btn-sm btn-outline-primary"
             download
@@ -74,9 +74,9 @@
 </template>
 
 <script setup>
-import { UPLOADS_URL } from '@/config';
-import { ref, watch } from 'vue';
+import { ref } from 'vue';
 import { equipmentApi } from '../../api';
+import { getAdditionalFileUrl } from '../../config';
 import ConfirmModal from '../ConfirmModal.vue';
 
 const props = defineProps({
@@ -99,26 +99,22 @@ const loading = ref(false);
 const showDeleteModal = ref(false);
 const deleteFileId = ref(null);
 
-const getFileUrl = (filename) => {
-  return `${UPLOADS_URL}/additional/${filename}`;
-};
-
 const getFileIcon = (type) => {
   const icons = {
-    'instruction': '📄',
-    'document': '📑',
-    'image': '🖼️',
-    'other': '📎'
+    instruction: '📄',
+    document: '📑',
+    image: '🖼️',
+    other: '📎'
   };
   return icons[type] || '📎';
 };
 
 const getFileTypeLabel = (type) => {
   const labels = {
-    'instruction': 'Инструкция',
-    'document': 'Документ',
-    'image': 'Изображение',
-    'other': 'Другое'
+    instruction: 'Инструкция',
+    document: 'Документ',
+    image: 'Изображение',
+    other: 'Другое'
   };
   return labels[type] || 'Другое';
 };
@@ -142,15 +138,19 @@ const handleFileUpload = async (event) => {
   loading.value = true;
   try {
     const response = await equipmentApi.uploadAdditionalFile(props.equipmentId, formData);
-    emit('update:files', [...props.files, response.data.file]);
+    const uploaded = Array.isArray(response.data?.files)
+      ? response.data.files
+      : (response.data?.file ? [response.data.file] : []);
+
+    emit('update:files', [...props.files, ...uploaded]);
     newFileDescription.value = '';
     newFileType.value = 'other';
   } catch (error) {
     console.error('Ошибка загрузки файла:', error);
-    alert('Ошибка загрузки файла');
+    alert(error?.response?.data?.error || 'Ошибка загрузки файла');
   } finally {
     loading.value = false;
-    fileInput.value.value = '';
+    if (fileInput.value) fileInput.value.value = '';
   }
 };
 
@@ -161,11 +161,6 @@ const confirmDelete = (fileId) => {
 
 const handleDelete = async () => {
   if (!deleteFileId.value) return;
-  console.log('handleDelete called', {
-    deleteFileId: deleteFileId.value,
-    equipmentId: props.equipmentId,
-    time: performance.now(),
-  });
 
   try {
     await equipmentApi.deleteAdditionalFile(props.equipmentId, deleteFileId.value);
@@ -173,7 +168,7 @@ const handleDelete = async () => {
     emit('update:files', updatedFiles);
   } catch (error) {
     console.error('Ошибка удаления файла:', error);
-    alert('Ошибка удаления файла');
+    alert(error?.response?.data?.error || 'Ошибка удаления файла');
   } finally {
     showDeleteModal.value = false;
     deleteFileId.value = null;

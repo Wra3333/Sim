@@ -31,7 +31,7 @@
         {{ equipmentName }}
       </h3>
       <p class="subtitle">{{ inventoryName }}</p>
-      
+
       <p class="description" v-if="description || hasExtraData">
         <IconList class="desc-icon" />
         <span class="description-text">
@@ -50,7 +50,7 @@
           </template>
         </span>
       </p>
-      
+
       <div class="meta">
         <span>
           <IconCalendar class="meta-icon" />
@@ -62,37 +62,63 @@
           {{ writeOffStatus }}
         </span>
       </div>
-      
+
       <p class="purchase-basis" v-if="purchaseBasis">
         <IconReceipt class="purchase-icon" />
         Основание закупки: {{ purchaseBasis }}
       </p>
-      
+
       <div class="actions" @click.stop>
         <template v-if="equipment.is_archived">
-          <button class="btn btn-sm btn-success" @click="$emit('restore', equipment.id)">
+          <!-- Восстановить — admin, technician -->
+          <button
+            v-if="authStore.hasRole('admin', 'technician')"
+            class="btn btn-sm btn-success"
+            @click="$emit('restore', equipment.id)"
+          >
             <IconRestore class="btn-icon" />
             Восстановить
           </button>
+
+          <!-- История — все -->
           <button class="btn btn-sm btn-outline-secondary" @click="$emit('history', equipment)">
             <IconHistory class="btn-icon" />
             История
           </button>
-          <button class="btn btn-sm btn-danger btn-full-width" @click="$emit('deletePermanent', equipment.id)">
+
+          <!-- Удалить навсегда — ТОЛЬКО admin -->
+          <button
+            v-if="authStore.isAdmin"
+            class="btn btn-sm btn-danger btn-full-width"
+            @click="$emit('deletePermanent', equipment.id)"
+          >
             <IconTrash class="btn-icon" />
             Удалить навсегда
           </button>
         </template>
-        
+
         <template v-else>
-          <button class="btn btn-sm btn-outline-primary" @click="$emit('edit', equipment)">
+          <!-- Редактировать — admin, methodist, technician -->
+          <button
+            v-if="authStore.hasRole('admin', 'methodist', 'technician')"
+            class="btn btn-sm btn-outline-primary"
+            @click="$emit('edit', equipment)"
+          >
             <IconEdit class="btn-icon" />
             Редактировать
           </button>
-          <button class="btn btn-sm btn-outline-danger" @click="$emit('delete', equipment.id)">
+
+          <!-- В архив — admin, technician -->
+          <button
+            v-if="authStore.hasRole('admin', 'technician')"
+            class="btn btn-sm btn-outline-danger"
+            @click="$emit('delete', equipment.id)"
+          >
             <IconArchive class="btn-icon" />
             В архив
           </button>
+
+          <!-- История — все -->
           <button class="btn btn-sm btn-outline-secondary btn-history" @click="$emit('history', equipment)">
             <IconHistory class="btn-icon" />
             История поломок
@@ -101,7 +127,6 @@
       </div>
     </div>
 
-    <!-- КОНТЕКСТНОЕ МЕНЮ -->
     <ContextMenu
       :visible="contextMenuVisible"
       :position-x="contextMenuX"
@@ -115,11 +140,12 @@
 </template>
 
 <script setup>
-import { UPLOADS_URL } from '@/config';
 import { ref, computed, onMounted, onBeforeUnmount } from 'vue';
+import { getPhotoUrl } from '../../config';
 import { useStatusClasses } from '../../composables/useStatusClasses';
 import { useEquipmentStore } from '../../stores';
 import { useToastStore } from '../../stores/toastStore';
+import { useAuthStore } from '../../stores/auth.store';
 import ContextMenu from './ContextMenu.vue';
 import {
   IconEquipment,
@@ -141,12 +167,13 @@ const props = defineProps({
 });
 
 const emit = defineEmits([
-  'edit', 'delete', 'deletePermanent', 
+  'edit', 'delete', 'deletePermanent',
   'view', 'history', 'restore', 'photoClick'
 ]);
 
 const equipmentStore = useEquipmentStore();
 const toast = useToastStore();
+const authStore = useAuthStore();
 const { getEquipmentStatusClass, getWriteOffClass } = useStatusClasses();
 
 const contextMenuVisible = ref(false);
@@ -163,27 +190,23 @@ const additionalFiles = computed(() => {
 
 const handleContextMenu = (event) => {
   event.preventDefault();
-  
+
   if (contextMenuVisible.value) {
     closeContextMenu();
     return;
   }
-  
+
   let x = event.clientX;
   let y = event.clientY;
-  
+
   const menuWidth = 380;
   const menuHeight = 420;
-  
-  if (x + menuWidth > window.innerWidth) {
-    x = window.innerWidth - menuWidth - 10;
-  }
-  if (y + menuHeight > window.innerHeight) {
-    y = window.innerHeight - menuHeight - 10;
-  }
+
+  if (x + menuWidth > window.innerWidth) x = window.innerWidth - menuWidth - 10;
+  if (y + menuHeight > window.innerHeight) y = window.innerHeight - menuHeight - 10;
   if (x < 10) x = 10;
   if (y < 10) y = 10;
-  
+
   contextMenuX.value = x;
   contextMenuY.value = y;
   contextMenuVisible.value = true;
@@ -223,15 +246,11 @@ const showPrice = computed(() => props.equipment.price);
 const showRealismClass = computed(() => props.equipment.realism_class);
 
 const hasExtraData = computed(() => {
-  return !!(showOriginalName.value || showManufacturer.value || 
+  return !!(showOriginalName.value || showManufacturer.value ||
             showCountry.value || showPrice.value || showRealismClass.value);
 });
 
-const photoUrl = computed(() => {
-  if (!props.equipment.photo) return null;
-  if (props.equipment.photo.startsWith('http')) return props.equipment.photo;
-  return `${UPLOADS_URL}/${props.equipment.photo}`;
-});
+const photoUrl = computed(() => getPhotoUrl(props.equipment.photo));
 
 const handlePhotoClick = (e) => {
   e.stopPropagation();
@@ -618,25 +637,24 @@ onBeforeUnmount(() => {
   color: #ef476f;
 }
 
-/* Адаптивность */
 @media (max-width: 768px) {
   .card-image {
     height: 120px;
   }
-  
+
   .card-body {
     padding: 12px;
   }
-  
+
   .title {
     font-size: 14px;
   }
-  
+
   .actions .btn {
     font-size: 11px;
     padding: 3px 8px;
   }
-  
+
   .btn .btn-icon {
     width: 12px;
     height: 12px;
@@ -647,25 +665,25 @@ onBeforeUnmount(() => {
   .card-image {
     height: 100px;
   }
-  
+
   .card-header {
     flex-wrap: wrap;
     gap: 4px;
   }
-  
+
   .inventory-number {
     font-size: 10px;
   }
-  
+
   .badge {
     font-size: 10px;
     padding: 2px 8px;
   }
-  
+
   .description {
     font-size: 12px;
   }
-  
+
   .meta {
     font-size: 12px;
     flex-wrap: wrap;

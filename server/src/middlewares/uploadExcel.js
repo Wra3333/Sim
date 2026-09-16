@@ -1,14 +1,17 @@
 const multer = require('multer');
 const path = require('path');
 const fs = require('fs');
+const jwt = require('jsonwebtoken');
 
-// Создаем папку если её нет
+const JWT_SECRET = process.env.JWT_SECRET;
+
+// Создаём папку если её нет
 const tempDir = path.join(__dirname, '../../uploads/temp');
 if (!fs.existsSync(tempDir)) {
   fs.mkdirSync(tempDir, { recursive: true });
 }
 
-// Настройка хранения с правильным именем
+// Настройка хранения
 const storage = multer.diskStorage({
   destination: function (req, file, cb) {
     cb(null, tempDir);
@@ -22,6 +25,7 @@ const storage = multer.diskStorage({
 
 const excelUpload = multer({
   storage: storage,
+  defParamCharset: 'utf8',
   limits: { fileSize: 10 * 1024 * 1024 },
   fileFilter: (req, file, cb) => {
     const allowedTypes = [
@@ -36,8 +40,43 @@ const excelUpload = multer({
   }
 });
 
+// ============================================
+// Извлечение meta из JWT (если $ctx пустой)
+// ============================================
+function extractMeta(req) {
+  if (req.$ctx?.meta?.user) {
+    console.log('✅ [uploadExcel] meta из $ctx');
+    return req.$ctx.meta;
+  }
+
+  try {
+    const auth = req.headers.authorization;
+    if (auth && auth.startsWith('Bearer ')) {
+      const token = auth.split(' ')[1];
+      const decoded = jwt.verify(token, JWT_SECRET);
+
+      console.log('✅ [uploadExcel] meta из JWT:', decoded.email);
+
+      return {
+        user: {
+          id: decoded.id,
+          email: decoded.email,
+          name: decoded.name,
+          role: decoded.role
+        }
+      };
+    }
+  } catch (err) {
+    console.error('❌ [uploadExcel] Ошибка декодирования токена:', err.message);
+  }
+
+  console.log('❌ [uploadExcel] meta пустой');
+  return {};
+}
+
 module.exports = (req, res, next) => {
   const match = req.url.match(/^\/equipment\/import-excel$/);
+
   if (req.method === 'POST' && match) {
     excelUpload.single('file')(req, res, (err) => {
       if (err) {
@@ -54,9 +93,16 @@ module.exports = (req, res, next) => {
 
       console.log('📊 [uploadExcel] Файл сохранен:', req.file.filename);
 
-      req.$service.broker.call('equipment.importExcel', {
-        file: req.file
-      })
+      // ✅ Извлекаем meta — из $ctx или из JWT
+      const meta = extractMeta(req);
+
+      req.$service.broker.call(
+        'equipment.importExcel',
+        {
+          file: req.file
+        },
+        { meta }
+      )
       .then(result => {
         res.writeHead(200, { 'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*' });
         res.end(JSON.stringify(result));

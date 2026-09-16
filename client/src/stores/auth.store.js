@@ -11,21 +11,38 @@ export const useAuthStore = defineStore('auth', () => {
 
   const user = ref(null);
   const token = ref(localStorage.getItem('accessToken') || null);
+  const role = ref(localStorage.getItem('userRole') || null);   // ← ДОБАВЛЕНО
   const loading = ref(false);
   const initialized = ref(false);
 
   const isAuthenticated = computed(() => !!token.value && !!user.value);
 
   // ============================================
-  //  ИНИЦИАЛИЗАЦИЯ
+  //  ГЕТТЕРЫ РОЛИ — ДОБАВЛЕНО
   // ============================================
+  const isAdmin = computed(() => role.value === 'admin');
+  const isMethodist = computed(() => role.value === 'methodist');
+  const isLab = computed(() => role.value === 'lab_assistant');
+  const isTechnician = computed(() => role.value === 'technician');
+  const hasRole = (...roles) => !!role.value && roles.includes(role.value);
+
+  // ============================================
+  //  ОЧИСТКА — ДОБАВЛЕНО
+  // ============================================
+  const clearAuth = () => {
+    token.value = null;
+    user.value = null;
+    role.value = null;
+    localStorage.removeItem('accessToken');
+    localStorage.removeItem('refreshToken');
+    localStorage.removeItem('userRole');
+    localStorage.removeItem('userName');
+    localStorage.removeItem('userId');
+  };
+
   const init = async () => {
     const savedToken = localStorage.getItem('accessToken');
-
-    console.log('🔍 [init] Начало, savedToken:', savedToken ? 'ЕСТЬ' : 'НЕТ');
-
     if (!savedToken) {
-      console.log('⚠️ [init] Нет токена в localStorage, пропускаем');
       initialized.value = true;
       return;
     }
@@ -34,58 +51,32 @@ export const useAuthStore = defineStore('auth', () => {
 
     try {
       loading.value = true;
-      console.log('📡 [init] Отправка validate запроса...');
-
       const response = await authApi.validate();
-      console.log('✅ [init] Ответ validate:', response.data);
 
       if (response.data.valid) {
         user.value = response.data.user;
-        console.log('✅ [init] Сессия восстановлена, пользователь:', user.value);
+        role.value = response.data.user.role;                        // ← ДОБАВЛЕНО
+        localStorage.setItem('userRole', response.data.user.role);   // ← ДОБАВЛЕНО
       } else {
-        console.log('⚠️ [init] Токен невалидный, очищаем данные');
-        token.value = null;
-        user.value = null;
-        localStorage.removeItem('accessToken');
-        localStorage.removeItem('refreshToken');
+        clearAuth();
       }
     } catch (error) {
-      console.error('❌ [init] Ошибка валидации:', error.message);
-      token.value = null;
-      user.value = null;
-      localStorage.removeItem('accessToken');
-      localStorage.removeItem('refreshToken');
+      clearAuth();
     } finally {
       loading.value = false;
       initialized.value = true;
-      console.log('✅ [init] Завершен, isAuthenticated:', isAuthenticated.value);
     }
   };
 
-  // ============================================
-  //  РЕГИСТРАЦИЯ
-  // ============================================
   const register = async (data) => {
-    console.log('📝 [register] Начало');
     try {
       loading.value = true;
       const response = await authApi.register(data);
-
-      console.log('✅ [register] Ответ получен');
-      console.log('✅ [register] AccessToken:', response.data.accessToken ? 'ЕСТЬ' : 'НЕТ');
-      console.log('✅ [register] RefreshToken:', response.data.refreshToken ? 'ЕСТЬ' : 'НЕТ');
-
-      token.value = response.data.accessToken;
-      user.value = response.data.user;
-      localStorage.setItem('accessToken', response.data.accessToken);
-      localStorage.setItem('refreshToken', response.data.refreshToken);
-
-      console.log('✅ [register] Успешно, пользователь:', user.value);
-      toast.success('Регистрация успешна!');
+      // токены не выдаём — пользователя создаёт админ
+      toast.success('Пользователь создан');
       return { success: true, data: response.data };
     } catch (error) {
-      const message = error.response?.data?.message || 'Ошибка регистрации';
-      console.error('❌ [register] Ошибка:', message);
+      const message = error.response?.data?.message || 'Ошибка создания';
       toast.error(message);
       return { success: false, error: message };
     } finally {
@@ -93,30 +84,25 @@ export const useAuthStore = defineStore('auth', () => {
     }
   };
 
-  // ============================================
-  //  ВХОД
-  // ============================================
   const login = async (email, password) => {
-    console.log('🔑 [login] Начало');
     try {
       loading.value = true;
       const response = await authApi.login({ email, password });
 
-      console.log('✅ [login] Ответ получен');
-      console.log('✅ [login] AccessToken:', response.data.accessToken ? 'ЕСТЬ' : 'НЕТ');
-      console.log('✅ [login] RefreshToken:', response.data.refreshToken ? 'ЕСТЬ' : 'НЕТ');
-
       token.value = response.data.accessToken;
       user.value = response.data.user;
+      role.value = response.data.user.role;                        // ← ДОБАВЛЕНО
+
       localStorage.setItem('accessToken', response.data.accessToken);
       localStorage.setItem('refreshToken', response.data.refreshToken);
+      localStorage.setItem('userRole', response.data.user.role);   // ← ДОБАВЛЕНО
+      localStorage.setItem('userName', response.data.user.name);   // ← ДОБАВЛЕНО
+      localStorage.setItem('userId', response.data.user.id);       // ← ДОБАВЛЕНО
 
-      console.log('✅ [login] Успешно, пользователь:', user.value);
       toast.success('Вход выполнен!');
       return { success: true, data: response.data };
     } catch (error) {
       const message = error.response?.data?.message || 'Ошибка входа';
-      console.error('❌ [login] Ошибка:', message);
       toast.error(message);
       return { success: false, error: message };
     } finally {
@@ -124,59 +110,32 @@ export const useAuthStore = defineStore('auth', () => {
     }
   };
 
-  // ============================================
-  //  ВЫХОД
-  // ============================================
   const logout = async () => {
-    console.log('🚪 [logout] Начало');
-
-    // 1. Берём refresh ДО очистки
     const refreshTokenValue = localStorage.getItem('refreshToken');
+    clearAuth();
 
-    // 2. СНАЧАЛА чистим локально
-    //    (чтобы axios-перехватчик не пытался сделать refresh)
-    token.value = null;
-    user.value = null;
-    localStorage.removeItem('accessToken');
-    localStorage.removeItem('refreshToken');
-
-    // 3. Потом отправляем на сервер через ПРЯМОЙ axios
-    //    (без interceptors — они бы попытались refresh на 401)
     if (refreshTokenValue) {
       try {
         loading.value = true;
-        console.log('📡 [logout] Отправка refresh на сервер для отзыва...');
-
-        await axios.post(`${API_URL}/auth/logout`, {
-          refreshToken: refreshTokenValue
-        });
-
-        console.log('✅ [logout] Сервер отозвал refresh');
+        await axios.post(`${API_URL}/auth/logout`, { refreshToken: refreshTokenValue });
       } catch (e) {
-        console.log('⚠️ [logout] Ошибка сервера (игнорируем):', e.message);
+        // игнорируем
       } finally {
         loading.value = false;
       }
     }
 
     toast.info('👋 Вы вышли из системы');
-    console.log('✅ [logout] Завершен, данные очищены');
   };
 
-  // ============================================
-  //  ОБНОВЛЕНИЕ ТОКЕНА
-  // ============================================
   const refreshToken = async () => {
-    console.log('🔄 [refreshToken] Начало');
     try {
       const response = await authApi.refresh();
       token.value = response.data.accessToken;
       localStorage.setItem('accessToken', response.data.accessToken);
       localStorage.setItem('refreshToken', response.data.refreshToken);
-      console.log('✅ [refreshToken] Успешно');
       return { success: true };
     } catch (error) {
-      console.error('❌ [refreshToken] Ошибка:', error.message);
       await logout();
       return { success: false };
     }
@@ -185,9 +144,15 @@ export const useAuthStore = defineStore('auth', () => {
   return {
     user,
     token,
+    role,           // ← ДОБАВЛЕНО
     loading,
     initialized,
     isAuthenticated,
+    isAdmin,        // ← ДОБАВЛЕНО
+    isMethodist,    // ← ДОБАВЛЕНО
+    isLab,          // ← ДОБАВЛЕНО
+    isTechnician,   // ← ДОБАВЛЕНО
+    hasRole,        // ← ДОБАВЛЕНО
     init,
     register,
     login,

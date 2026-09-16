@@ -35,7 +35,7 @@
         </div>
       </div>
       
-      <button class="btn btn-sm btn-primary" @click="addTag" :disabled="!searchQuery.trim()">
+      <button class="btn btn-sm btn-primary" @click="addTag" :disabled="!searchQuery.trim()" type="button">
         Добавить
       </button>
     </div>

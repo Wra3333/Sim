@@ -1,4 +1,6 @@
 const { Template, Lesson, Equipment, WorkTime } = require('../models');
+const { Op } = require('sequelize');
+const AuthorizeMixin = require('../mixins/authorize.mixin');
 
 // ============================================
 // ОБЩАЯ ПРОВЕРКА ОБОРУДОВАНИЯ
@@ -15,14 +17,39 @@ const isEquipmentInvalid = (eq) => {
   );
 };
 
+// ============================================
+// ДЕДУПЛИКАЦИЯ equipment_list
+// Оставляем последний элемент для каждого equipment_id
+// ============================================
+const dedupeEquipmentList = (list) => {
+  if (!Array.isArray(list)) return [];
+  return [...new Map(
+    list.map(item => [item.equipment_id, item])
+  ).values()];
+};
+
 module.exports = {
   name: 'templates',
+  mixins: [AuthorizeMixin],
+
+  // ============================================
+  // ХУКИ: проверка авторизации + роли
+  // ============================================
+  hooks: {
+    before: {
+      '*': ['checkIsAuthenticated', 'checkUserRole']
+    }
+  },
 
   actions: {
+    // ============================================
+    // CREATE — админ, методист, лаборант
+    // ============================================
     create: {
+      roles: ['admin', 'methodist', 'lab_assistant'],
       params: {
-        title: { type: 'string', min: 1, max: 255 },
-        discipline: { type: 'string', min: 1, max: 255 },
+        title: { type: 'string', required: true, min: 1, max: 255 },
+        discipline: { type: 'string', required: true, min: 1, max: 255 },
         description: { type: 'string', optional: true, max: 1000 },
         is_active: { type: 'boolean', default: true },
         equipment_list: {
@@ -41,7 +68,8 @@ module.exports = {
         const data = ctx.params;
 
         if (data.equipment_list && data.equipment_list.length > 0) {
-          const equipmentIds = data.equipment_list.map(item => item.equipment_id);
+          // ✅ Уникальные ID — без дублей
+          const equipmentIds = [...new Set(data.equipment_list.map(item => item.equipment_id))];
 
           const existingEquipment = await Equipment.findAll({
             where: { id: equipmentIds }
@@ -59,6 +87,9 @@ module.exports = {
               .join(', ');
             throw new Error(`Оборудование не может быть использовано в шаблоне: ${names}`);
           }
+
+          // ✅ Дедупликация массива
+          data.equipment_list = dedupeEquipmentList(data.equipment_list);
         }
 
         data.created_by = ctx.meta.user?.id;
@@ -68,7 +99,11 @@ module.exports = {
       }
     },
 
+    // ============================================
+    // LIST — админ, методист, лаборант
+    // ============================================
     list: {
+      roles: ['admin', 'methodist', 'lab_assistant', 'technician'],
       params: {
         is_active: { type: 'boolean', optional: true },
         discipline: { type: 'string', optional: true },
@@ -76,7 +111,6 @@ module.exports = {
       },
       handler: async function(ctx) {
         const where = {};
-        const { Op } = require('sequelize');
 
         if (ctx.params && ctx.params.is_active !== undefined) {
           where.is_active = ctx.params.is_active;
@@ -101,7 +135,11 @@ module.exports = {
       }
     },
 
+    // ============================================
+    // GET — админ, методист, лаборант
+    // ============================================
     get: {
+      roles: ['admin', 'methodist', 'lab_assistant', 'technician'],
       params: {
         id: { type: 'number', integer: true, positive: true, convert: true }
       },
@@ -114,7 +152,11 @@ module.exports = {
       }
     },
 
+    // ============================================
+    // UPDATE — админ, методист, лаборант
+    // ============================================
     update: {
+      roles: ['admin', 'methodist', 'lab_assistant'],
       params: {
         id: { type: 'number', required: true, integer: true, positive: true, convert: true },
         title: { type: 'string', optional: true, min: 1, max: 255 },
@@ -162,7 +204,9 @@ module.exports = {
         }
 
         if (data.equipment_list && data.equipment_list.length > 0) {
-          const equipmentIds = data.equipment_list.map(item => item.equipment_id);
+          // ✅ Уникальные ID — без дублей
+          const equipmentIds = [...new Set(data.equipment_list.map(item => item.equipment_id))];
+
           const existingEquipment = await Equipment.findAll({
             where: { id: equipmentIds }
           });
@@ -179,49 +223,60 @@ module.exports = {
               .join(', ');
             throw new Error(`Оборудование не может быть использовано в шаблоне: ${names}`);
           }
+
+          // ✅ Дедупликация массива
+          data.equipment_list = dedupeEquipmentList(data.equipment_list);
         }
 
         data.updated_by = ctx.meta.user?.id;
         await template.update(data);
 
+        // ✅ Нормализованное сравнение
+        const normalize = (list) => JSON.stringify(
+          (list || []).map(item => ({
+            equipment_id: item.equipment_id,
+            quantity: item.quantity
+          }))
+        );
+
         const equipmentChanged = data.equipment_list !== undefined &&
-          JSON.stringify(data.equipment_list) !== JSON.stringify(oldEquipmentList);
+          normalize(data.equipment_list) !== normalize(oldEquipmentList);
+
+        // ✅ Единый формат ответа
+        let linkedLessons = [];
 
         if (equipmentChanged) {
-          const lessons = await Lesson.findAll({
+          linkedLessons = await Lesson.findAll({
             where: {
               template_id: id,
               status: ['Запланировано', 'Проведено']
             }
           });
-
-          if (lessons.length > 0) {
-            return {
-              success: true,
-              template: template,
-              hasLinkedLessons: true,
-              linkedLessonsCount: lessons.length,
-              linkedLessons: lessons.map(l => ({
-                id: l.id,
-                title: l.title,
-                status: l.status,
-                date: l.date
-              })),
-              message: `Шаблон обновлен. ${lessons.length} занятий используют этот шаблон.`
-            };
-          }
         }
 
         return {
           success: true,
-          template: template,
-          hasLinkedLessons: false,
-          message: 'Шаблон успешно обновлен'
+          template,
+          hasLinkedLessons: linkedLessons.length > 0,
+          linkedLessonsCount: linkedLessons.length,
+          linkedLessons: linkedLessons.map(l => ({
+            id: l.id,
+            title: l.title,
+            status: l.status,
+            date: l.date
+          })),
+          message: linkedLessons.length > 0
+            ? `Шаблон обновлен. ${linkedLessons.length} занятий используют этот шаблон.`
+            : 'Шаблон успешно обновлен'
         };
       }
     },
 
+    // ============================================
+    // DELETE — админ, методист, лаборант
+    // ============================================
     delete: {
+      roles: ['admin', 'methodist', 'lab_assistant'],
       params: {
         id: { type: 'number', integer: true, positive: true, convert: true }
       },
@@ -239,7 +294,11 @@ module.exports = {
       }
     },
 
+    // ============================================
+    // ADD EQUIPMENT — админ, методист, лаборант
+    // ============================================
     addEquipment: {
+      roles: ['admin', 'methodist', 'lab_assistant'],
       params: {
         id: { type: 'number', integer: true, positive: true, convert: true },
         equipment_id: { type: 'number', integer: true, positive: true, convert: true },
@@ -280,7 +339,11 @@ module.exports = {
       }
     },
 
+    // ============================================
+    // REMOVE EQUIPMENT — админ, методист, лаборант
+    // ============================================
     removeEquipment: {
+      roles: ['admin', 'methodist', 'lab_assistant'],
       params: {
         id: { type: 'number', integer: true, positive: true, convert: true },
         equipment_id: { type: 'number', integer: true, positive: true, convert: true }
@@ -299,7 +362,11 @@ module.exports = {
       }
     },
 
+    // ============================================
+    // SYNC LESSONS — админ, методист, лаборант
+    // ============================================
     syncLessons: {
+      roles: ['admin', 'methodist', 'lab_assistant'],
       params: {
         id: { type: 'number', required: true, integer: true, positive: true },
         lessonIds: { type: 'array', items: 'number', optional: true }

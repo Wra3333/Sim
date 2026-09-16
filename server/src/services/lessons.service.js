@@ -1,5 +1,6 @@
 const { Lesson, Template, WorkTime, Equipment } = require('../models');
 const { Op } = require('sequelize');
+const AuthorizeMixin = require('../mixins/authorize.mixin');
 
 const VALID_LESSON_STATUSES = ['Запланировано', 'Проведено', 'Отменено'];
 
@@ -32,20 +33,38 @@ const isEquipmentInvalid = (eq) => {
   );
 };
 
+// ============================================
+// УНИКАЛЬНЫЕ ID ОБОРУДОВАНИЯ (без дублей)
+// ============================================
+const getUniqueEquipmentIds = (equipmentList) => {
+  if (!Array.isArray(equipmentList)) return [];
+  return [...new Set(
+    equipmentList
+      .map(item => item?.equipment_id)
+      .filter(id => id !== null && id !== undefined)
+  )];
+};
+
 module.exports = {
   name: 'lessons',
+  mixins: [AuthorizeMixin],
+
+  hooks: {
+    before: {
+      '*': ['checkIsAuthenticated', 'checkUserRole']
+    }
+  },
 
   actions: {
     // ============================================
-    // CREATE
+    // CREATE — админ, методист, лаборант
     // ============================================
     create: {
+      roles: ['admin', 'methodist', 'lab_assistant'],
       params: {
         title: { type: 'string', required: true, min: 1, max: 255 },
-
         group: { type: 'string', optional: true, max: 100 },
         teacher: { type: 'string', optional: true, max: 100 },
-
         students_count: { type: 'number', required: true, integer: true, min: 0, convert: true },
         date: { type: 'string', required: true, pattern: /^\d{4}-\d{2}-\d{2}$/ },
         start_time: { type: 'string', required: true, pattern: /^\d{2}:\d{2}(:\d{2})?$/ },
@@ -64,7 +83,6 @@ module.exports = {
           },
           optional: true
         },
-
         participant_type: {
           type: 'string',
           optional: true,
@@ -119,9 +137,12 @@ module.exports = {
         const lesson = await Lesson.create(data);
 
         if (data.status === 'Проведено' && data.equipment_list && data.equipment_list.length > 0) {
-          for (const eq of data.equipment_list) {
+          // ✅ Уникальные ID — без дублей
+          const uniqueEquipmentIds = getUniqueEquipmentIds(data.equipment_list);
+
+          for (const equipmentId of uniqueEquipmentIds) {
             await WorkTime.create({
-              equipment_id: eq.equipment_id,
+              equipment_id: equipmentId,
               lesson_id: lesson.id,
               start_time: `${data.date} ${data.start_time}`,
               end_time: `${data.date} ${data.end_time}`,
@@ -136,9 +157,10 @@ module.exports = {
     },
 
     // ============================================
-    // LIST
+    // LIST — все роли
     // ============================================
     list: {
+      roles: ['admin', 'methodist', 'lab_assistant', 'technician'],
       params: {
         status: { type: 'enum', values: VALID_LESSON_STATUSES, optional: true },
         group: { type: 'string', optional: true, max: 100 },
@@ -170,9 +192,10 @@ module.exports = {
     },
 
     // ============================================
-    // GET
+    // GET — все роли
     // ============================================
     get: {
+      roles: ['admin', 'methodist', 'lab_assistant', 'technician'],
       params: {
         id: { type: 'number', required: true, integer: true, positive: true, convert: true }
       },
@@ -189,9 +212,10 @@ module.exports = {
     },
 
     // ============================================
-    // UPDATE
+    // UPDATE — админ, методист, лаборант
     // ============================================
     update: {
+      roles: ['admin', 'methodist', 'lab_assistant'],
       params: {
         id: { type: 'number', required: true, integer: true, positive: true, convert: true },
         title: { type: 'string', optional: true, min: 1, max: 255 },
@@ -304,9 +328,12 @@ module.exports = {
             const finalEnd = data.end_time || lesson.end_time;
             const finalStudents = data.students_count !== undefined ? data.students_count : lesson.students_count;
 
-            for (const eq of finalEquipmentList) {
+            // ✅ Уникальные ID — без дублей
+            const uniqueEquipmentIds = getUniqueEquipmentIds(finalEquipmentList);
+
+            for (const equipmentId of uniqueEquipmentIds) {
               await WorkTime.create({
-                equipment_id: eq.equipment_id,
+                equipment_id: equipmentId,
                 lesson_id: lesson.id,
                 start_time: `${finalDate} ${finalStart}`,
                 end_time: `${finalDate} ${finalEnd}`,
@@ -349,9 +376,12 @@ module.exports = {
             await WorkTime.destroy({ where: { lesson_id: lesson.id } });
 
             if (finalEquipmentList.length > 0) {
-              for (const eq of finalEquipmentList) {
+              // ✅ Уникальные ID — без дублей
+              const uniqueEquipmentIds = getUniqueEquipmentIds(finalEquipmentList);
+
+              for (const equipmentId of uniqueEquipmentIds) {
                 await WorkTime.create({
-                  equipment_id: eq.equipment_id,
+                  equipment_id: equipmentId,
                   lesson_id: lesson.id,
                   start_time: `${finalDate} ${finalStart}`,
                   end_time: `${finalDate} ${finalEnd}`,
@@ -370,9 +400,10 @@ module.exports = {
     },
 
     // ============================================
-    // COMPLETE
+    // COMPLETE — админ, методист, лаборант
     // ============================================
     complete: {
+      roles: ['admin', 'methodist', 'lab_assistant'],
       params: {
         id: { type: 'number', required: true, integer: true, positive: true, convert: true }
       },
@@ -401,9 +432,12 @@ module.exports = {
           const startTime = lesson.start_time ? lesson.start_time.substring(0, 5) : lesson.start_time;
           const endTime = lesson.end_time ? lesson.end_time.substring(0, 5) : lesson.end_time;
 
-          for (const eq of equipments) {
+          // ✅ Уникальные ID — без дублей
+          const uniqueEquipmentIds = getUniqueEquipmentIds(equipments);
+
+          for (const equipmentId of uniqueEquipmentIds) {
             await WorkTime.create({
-              equipment_id: eq.equipment_id,
+              equipment_id: equipmentId,
               lesson_id: lesson.id,
               start_time: `${lesson.date} ${startTime}`,
               end_time: `${lesson.date} ${endTime}`,
@@ -422,9 +456,10 @@ module.exports = {
     },
 
     // ============================================
-    // DELETE
+    // DELETE — админ, методист, лаборант
     // ============================================
     delete: {
+      roles: ['admin', 'methodist', 'lab_assistant'],
       params: {
         id: { type: 'number', required: true, integer: true, positive: true, convert: true }
       },
@@ -437,9 +472,10 @@ module.exports = {
     },
 
     // ============================================
-    // GET PARTICIPANT STATS
+    // GET PARTICIPANT STATS — админ, методист, лаборант
     // ============================================
     getParticipantStats: {
+      roles: ['admin', 'methodist', 'lab_assistant'],
       params: {
         dateFrom: { type: 'string', optional: true, pattern: /^\d{4}-\d{2}-\d{2}$/ },
         dateTo: { type: 'string', optional: true, pattern: /^\d{4}-\d{2}-\d{2}$/ },

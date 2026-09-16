@@ -56,28 +56,30 @@
 
     <td class="actions-cell" @click.stop>
       <div class="table-actions">
-        <!-- Завершить -->
-        <button 
-          v-if="lesson.status === 'Запланировано'" 
-          class="btn btn-sm btn-success" 
+        <!-- Завершить — admin, methodist, lab_assistant -->
+        <button
+          v-if="lesson.status === 'Запланировано' && authStore.hasRole('admin', 'methodist', 'lab_assistant')"
+          class="btn btn-sm btn-success"
           @click="$emit('complete', lesson.id)"
           title="Завершить"
         >
           <IconCheck class="btn-icon" />
         </button>
 
-        <!-- Редактировать -->
-        <button 
-          class="btn btn-sm btn-outline-primary" 
+        <!-- Редактировать — admin, methodist, lab_assistant -->
+        <button
+          v-if="authStore.hasRole('admin', 'methodist', 'lab_assistant')"
+          class="btn btn-sm btn-outline-primary"
           @click="$emit('edit', lesson)"
           title="Редактировать"
         >
           <IconEdit class="btn-icon" />
         </button>
 
-        <!-- Удалить -->
-        <button 
-          class="btn btn-sm btn-outline-danger" 
+        <!-- Удалить — admin, methodist, lab_assistant -->
+        <button
+          v-if="authStore.hasRole('admin', 'methodist', 'lab_assistant')"
+          class="btn btn-sm btn-outline-danger"
           @click="$emit('delete', lesson.id)"
           title="Удалить"
         >
@@ -92,6 +94,7 @@
 import { computed } from 'vue';
 import { useFormatters } from '../../composables/useFormatters';
 import { useStatusClasses } from '../../composables/useStatusClasses';
+import { useAuthStore } from '../../stores/auth.store';
 import { getEducationLevelLabel } from '../../constants/education';
 import {
   IconCheck,
@@ -115,6 +118,11 @@ const props = defineProps({
 //  EMITS
 // ============================================
 const emit = defineEmits(['row-click', 'complete', 'edit', 'delete']);
+
+// ============================================
+//  STORES
+// ============================================
+const authStore = useAuthStore();
 
 // ============================================
 //  КОМПОЗАБЛЫ
@@ -171,7 +179,7 @@ const shortSpecialty = (specialty) => {
 //  КЛИК ПО СТРОКЕ
 // ============================================
 const handleRowClick = () => {
-    emit('row-click', props.lesson);
+  emit('row-click', props.lesson);
 };
 </script>
 

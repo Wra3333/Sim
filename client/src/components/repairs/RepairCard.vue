@@ -60,34 +60,40 @@
 
     <td class="actions-cell" @click.stop>
       <div class="table-actions">
-        <button 
-          v-if="!repair.is_resolved" 
-          class="btn btn-sm btn-success" 
+        <!-- Устранить — admin, technician -->
+        <button
+          v-if="!repair.is_resolved && authStore.hasRole('admin', 'technician')"
+          class="btn btn-sm btn-success"
           @click="$emit('resolve', repair)"
           title="Устранить"
         >
           <IconCheck class="btn-icon" />
         </button>
 
-        <button 
-          v-if="repair.is_resolved" 
-          class="btn btn-sm btn-outline-secondary" 
+        <!-- Кто устранил — admin, technician -->
+        <button
+          v-if="repair.is_resolved && authStore.hasRole('admin', 'technician')"
+          class="btn btn-sm btn-outline-secondary"
           @click="$emit('edit-resolved-by', repair)"
           title="Кто устранил"
         >
           <IconUser class="btn-icon" />
         </button>
 
-        <button 
-          class="btn btn-sm btn-outline-primary" 
+        <!-- Редактировать — admin, methodist, technician -->
+        <button
+          v-if="authStore.hasRole('admin', 'methodist', 'technician')"
+          class="btn btn-sm btn-outline-primary"
           @click="$emit('edit', repair)"
           title="Редактировать"
         >
           <IconEdit class="btn-icon" />
         </button>
 
-        <button 
-          class="btn btn-sm btn-outline-danger" 
+        <!-- ✅ Удалить — только admin, technician -->
+        <button
+          v-if="canDelete"
+          class="btn btn-sm btn-outline-danger"
           @click="$emit('delete', repair.id)"
           title="Удалить"
         >
@@ -99,6 +105,8 @@
 </template>
 
 <script setup>
+import { computed } from 'vue';
+import { useAuthStore } from '../../stores/auth.store';
 import {
   IconCheck,
   IconAlert,
@@ -112,6 +120,13 @@ const props = defineProps({
 });
 
 const emit = defineEmits(['row-click', 'resolve', 'edit-resolved-by', 'edit', 'delete']);
+
+const authStore = useAuthStore();
+
+// ✅ Удалять может только admin или technician
+const canDelete = computed(() => {
+  return authStore.hasRole('admin', 'technician');
+});
 
 const handleRowClick = () => {
   emit('row-click', props.repair);

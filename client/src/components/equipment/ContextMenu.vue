@@ -17,7 +17,7 @@
       <span class="context-title">Документы</span>
       <span class="context-count">{{ files.length }}</span>
     </div>
-    
+
     <div v-if="files.length === 0" class="context-empty">
       <svg class="empty-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
         <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/>
@@ -25,186 +25,29 @@
       </svg>
       <span>Нет прикрепленных документов</span>
     </div>
-    
+
     <div v-else class="context-files">
-      <!-- ИНСТРУКЦИИ -->
-      <template v-if="groupedFiles.instruction.length > 0">
-        <div class="context-group">
+      <template v-for="(group, type) in groupedFiles" :key="type">
+        <div v-if="group.length > 0" class="context-group">
           <div class="context-group-header">
-            <svg class="group-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-              <circle cx="12" cy="12" r="10"/>
-              <line x1="9.09" y1="9" x2="9.1" y2="9.01"/>
-              <line x1="14.09" y1="9" x2="14.1" y2="9.01"/>
-              <line x1="9" y1="15" x2="15" y2="15"/>
-            </svg>
-            <span class="group-title">Инструкции</span>
-            <span class="group-count">{{ groupedFiles.instruction.length }}</span>
+            <span class="group-title">{{ getGroupTitle(type) }}</span>
+            <span class="group-count">{{ group.length }}</span>
           </div>
-          <div
-            v-for="file in groupedFiles.instruction"
-            :key="file.id"
-            class="context-file-item"
-            @contextmenu.stop
-          >
-            <svg class="file-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
-              <path d="M4 4a2 2 0 0 1 2-2h8l6 6v12a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V4z"/>
-              <polyline points="14 2 14 8 20 8"/>
-              <circle cx="12" cy="15" r="1.5"/>
-              <line x1="12" y1="12" x2="12" y2="13"/>
-              <line x1="12" y1="17" x2="12" y2="17"/>
-            </svg>
-            <div class="file-info">
-              <span class="file-name">{{ file.original_name }}</span>
-              <span v-if="file.description" class="file-desc">{{ file.description }}</span>
-            </div>
-            <div class="file-actions-context">
-              <a
-                :href="getFileUrl(file.filename)"
-                target="_blank"
-                rel="noopener noreferrer"
-                class="file-link"
-                title="Открыть"
-                @click.stop
-              >
-                <svg class="file-link-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                  <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/>
-                  <circle cx="12" cy="12" r="3"/>
-                </svg>
-              </a>
-              <a
-                :href="getFileUrl(file.filename)"
-                :download="file.original_name"
-                class="file-link"
-                title="Скачать"
-                @click.stop
-              >
-                <svg class="file-link-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                  <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/>
-                  <polyline points="7 10 12 15 17 10"/>
-                  <line x1="12" y1="15" x2="12" y2="3"/>
-                </svg>
-              </a>
-              <button
-                class="file-link file-link-delete"
-                title="Удалить"
-                @click.stop="openDeleteConfirm(file.id)"
-              >
-                <svg class="file-link-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                  <polyline points="3 6 5 6 21 6"/>
-                  <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/>
-                  <line x1="10" y1="11" x2="10" y2="17"/>
-                  <line x1="14" y1="11" x2="14" y2="17"/>
-                </svg>
-              </button>
-            </div>
-          </div>
-        </div>
-      </template>
 
-      <!-- ДОКУМЕНТЫ -->
-      <template v-if="groupedFiles.document.length > 0">
-        <div class="context-group">
-          <div class="context-group-header">
-            <svg class="group-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-              <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/>
-              <polyline points="14 2 14 8 20 8"/>
-              <line x1="16" y1="13" x2="8" y2="13"/>
-              <line x1="16" y1="17" x2="8" y2="17"/>
-              <polyline points="10 9 9 9 8 9"/>
-            </svg>
-            <span class="group-title">Документы</span>
-            <span class="group-count">{{ groupedFiles.document.length }}</span>
-          </div>
           <div
-            v-for="file in groupedFiles.document"
+            v-for="file in group"
             :key="file.id"
             class="context-file-item"
             @contextmenu.stop
           >
-            <svg class="file-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
-              <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/>
-              <polyline points="14 2 14 8 20 8"/>
-              <line x1="16" y1="13" x2="8" y2="13"/>
-              <line x1="16" y1="17" x2="8" y2="17"/>
-            </svg>
             <div class="file-info">
               <span class="file-name">{{ file.original_name }}</span>
               <span v-if="file.description" class="file-desc">{{ file.description }}</span>
             </div>
-            <div class="file-actions-context">
-              <a
-                :href="getFileUrl(file.filename)"
-                target="_blank"
-                rel="noopener noreferrer"
-                class="file-link"
-                title="Открыть"
-                @click.stop
-              >
-                <svg class="file-link-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                  <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/>
-                  <circle cx="12" cy="12" r="3"/>
-                </svg>
-              </a>
-              <a
-                :href="getFileUrl(file.filename)"
-                :download="file.original_name"
-                class="file-link"
-                title="Скачать"
-                @click.stop
-              >
-                <svg class="file-link-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                  <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/>
-                  <polyline points="7 10 12 15 17 10"/>
-                  <line x1="12" y1="15" x2="12" y2="3"/>
-                </svg>
-              </a>
-              <button
-                class="file-link file-link-delete"
-                title="Удалить"
-                @click.stop="openDeleteConfirm(file.id)"
-              >
-                <svg class="file-link-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                  <polyline points="3 6 5 6 21 6"/>
-                  <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/>
-                  <line x1="10" y1="11" x2="10" y2="17"/>
-                  <line x1="14" y1="11" x2="14" y2="17"/>
-                </svg>
-              </button>
-            </div>
-          </div>
-        </div>
-      </template>
 
-      <!-- ИЗОБРАЖЕНИЯ -->
-      <template v-if="groupedFiles.image.length > 0">
-        <div class="context-group">
-          <div class="context-group-header">
-            <svg class="group-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-              <rect x="3" y="3" width="18" height="18" rx="2" ry="2"/>
-              <circle cx="8.5" cy="8.5" r="1.5"/>
-              <polyline points="21 15 16 10 5 21"/>
-            </svg>
-            <span class="group-title">Изображения</span>
-            <span class="group-count">{{ groupedFiles.image.length }}</span>
-          </div>
-          <div
-            v-for="file in groupedFiles.image"
-            :key="file.id"
-            class="context-file-item"
-            @contextmenu.stop
-          >
-            <svg class="file-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
-              <rect x="3" y="3" width="18" height="18" rx="2" ry="2"/>
-              <circle cx="8.5" cy="8.5" r="1.5"/>
-              <polyline points="21 15 16 10 5 21"/>
-            </svg>
-            <div class="file-info">
-              <span class="file-name">{{ file.original_name }}</span>
-              <span v-if="file.description" class="file-desc">{{ file.description }}</span>
-            </div>
             <div class="file-actions-context">
               <a
-                :href="getFileUrl(file.filename)"
+                :href="getAdditionalFileUrl(file.filename)"
                 target="_blank"
                 rel="noopener noreferrer"
                 class="file-link"
@@ -216,78 +59,9 @@
                   <circle cx="12" cy="12" r="3"/>
                 </svg>
               </a>
-              <a
-                :href="getFileUrl(file.filename)"
-                :download="file.original_name"
-                class="file-link"
-                title="Скачать"
-                @click.stop
-              >
-                <svg class="file-link-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                  <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/>
-                  <polyline points="7 10 12 15 17 10"/>
-                  <line x1="12" y1="15" x2="12" y2="3"/>
-                </svg>
-              </a>
-              <button
-                class="file-link file-link-delete"
-                title="Удалить"
-                @click.stop="openDeleteConfirm(file.id)"
-              >
-                <svg class="file-link-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                  <polyline points="3 6 5 6 21 6"/>
-                  <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/>
-                  <line x1="10" y1="11" x2="10" y2="17"/>
-                  <line x1="14" y1="11" x2="14" y2="17"/>
-                </svg>
-              </button>
-            </div>
-          </div>
-        </div>
-      </template>
 
-      <!-- ДРУГОЕ -->
-      <template v-if="groupedFiles.other.length > 0">
-        <div class="context-group">
-          <div class="context-group-header">
-            <svg class="group-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-              <circle cx="12" cy="12" r="10"/>
-              <line x1="12" y1="8" x2="12" y2="12"/>
-              <line x1="12" y1="16" x2="12.01" y2="16"/>
-            </svg>
-            <span class="group-title">Другое</span>
-            <span class="group-count">{{ groupedFiles.other.length }}</span>
-          </div>
-          <div
-            v-for="file in groupedFiles.other"
-            :key="file.id"
-            class="context-file-item"
-            @contextmenu.stop
-          >
-            <svg class="file-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
-              <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/>
-              <polyline points="14 2 14 8 20 8"/>
-            </svg>
-            <div class="file-info">
-              <span class="file-name">{{ file.original_name }}</span>
-              <span v-if="file.description" class="file-desc">{{ file.description }}</span>
-            </div>
-            <div class="file-actions-context">
               <a
-                :href="getFileUrl(file.filename)"
-                target="_blank"
-                rel="noopener noreferrer"
-                class="file-link"
-                title="Открыть"
-                @click.stop
-              >
-                <svg class="file-link-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                  <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/>
-                  <circle cx="12" cy="12" r="3"/>
-                </svg>
-              </a>
-              <a
-                :href="getFileUrl(file.filename)"
+                :href="getAdditionalFileUrl(file.filename)"
                 :download="file.original_name"
                 class="file-link"
                 title="Скачать"
@@ -299,6 +73,7 @@
                   <line x1="12" y1="15" x2="12" y2="3"/>
                 </svg>
               </a>
+
               <button
                 class="file-link file-link-delete"
                 title="Удалить"
@@ -316,12 +91,11 @@
         </div>
       </template>
     </div>
-    
+
     <div class="context-menu-footer">
       <button class="btn-close-context" @click="close">Закрыть</button>
     </div>
 
-    <!-- МОДАЛКА ПОДТВЕРЖДЕНИЯ УДАЛЕНИЯ -->
     <ConfirmModal
       v-model:visible="showDeleteModal"
       title="Удаление файла"
@@ -334,36 +108,19 @@
 </template>
 
 <script setup>
-import { UPLOADS_URL } from '@/config';
 import { ref, computed } from 'vue';
+import { getAdditionalFileUrl } from '../../config';
 import ConfirmModal from '../ConfirmModal.vue';
 
 const props = defineProps({
-  visible: {
-    type: Boolean,
-    default: false
-  },
-  positionX: {
-    type: Number,
-    default: 0
-  },
-  positionY: {
-    type: Number,
-    default: 0
-  },
-  files: {
-    type: Array,
-    default: () => []
-  },
-  equipmentId: {
-    type: [Number, String],
-    default: null
-  }
+  visible: { type: Boolean, default: false },
+  positionX: { type: Number, default: 0 },
+  positionY: { type: Number, default: 0 },
+  files: { type: Array, default: () => [] },
+  equipmentId: { type: [Number, String], default: null }
 });
 
 const emit = defineEmits(['close', 'delete']);
-
-const API_URL = `${UPLOADS_URL}/`;
 
 const showDeleteModal = ref(false);
 const deleteFileId = ref(null);
@@ -375,7 +132,7 @@ const groupedFiles = computed(() => {
     image: [],
     other: []
   };
-  
+
   props.files.forEach(file => {
     const type = file.file_type || 'other';
     if (groups[type]) {
@@ -384,14 +141,18 @@ const groupedFiles = computed(() => {
       groups.other.push(file);
     }
   });
-  
+
   return groups;
 });
 
-const getFileUrl = (filename) => {
-  if (!filename) return '#';
-  if (filename.startsWith('http')) return filename;
-  return `${API_URL}${filename}`;
+const getGroupTitle = (type) => {
+  const titles = {
+    instruction: 'Инструкции',
+    document: 'Документы',
+    image: 'Изображения',
+    other: 'Другое'
+  };
+  return titles[type] || 'Другое';
 };
 
 const openDeleteConfirm = (fileId) => {
@@ -401,9 +162,9 @@ const openDeleteConfirm = (fileId) => {
 
 const handleDelete = () => {
   if (deleteFileId.value && props.equipmentId) {
-    emit('delete', { 
-      equipmentId: props.equipmentId, 
-      fileId: deleteFileId.value 
+    emit('delete', {
+      equipmentId: props.equipmentId,
+      fileId: deleteFileId.value
     });
     deleteFileId.value = null;
   }
@@ -533,12 +294,6 @@ const close = () => {
   margin-bottom: 2px;
 }
 
-.context-group-header .group-icon {
-  width: 14px;
-  height: 14px;
-  color: #6c757d;
-}
-
 .context-group-header .group-title {
   font-size: 11px;
   font-weight: 600;
@@ -565,13 +320,6 @@ const close = () => {
 
 .context-file-item:hover {
   background: #f1f3f5;
-}
-
-.context-file-item .file-icon {
-  width: 16px;
-  height: 16px;
-  color: #6c757d;
-  flex-shrink: 0;
 }
 
 .context-file-item .file-info {
@@ -664,15 +412,15 @@ const close = () => {
     max-height: 60vh;
     left: 5vw !important;
   }
-  
+
   .context-file-item {
     flex-wrap: wrap;
   }
-  
+
   .context-file-item .file-info {
     flex: 1 1 100%;
   }
-  
+
   .context-file-item .file-actions-context {
     margin-left: auto;
   }

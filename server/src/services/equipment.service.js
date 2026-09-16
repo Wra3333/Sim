@@ -3,14 +3,24 @@ const { Op } = require('sequelize');
 const path = require('path');
 const fs = require('fs');
 const ExcelJS = require('exceljs');
+const AuthorizeMixin = require('../mixins/authorize.mixin');
+
+const {
+  PHOTOS_DIR,
+  ADDITIONAL_DIR,
+  ensureDir,
+  safeFolderName,
+  safeFileName,
+  resolveFilePath,
+  unlinkSafe,
+  removeEmptyDir
+} = require('../utils/fileUtils');
 
 const VALID_WORKING_STATUSES = ['Исправен', 'Частично неисправен', 'В ремонте', 'Требует ремонта'];
 const VALID_WRITE_OFF_STATUSES = ['На балансе', 'Списан', 'На списание'];
 
 const normalizePhoto = (value) => {
-  if (value === '' || value === null || value === undefined) {
-    return '';
-  }
+  if (value === '' || value === null || value === undefined) return '';
   return value;
 };
 
@@ -35,20 +45,28 @@ const shouldBeArchived = (workingStatus, writeOffStatus) => {
 };
 
 const shouldBeRestored = (workingStatus, writeOffStatus) => {
-  return (
-    workingStatus === 'Исправен' &&
-    writeOffStatus === 'На балансе'
-  );
+  return workingStatus === 'Исправен' && writeOffStatus === 'На балансе';
 };
 
 module.exports = {
   name: 'equipment',
+  mixins: [AuthorizeMixin],
+
+  // ============================================
+  // ХУКИ: проверка авторизации + роли
+  // ============================================
+  hooks: {
+    before: {
+      '*': ['checkIsAuthenticated', 'checkUserRole']
+    }
+  },
 
   actions: {
     // ============================================
-    // CREATE - создание оборудования
+    // CREATE — админ, методист, техник
     // ============================================
     create: {
+      roles: ['admin', 'methodist', 'technician'],
       params: {
         inventory_number: { type: 'string', min: 1, max: 50 },
         inventory_name: { type: 'string', min: 1, max: 255 },
@@ -64,16 +82,8 @@ module.exports = {
         description: { type: 'string', optional: true, max: 1000 },
         photo: { type: 'string', optional: true, max: 255 },
         purchase_basis: { type: 'string', min: 1, max: 255 },
-        working_status: {
-          type: 'enum',
-          values: VALID_WORKING_STATUSES,
-          default: 'Исправен'
-        },
-        write_off_status: {
-          type: 'enum',
-          values: VALID_WRITE_OFF_STATUSES,
-          default: 'На балансе'
-        },
+        working_status: { type: 'enum', values: VALID_WORKING_STATUSES, default: 'Исправен' },
+        write_off_status: { type: 'enum', values: VALID_WRITE_OFF_STATUSES, default: 'На балансе' },
         price: { type: 'number', optional: true, convert: true },
         country: { type: 'string', optional: true, max: 100 },
         manufacturer: { type: 'string', optional: true, max: 255 },
@@ -108,7 +118,6 @@ module.exports = {
         if (data.price === '' || data.price === null || data.price === undefined || isNaN(Number(data.price))) {
           data.price = null;
         }
-
         if (data.year_of_release === '' || data.year_of_release === null || data.year_of_release === undefined) {
           data.year_of_release = null;
         }
@@ -118,9 +127,10 @@ module.exports = {
     },
 
     // ============================================
-    // LIST - список с расширенной фильтрацией
+    // LIST — все роли
     // ============================================
     list: {
+      roles: ['admin', 'methodist', 'lab_assistant', 'technician'],
       params: {
         working_status: { type: 'enum', values: VALID_WORKING_STATUSES, optional: true },
         write_off_status: { type: 'enum', values: VALID_WRITE_OFF_STATUSES, optional: true },
@@ -136,10 +146,10 @@ module.exports = {
       },
       handler: async ctx => {
         const where = {};
-        
+
         if (ctx.params.working_status) where.working_status = ctx.params.working_status;
         if (ctx.params.write_off_status) where.write_off_status = ctx.params.write_off_status;
-        
+
         if (ctx.params.search) {
           where[Op.or] = [
             { inventory_number: { [Op.like]: `%${ctx.params.search}%` } },
@@ -151,37 +161,25 @@ module.exports = {
             { realism_class: { [Op.like]: `%${ctx.params.search}%` } }
           ];
         }
-        
+
         if (ctx.params.tags && ctx.params.tags.length > 0) {
           where.tags = { [Op.overlap]: ctx.params.tags };
         }
-        
+
         if (ctx.params.min_price !== undefined && ctx.params.min_price !== null) {
           where.price = { [Op.gte]: ctx.params.min_price };
         }
         if (ctx.params.max_price !== undefined && ctx.params.max_price !== null) {
           where.price = { ...where.price, [Op.lte]: ctx.params.max_price };
         }
-        
-        if (ctx.params.country) {
-          where.country = { [Op.iLike]: `%${ctx.params.country}%` };
-        }
-        
-        if (ctx.params.manufacturer) {
-          where.manufacturer = { [Op.iLike]: `%${ctx.params.manufacturer}%` };
-        }
-        
-        if (ctx.params.realism_class) {
-          where.realism_class = { [Op.iLike]: `%${ctx.params.realism_class}%` };
-        }
-        
-        if (ctx.params.year_from) {
-          where.year_of_release = { [Op.gte]: ctx.params.year_from };
-        }
-        if (ctx.params.year_to) {
-          where.year_of_release = { ...where.year_of_release, [Op.lte]: ctx.params.year_to };
-        }
-        
+
+        if (ctx.params.country) where.country = { [Op.iLike]: `%${ctx.params.country}%` };
+        if (ctx.params.manufacturer) where.manufacturer = { [Op.iLike]: `%${ctx.params.manufacturer}%` };
+        if (ctx.params.realism_class) where.realism_class = { [Op.iLike]: `%${ctx.params.realism_class}%` };
+
+        if (ctx.params.year_from) where.year_of_release = { [Op.gte]: ctx.params.year_from };
+        if (ctx.params.year_to) where.year_of_release = { ...where.year_of_release, [Op.lte]: ctx.params.year_to };
+
         return await Equipment.findAll({
           where,
           include: [
@@ -193,9 +191,10 @@ module.exports = {
     },
 
     // ============================================
-    // GET - получение оборудования
+    // GET — все роли
     // ============================================
     get: {
+      roles: ['admin', 'methodist', 'lab_assistant', 'technician'],
       params: {
         id: { type: 'number', integer: true, positive: true, convert: true }
       },
@@ -212,9 +211,10 @@ module.exports = {
     },
 
     // ============================================
-    // UPDATE - обновление оборудования
+    // UPDATE — админ, методист, техник
     // ============================================
     update: {
+      roles: ['admin', 'methodist', 'technician'],
       params: {
         id: { type: 'number', integer: true, positive: true, convert: true },
         inventory_number: { type: 'string', optional: true, min: 1, max: 50 },
@@ -231,16 +231,8 @@ module.exports = {
         description: { type: 'string', optional: true, max: 1000 },
         photo: { type: 'string', optional: true, max: 255 },
         purchase_basis: { type: 'string', optional: true, min: 1, max: 255 },
-        working_status: {
-          type: 'enum',
-          values: VALID_WORKING_STATUSES,
-          optional: true
-        },
-        write_off_status: {
-          type: 'enum',
-          values: VALID_WRITE_OFF_STATUSES,
-          optional: true
-        },
+        working_status: { type: 'enum', values: VALID_WORKING_STATUSES, optional: true },
+        write_off_status: { type: 'enum', values: VALID_WRITE_OFF_STATUSES, optional: true },
         price: { type: 'number', optional: true, convert: true },
         country: { type: 'string', optional: true, max: 100 },
         manufacturer: { type: 'string', optional: true, max: 255 },
@@ -265,21 +257,17 @@ module.exports = {
           }
         }
 
-        if (data.photo !== undefined) {
-          data.photo = normalizePhoto(data.photo);
-        }
+        if (data.photo !== undefined) data.photo = normalizePhoto(data.photo);
 
         if (data.price === '' || data.price === null || data.price === undefined || isNaN(Number(data.price))) {
           data.price = null;
         }
-
         if (data.year_of_release === '' || data.year_of_release === null || data.year_of_release === undefined) {
           data.year_of_release = null;
         }
 
         data.updated_by = ctx.meta.user?.id;
 
-        // Автоматическая архивация
         const finalWorkingStatus = data.working_status || equipment.working_status;
         const finalWriteOffStatus = data.write_off_status || equipment.write_off_status;
 
@@ -299,9 +287,10 @@ module.exports = {
     },
 
     // ============================================
-    // DELETE - отправка в архив
+    // DELETE (в архив) — админ, техник
     // ============================================
     delete: {
+      roles: ['admin', 'technician'],
       params: {
         id: { type: 'number', integer: true, positive: true, convert: true }
       },
@@ -309,31 +298,21 @@ module.exports = {
         const equipment = await Equipment.findByPk(ctx.params.id);
         if (!equipment) throw new Error('Оборудование не найдено');
 
-        const activeRepairsCount = await Repair.count({
-          where: {
-            equipment_id: ctx.params.id,
-            is_resolved: false
-          }
-        });
-
         await equipment.update({
           is_archived: true,
           archived_at: new Date(),
           updated_by: ctx.meta.user?.id
         });
 
-        return { 
-          success: true, 
-          message: 'Оборудование отправлено в архив',
-          is_archived: true
-        };
+        return { success: true, message: 'Оборудование отправлено в архив', is_archived: true };
       }
     },
 
     // ============================================
-    // DELETE PERMANENT - полное удаление
+    // DELETE PERMANENT — только админ
     // ============================================
     deletePermanent: {
+      roles: ['admin'],
       params: {
         id: { type: 'number', integer: true, positive: true, convert: true }
       },
@@ -376,37 +355,41 @@ module.exports = {
         }
 
         if (equipment.photo) {
-          const photoPath = path.join(__dirname, '../../uploads', path.basename(equipment.photo));
-          if (fs.existsSync(photoPath)) {
-            fs.unlinkSync(photoPath);
-          }
+          const photoPath = resolveFilePath(PHOTOS_DIR, equipment.photo);
+          unlinkSafe(photoPath);
         }
 
-        // Удаляем дополнительные файлы
         const additionalFiles = await AdditionalFile.findAll({
           where: { equipment_id: equipment.id }
         });
+
+        const touchedDirs = new Set();
+
         for (const file of additionalFiles) {
-          const filePath = path.join(__dirname, '../../uploads/additional', file.filename);
-          if (fs.existsSync(filePath)) {
-            fs.unlinkSync(filePath);
-          }
+          const filePath = resolveFilePath(ADDITIONAL_DIR, file.filename);
+          unlinkSafe(filePath);
+          if (filePath) touchedDirs.add(path.dirname(filePath));
           await file.destroy();
         }
 
+        for (const dir of touchedDirs) {
+          removeEmptyDir(dir);
+        }
+
+        const equipmentFolder = path.join(ADDITIONAL_DIR, safeFolderName(equipment.inventory_number));
+        removeEmptyDir(equipmentFolder);
+
         await equipment.destroy();
 
-        return { 
-          success: true, 
-          message: 'Оборудование удалено навсегда'
-        };
+        return { success: true, message: 'Оборудование удалено навсегда' };
       }
     },
 
     // ============================================
-    // RESTORE - восстановление из архива
+    // RESTORE — админ, техник
     // ============================================
     restore: {
+      roles: ['admin', 'technician'],
       params: {
         id: { type: 'number', integer: true, positive: true, convert: true }
       },
@@ -414,9 +397,7 @@ module.exports = {
         const equipment = await Equipment.findByPk(ctx.params.id);
         if (!equipment) throw new Error('Оборудование не найдено');
 
-        if (!equipment.is_archived) {
-          throw new Error('Оборудование не находится в архиве');
-        }
+        if (!equipment.is_archived) throw new Error('Оборудование не находится в архиве');
 
         await equipment.update({
           is_archived: false,
@@ -424,69 +405,45 @@ module.exports = {
           updated_by: ctx.meta.user?.id
         });
 
-        return { 
-          success: true, 
-          message: 'Оборудование восстановлено из архива',
-          is_archived: false
-        };
+        return { success: true, message: 'Оборудование восстановлено из архива', is_archived: false };
       }
     },
 
     // ============================================
-    // GET TAGS - получить все теги
+    // GET TAGS — все роли
     // ============================================
-    // actions/equipment.js - getTags метод
+    getTags: {
+      roles: ['admin', 'methodist', 'lab_assistant', 'technician'],
+      handler: async ctx => {
+        try {
+          const equipment = await Equipment.findAll({
+            attributes: ['tags'],
+            where: { tags: { [Op.ne]: null } }
+          });
 
-getTags: {
-  handler: async ctx => {
-    try {
-      // ✅ Используем Sequelize с правильным синтаксисом
-      const { Op } = require('sequelize');
-      
-      const equipment = await Equipment.findAll({
-        attributes: ['tags'],
-        where: {
-          tags: { [Op.ne]: null } // ✅ Проверяем на NULL
-        }
-      });
-      
-      const tagSet = new Set();
-      for (const eq of equipment) {
-        if (eq.tags && Array.isArray(eq.tags) && eq.tags.length > 0) {
-          for (const tag of eq.tags) {
-            if (tag && typeof tag === 'string' && tag.trim()) {
-              tagSet.add(tag.trim());
+          const tagSet = new Set();
+          for (const eq of equipment) {
+            if (eq.tags && Array.isArray(eq.tags)) {
+              for (const tag of eq.tags) {
+                if (tag && typeof tag === 'string' && tag.trim()) {
+                  tagSet.add(tag.trim());
+                }
+              }
             }
           }
+          return Array.from(tagSet).sort();
+        } catch (error) {
+          ctx.logger?.error('Error in getTags:', error.message);
+          return [];
         }
       }
-      
-      return Array.from(tagSet).sort();
-      
-    } catch (error) {
-      ctx.logger?.error('Error in getTags (Sequelize):', error.message);
-      
-      // ✅ Если Sequelize упал - пробуем raw SQL
-      try {
-        const [results] = await sequelize.query(`
-          SELECT DISTINCT unnest(tags) as tag
-          FROM equipment
-          WHERE array_length(tags, 1) > 0
-          ORDER BY tag
-        `);
-        return results.map(r => r.tag).filter(Boolean);
-      } catch (fallbackError) {
-        ctx.logger?.error('Fallback error:', fallbackError.message);
-        return [];
-      }
-    }
-  }
-},
+    },
 
     // ============================================
-    // UPDATE TAGS - обновление тегов
+    // UPDATE TAGS — админ, методист, техник
     // ============================================
     updateTags: {
+      roles: ['admin', 'methodist', 'technician'],
       params: {
         id: { type: 'number', integer: true, positive: true, convert: true },
         tags: { type: 'array', items: 'string' }
@@ -502,109 +459,97 @@ getTags: {
           updated_by: ctx.meta.user?.id
         });
 
+        return { success: true, tags: tags || [], message: 'Теги обновлены' };
+      }
+    },
+
+    // ============================================
+    // UPLOAD ADDITIONAL FILES — админ, методист, техник
+    // ============================================
+    uploadAdditionalFiles: {
+      roles: ['admin', 'methodist', 'technician'],
+      params: {
+        id: { type: 'number', integer: true, positive: true, convert: true },
+        files: { type: 'array', optional: true },
+        file_type: { type: 'string', optional: true },
+        description: { type: 'string', optional: true, max: 500 }
+      },
+      handler: async ctx => {
+        const id = ctx.params.id;
+        const files = ctx.params.files || [];
+        const fileType = ctx.params.file_type || 'other';
+        const description = ctx.params.description || '';
+
+        if (!files.length) throw new Error('Файлы не переданы');
+
+        const equipment = await Equipment.findByPk(id);
+        if (!equipment) throw new Error('Оборудование не найдено');
+
+        const folderName = safeFolderName(equipment.inventory_number);
+        const uploadDir = path.join(ADDITIONAL_DIR, folderName);
+        ensureDir(uploadDir);
+
+        const uploadedFiles = [];
+
+        for (const file of files) {
+          const originalName = file.originalname || file.filename || 'unknown';
+          const timestamp = Date.now();
+          const rand = Math.random().toString(36).substring(2, 7);
+
+          const cleanOriginal = safeFileName(originalName);
+          const filename = `${timestamp}_${rand}_${cleanOriginal}`;
+
+          const filePath = path.join(uploadDir, filename);
+          fs.copyFileSync(file.path, filePath);
+
+          try { fs.unlinkSync(file.path); } catch {}
+
+          const relativePath = `${folderName}/${filename}`;
+
+          const additionalFile = await AdditionalFile.create({
+            equipment_id: id,
+            filename: relativePath,
+            original_name: originalName,
+            file_type: fileType,
+            mime_type: file.mimetype || 'application/octet-stream',
+            size: file.size || 0,
+            description,
+            uploaded_by: ctx.meta.user?.id
+          });
+
+          uploadedFiles.push({
+            id: additionalFile.id,
+            filename: relativePath,
+            original_name: originalName,
+            file_type: fileType,
+            description,
+            size: file.size || 0,
+            mime_type: file.mimetype || 'application/octet-stream'
+          });
+        }
+
+        const currentFiles = equipment.additional_files || [];
+        const updatedFiles = [...currentFiles, ...uploadedFiles];
+
+        await equipment.update({
+          additional_files: updatedFiles,
+          updated_by: ctx.meta.user?.id
+        });
+
         return {
           success: true,
-          tags: tags || [],
-          message: 'Теги обновлены'
+          files: uploadedFiles,
+          count: uploadedFiles.length,
+          message: `Загружено ${uploadedFiles.length} файлов`
         };
       }
     },
-// ============================================
-// UPLOAD ADDITIONAL FILES (несколько файлов)
-// ============================================
-uploadAdditionalFiles: {
-  params: {
-    id: { type: 'number', integer: true, positive: true, convert: true },
-    files: { type: 'array', optional: true },
-    file_type: { type: 'string', optional: true },
-    description: { type: 'string', optional: true, max: 500 }
-  },
-  handler: async ctx => {
-    const id = ctx.params.id;
-    const files = ctx.params.files || [];
-    const fileType = ctx.params.file_type || 'other';
-    const description = ctx.params.description || '';
 
-    console.log('📥 [equipment] Начало загрузки нескольких файлов');
-    console.log('📥 equipmentId:', id);
-    console.log('📥 files:', files.length);
-
-    if (!files || files.length === 0) {
-      throw new Error('Файлы не переданы');
-    }
-
-    const equipment = await Equipment.findByPk(id);
-    if (!equipment) {
-      throw new Error('Оборудование не найдено');
-    }
-
-    const uploadDir = path.join(__dirname, '../../uploads');
-    if (!fs.existsSync(uploadDir)) {
-      fs.mkdirSync(uploadDir, { recursive: true });
-    }
-
-    const uploadedFiles = [];
-
-    for (const file of files) {
-      const originalName = file.originalname || file.filename || 'unknown';
-      const ext = path.extname(originalName);
-      const baseName = path.basename(originalName, ext);
-      const timestamp = Date.now();
-      const filename = `additional-${timestamp}-${Math.random().toString(36).substring(7)}${ext}`;
-      const filePath = path.join(uploadDir, filename);
-
-      // Копируем файл
-      fs.copyFileSync(file.path, filePath);
-      
-      // Удаляем временный файл
-      try {
-        fs.unlinkSync(file.path);
-      } catch (err) {}
-
-      // Создаем запись в БД
-      const additionalFile = await AdditionalFile.create({
-        equipment_id: id,
-        filename: filename,
-        original_name: originalName,
-        file_type: fileType,
-        mime_type: file.mimetype || 'application/octet-stream',
-        size: file.size || 0,
-        description: description,
-        uploaded_by: ctx.meta.user?.id
-      });
-
-      uploadedFiles.push({
-        id: additionalFile.id,
-        filename: filename,
-        original_name: originalName,
-        file_type: fileType,
-        description: description,
-        size: file.size || 0,
-        mime_type: file.mimetype || 'application/octet-stream'
-      });
-    }
-
-    // Обновляем equipment
-    const currentFiles = equipment.additional_files || [];
-    const updatedFiles = [...currentFiles, ...uploadedFiles];
-
-    await equipment.update({
-      additional_files: updatedFiles,
-      updated_by: ctx.meta.user?.id
-    });
-
-    return {
-      success: true,
-      files: uploadedFiles,
-      count: uploadedFiles.length,
-      message: `Загружено ${uploadedFiles.length} файлов`
-    };
-  }
-},
     // ============================================
-    // DELETE ADDITIONAL FILE
+    // DELETE ADDITIONAL FILE — админ, методист, техник
     // ============================================
     deleteAdditionalFile: {
+      roles: ['admin', 'methodist', 'technician'],
       params: {
         id: { type: 'number', integer: true, positive: true, convert: true },
         file_id: { type: 'number', integer: true, positive: true, convert: true }
@@ -618,31 +563,29 @@ uploadAdditionalFiles: {
         const fileRecord = await AdditionalFile.findByPk(file_id);
         if (!fileRecord) throw new Error('Файл не найден');
 
-        const filePath = path.join(__dirname, '../../uploads/additional', fileRecord.filename);
-        if (fs.existsSync(filePath)) {
-          fs.unlinkSync(filePath);
-        }
+        const filePath = resolveFilePath(ADDITIONAL_DIR, fileRecord.filename);
+        unlinkSafe(filePath);
+        if (filePath) removeEmptyDir(path.dirname(filePath));
 
         await fileRecord.destroy();
 
         const currentFiles = equipment.additional_files || [];
-        const updatedFiles = currentFiles.filter(f => f.id !== file_id);
+        const updatedFiles = currentFiles.filter(f => String(f.id) !== String(file_id));
+
         await equipment.update({
           additional_files: updatedFiles,
           updated_by: ctx.meta.user?.id
         });
 
-        return {
-          success: true,
-          message: 'Файл удален'
-        };
+        return { success: true, message: 'Файл удален' };
       }
     },
 
     // ============================================
-    // ARCHIVE PROBLEMATIC
+    // ARCHIVE PROBLEMATIC — админ, техник
     // ============================================
     archiveProblematics: {
+      roles: ['admin', 'technician'],
       handler: async ctx => {
         const problematicEquipment = await Equipment.findAll({
           where: {
@@ -678,9 +621,10 @@ uploadAdditionalFiles: {
     },
 
     // ============================================
-    // UPLOAD PHOTO
+    // UPLOAD PHOTO — админ, методист, техник
     // ============================================
     uploadPhoto: {
+      roles: ['admin', 'methodist', 'technician'],
       params: {
         id: { type: 'number', integer: true, positive: true, convert: true },
         file: { type: 'any', optional: true }
@@ -689,106 +633,87 @@ uploadAdditionalFiles: {
         const id = ctx.params.id;
         const file = ctx.params.file || ctx.meta.file;
 
-        if (!file) {
-          throw new Error('Файл не передан');
-        }
+        if (!file) throw new Error('Файл не передан');
 
         const allowedTypes = ['image/jpeg', 'image/png', 'image/gif', 'image/webp', 'image/svg+xml'];
         if (!allowedTypes.includes(file.mimetype)) {
-          throw new Error(`Неподдерживаемый тип файла: ${file.mimetype}. Разрешены: ${allowedTypes.join(', ')}`);
+          throw new Error(`Неподдерживаемый тип файла: ${file.mimetype}`);
         }
 
         const maxSize = 5 * 1024 * 1024;
         if (file.size > maxSize) {
-          throw new Error(`Файл слишком большой (макс ${maxSize / 1024 / 1024}MB)`);
+          throw new Error(`Файл слишком большой (макс 5MB)`);
         }
 
         const equipment = await Equipment.findByPk(id);
-        if (!equipment) {
-          throw new Error('Оборудование не найдено');
-        }
+        if (!equipment) throw new Error('Оборудование не найдено');
 
         if (equipment.photo) {
-          const oldPath = path.join(__dirname, '../../uploads', path.basename(equipment.photo));
-          if (fs.existsSync(oldPath)) {
-            fs.unlinkSync(oldPath);
-          }
+          const oldPath = resolveFilePath(PHOTOS_DIR, equipment.photo);
+          unlinkSafe(oldPath);
         }
 
-        const photoPath = `${file.filename}`;
-        await equipment.update({ 
-          photo: photoPath,
+        const originalName = file.originalname || file.filename || 'photo';
+        const timestamp = Date.now();
+        const cleanOriginal = safeFileName(originalName);
+        const filename = `${timestamp}_${cleanOriginal}`;
+
+        const filePath = path.join(PHOTOS_DIR, filename);
+        fs.copyFileSync(file.path, filePath);
+        try { fs.unlinkSync(file.path); } catch {}
+
+        await equipment.update({
+          photo: filename,
           updated_by: ctx.meta.user?.id
         });
 
-        return {
-          success: true,
-          photo: photoPath,
-          message: 'Фото загружено'
-        };
+        return { success: true, photo: filename, message: 'Фото загружено' };
       }
     },
 
     // ============================================
-    // DELETE PHOTO
+    // DELETE PHOTO — админ, методист, техник
     // ============================================
     deletePhoto: {
+      roles: ['admin', 'methodist', 'technician'],
       params: {
         id: { type: 'number', integer: true, positive: true, convert: true }
       },
       handler: async ctx => {
-        const id = ctx.params.id;
-        const equipment = await Equipment.findByPk(id);
-        if (!equipment) {
-          throw new Error('Оборудование не найдено');
-        }
+        const equipment = await Equipment.findByPk(ctx.params.id);
+        if (!equipment) throw new Error('Оборудование не найдено');
+        if (!equipment.photo) throw new Error('У оборудования нет фото');
 
-        if (!equipment.photo) {
-          throw new Error('У оборудования нет фото');
-        }
+        const photoPath = resolveFilePath(PHOTOS_DIR, equipment.photo);
+        unlinkSafe(photoPath);
 
-        const photoPath = path.join(__dirname, '../../uploads', path.basename(equipment.photo));
-        if (fs.existsSync(photoPath)) {
-          fs.unlinkSync(photoPath);
-        }
-
-        await equipment.update({ 
+        await equipment.update({
           photo: '',
           updated_by: ctx.meta.user?.id
         });
 
-        return {
-          success: true,
-          message: 'Фото удалено'
-        };
+        return { success: true, message: 'Фото удалено' };
       }
     },
 
     // ============================================
-    // IMPORT EXCEL
+    // IMPORT EXCEL — админ, методист, техник
     // ============================================
     importExcel: {
-      params: {
-        file: { type: 'any', optional: true }
-      },
+      roles: ['admin', 'methodist', 'technician'],
+      params: { file: { type: 'any', optional: true } },
       handler: async ctx => {
         const file = ctx.params.file || ctx.meta.file;
-        if (!file) {
-          throw new Error('Файл не передан');
-        }
+        if (!file) throw new Error('Файл не передан');
 
         const xlsx = require('xlsx');
         const workbook = xlsx.readFile(file.path);
-        const sheetName = workbook.SheetNames[0];
-        const sheet = workbook.Sheets[sheetName];
-        
+        const sheet = workbook.Sheets[workbook.SheetNames[0]];
         const rawRows = xlsx.utils.sheet_to_json(sheet, { header: 1, defval: '' });
 
-        const getValue = (rowData, possibleKeys) => {
-          for (const key of possibleKeys) {
-            if (rowData[key] !== undefined && rowData[key] !== '') {
-              return rowData[key];
-            }
+        const getValue = (rowData, keys) => {
+          for (const key of keys) {
+            if (rowData[key] !== undefined && rowData[key] !== '') return rowData[key];
           }
           return '';
         };
@@ -811,39 +736,29 @@ uploadAdditionalFiles: {
 
         for (let i = 0; i < rawRows.length; i++) {
           const row = rawRows[i];
-          const nonEmptyCount = row.filter(cell => cell !== '' && cell !== null && cell !== undefined).length;
-
-          if (row.includes('Инвентарный номер') || nonEmptyCount >= 2) {
+          const nonEmpty = row.filter(c => c !== '' && c !== null && c !== undefined).length;
+          if (row.includes('Инвентарный номер') || nonEmpty >= 2) {
             headerRowIndex = i;
             headers = row;
             break;
           }
         }
 
-        if (headerRowIndex === -1) {
-          throw new Error('Не удалось найти строку с заголовками');
-        }
+        if (headerRowIndex === -1) throw new Error('Не удалось найти строку с заголовками');
 
-        const emptyLeftCount = headers.findIndex(cell => cell !== '');
-        if (emptyLeftCount > 0) {
-          headers = headers.slice(emptyLeftCount);
-        }
+        const emptyLeftCount = headers.findIndex(c => c !== '');
+        if (emptyLeftCount > 0) headers = headers.slice(emptyLeftCount);
 
         const dataOffset = rawRows[headerRowIndex].length - headers.length;
-
         const createdItems = [];
         const errors = [];
 
         for (let i = headerRowIndex + 1; i < rawRows.length; i++) {
           const row = rawRows[i];
-          if (!row || row.every(cell => cell === '' || cell === null || cell === undefined)) {
-            continue;
-          }
+          if (!row || row.every(c => c === '' || c === null || c === undefined)) continue;
 
           const rowData = {};
-          headers.forEach((header, index) => {
-            rowData[header] = row[index + dataOffset] || '';
-          });
+          headers.forEach((h, idx) => { rowData[h] = row[idx + dataOffset] || ''; });
 
           try {
             const rawInv = getValue(rowData, ['Инвентарный номер', 'inventory_number']);
@@ -857,11 +772,11 @@ uploadAdditionalFiles: {
             const shouldArchive = shouldBeArchived(workingStatus, writeOffStatus);
 
             const data = {
-              inventory_number: inventory_number,
+              inventory_number,
               inventory_name: getValue(rowData, ['Инвентарное наименование', 'inventory_name']),
               name: getValue(rowData, ['Название', 'Наименование оборудования', 'name']),
               year_of_release: getValue(rowData, ['Год закупки', 'ГОД ввода в эксплуатацию', 'year_of_release']),
-              description: description,
+              description,
               purchase_basis: getValue(rowData, ['Основание закупки', 'purchase_basis']),
               working_status: workingStatus,
               write_off_status: writeOffStatus,
@@ -878,9 +793,7 @@ uploadAdditionalFiles: {
               tags: []
             };
 
-            if (!data.inventory_number) {
-              throw new Error('Нет инвентарного номера');
-            }
+            if (!data.inventory_number) throw new Error('Нет инвентарного номера');
 
             const existing = await Equipment.findOne({
               where: { inventory_number: data.inventory_number }
@@ -903,25 +816,22 @@ uploadAdditionalFiles: {
           }
         }
 
-        return {
-          success: true,
-          createdCount: createdItems.length,
-          createdItems,
-          errors
-        };
+        return { success: true, createdCount: createdItems.length, createdItems, errors };
       }
     },
 
     // ============================================
-    // EXPORT EXCEL
+    // EXPORT EXCEL — админ, методист, техник
     // ============================================
     exportExcel: {
+      roles: ['admin', 'methodist', 'technician'],
       params: {
-        fields: { type: 'array', items: 'string', optional: true }
+        fields: { type: 'array', items: 'string', optional: true },
+        equipmentIds: { type: 'array', items: 'number', optional: true }
       },
       handler: async ctx => {
-        const selectedFields = ctx.params.fields && ctx.params.fields.length > 0 
-          ? ctx.params.fields 
+        const selectedFields = ctx.params.fields && ctx.params.fields.length > 0
+          ? ctx.params.fields
           : [
               'inventory_number', 'inventory_name', 'name', 'year_of_release',
               'description', 'purchase_basis', 'working_status', 'write_off_status',
@@ -945,8 +855,13 @@ uploadAdditionalFiles: {
           'realism_class': 'КЛАСС реалистичности'
         };
 
-        const equipment = await Equipment.findAll();
-        
+        const where = {};
+        if (Array.isArray(ctx.params.equipmentIds)) {
+          where.id = { [Op.in]: ctx.params.equipmentIds };
+        }
+
+        const equipment = await Equipment.findAll({ where });
+
         const workbook = new ExcelJS.Workbook();
         const worksheet = workbook.addWorksheet('Оборудование');
 
@@ -1018,17 +933,17 @@ uploadAdditionalFiles: {
 
         equipment.forEach((item, index) => {
           const row = worksheet.getRow(headerRowIndex + 1 + index);
-          
+
           selectedFields.forEach((field, colIndex) => {
             const cell = row.getCell(colIndex + 3);
-            
+
             if (field === 'inventory_number') {
               cell.value = String(item[field] || '');
               cell.numFmt = '@';
             } else {
               cell.value = item[field] || '';
             }
-            
+
             if (['name', 'description', 'inventory_name', 'original_name', 'manufacturer', 'purchase_basis', 'photo'].includes(field)) {
               cell.style = leftDataStyle;
             } else {

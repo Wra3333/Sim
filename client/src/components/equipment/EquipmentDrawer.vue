@@ -156,11 +156,11 @@
 </template>
 
 <script setup>
-import { UPLOADS_URL } from '@/config';
 import { ref, watch, computed, onBeforeUnmount } from 'vue';
 import { storeToRefs } from 'pinia';
 import { useEquipmentStore } from '../../stores';
 import { equipmentApi } from '../../api';
+import { getPhotoUrl } from '../../config';
 import { useToastStore } from '../../stores/toastStore';
 import TagManager from './TagManager.vue';
 import FilesManager from './FilesManager.vue';
@@ -181,16 +181,9 @@ const store = useEquipmentStore();
 const toast = useToastStore();
 const { items } = storeToRefs(store);
 
-const API_URL = `${UPLOADS_URL}/`;
-
 const formRef = ref(null);
 const submitting = ref(false);
 
-// ============================================
-//  ЛОКАЛЬНАЯ КОПИЯ ОБОРУДОВАНИЯ
-// ============================================
-// Обновляется ТОЛЬКО при открытии drawer'а (open: false → true).
-// При закрытии остаётся прежней — заголовок и форма не «моргают».
 const currentEquipment = ref(null);
 
 const form = ref({
@@ -220,7 +213,7 @@ const isFileUpload = ref(false);
 const equipmentId = computed(() => currentEquipment.value?.id || null);
 
 const currentPhotoUrl = computed(() =>
-  form.value.photo ? `${API_URL}${form.value.photo}` : null
+  form.value.photo ? getPhotoUrl(form.value.photo) : null
 );
 
 const allExistingTags = computed(() => {
@@ -237,9 +230,6 @@ const allExistingTags = computed(() => {
   return Array.from(tags).sort();
 });
 
-// ============================================
-//  СКРОЛЛ
-// ============================================
 const toggleBodyScroll = (disable) => {
   if (disable) {
     document.documentElement.style.overflow = 'hidden';
@@ -248,9 +238,6 @@ const toggleBodyScroll = (disable) => {
   }
 };
 
-// ============================================
-//  СБРОС ФОРМЫ
-// ============================================
 const resetForm = () => {
   form.value = {
     inventory_number: '',
@@ -276,9 +263,6 @@ const resetForm = () => {
   isAccordionOpen.value = false;
 };
 
-// ============================================
-//  ЗАПОЛНЕНИЕ ИЗ EQUIPMENT
-// ============================================
 const fillForm = (val) => {
   form.value = {
     ...val,
@@ -290,9 +274,6 @@ const fillForm = (val) => {
   isFileUpload.value = false;
 };
 
-// ============================================
-//  ФАЙЛЫ
-// ============================================
 const updateFiles = (files) => {
   form.value.additional_files = files;
 };
@@ -386,9 +367,6 @@ const submit = async () => {
   }
 };
 
-// ============================================
-//  ENTER
-// ============================================
 let enterPressCount = 0;
 let enterTimer = null;
 let isClosing = false;
@@ -433,12 +411,6 @@ const handleKeydown = (e) => {
   }, 300);
 };
 
-// ============================================
-//  WATCH: open
-// ============================================
-// При открытии фиксируем текущее оборудование и заполняем форму один раз.
-// При закрытии ничего не трогаем — drawer ещё анимируется, и данные
-// должны оставаться на месте, чтобы ничего не мелькало.
 watch(() => props.open, (val) => {
   toggleBodyScroll(val);
 
@@ -461,9 +433,6 @@ watch(() => props.open, (val) => {
   }
 }, { immediate: false });
 
-// ============================================
-//  LIFECYCLE
-// ============================================
 onBeforeUnmount(() => {
   document.removeEventListener('keydown', handleKeydown);
   toggleBodyScroll(false);
@@ -477,9 +446,6 @@ document.addEventListener('keydown', handleKeydown);
 </script>
 
 <style scoped>
-/* ============================================
-   ОВЕРЛЕЙ (ЗАТЕМНЕНИЕ)
-   ============================================ */
 .drawer-overlay {
   position: fixed;
   top: 0;
@@ -498,9 +464,6 @@ document.addEventListener('keydown', handleKeydown);
   pointer-events: auto;
 }
 
-/* ============================================
-   ВЫДВИЖНАЯ ПАНЕЛЬ
-   ============================================ */
 .drawer {
   position: fixed;
   top: 0;
@@ -521,9 +484,6 @@ document.addEventListener('keydown', handleKeydown);
   transform: translateX(0);
 }
 
-/* ============================================
-   ШАПКА
-   ============================================ */
 .drawer-header {
   display: flex;
   justify-content: space-between;
@@ -565,9 +525,6 @@ document.addEventListener('keydown', handleKeydown);
   color: #212529;
 }
 
-/* ============================================
-   ТЕЛО (СКРОЛЛ)
-   ============================================ */
 .drawer-body {
   flex: 1;
   overflow-y: auto;
@@ -591,9 +548,6 @@ document.addEventListener('keydown', handleKeydown);
   background: #a8a8a8;
 }
 
-/* ============================================
-   ФОРМА
-   ============================================ */
 .form-group {
   margin-bottom: 16px;
 }
@@ -636,9 +590,6 @@ textarea.form-control {
   font-family: inherit;
 }
 
-/* ============================================
-   ФОТО
-   ============================================ */
 .current-photo {
   position: relative;
   margin-top: 8px;
@@ -688,9 +639,6 @@ textarea.form-control {
   background: #c82333;
 }
 
-/* ============================================
-   АККОРДЕОН
-   ============================================ */
 .accordion {
   margin-top: 20px;
 }
@@ -722,9 +670,6 @@ textarea.form-control {
   border-radius: 6px;
 }
 
-/* ============================================
-   ALERT
-   ============================================ */
 .alert-info {
   padding: 10px 14px;
   background: #cfe2ff;
@@ -736,9 +681,6 @@ textarea.form-control {
   gap: 8px;
 }
 
-/* ============================================
-   КНОПКИ
-   ============================================ */
 .form-actions {
   display: flex;
   justify-content: flex-end;
@@ -804,22 +746,19 @@ textarea.form-control {
   background: #e9ecef;
 }
 
-/* ============================================
-   АДАПТИВНОСТЬ
-   ============================================ */
 @media (max-width: 768px) {
   .drawer {
     width: 90%;
   }
-  
+
   .drawer-header {
     padding: 16px 20px;
   }
-  
+
   .drawer-body {
     padding: 16px 20px;
   }
-  
+
   .form-row {
     grid-template-columns: 1fr;
   }
@@ -829,15 +768,15 @@ textarea.form-control {
   .drawer {
     width: 100%;
   }
-  
+
   .drawer-header h3 {
     font-size: 17px;
   }
-  
+
   .form-actions {
     flex-direction: column;
   }
-  
+
   .form-actions .btn {
     width: 100%;
     justify-content: center;

@@ -54,7 +54,12 @@
           </span>
         </div>
         <div class="problem-item-actions">
-          <button class="btn-fix" @click="onEditClick?.(template)">
+          <!-- Редактировать — admin, methodist, lab_assistant -->
+          <button
+            v-if="authStore.hasRole('admin', 'methodist', 'lab_assistant')"
+            class="btn-fix"
+            @click="onEditClick?.(template)"
+          >
             <IconEdit class="btn-icon" />
             Редактировать
           </button>
@@ -66,6 +71,7 @@
 
 <script setup>
 import { ref, computed } from 'vue';
+import { useAuthStore } from '../stores/auth.store';
 import {
   IconAlert,
   IconEye,
@@ -92,6 +98,8 @@ const props = defineProps({
     default: null
   }
 });
+
+const authStore = useAuthStore();
 
 const showProblemTemplates = ref(true);
 

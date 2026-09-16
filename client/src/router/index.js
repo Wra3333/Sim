@@ -8,76 +8,60 @@ import TemplatesView from '../views/TemplatesView.vue';
 import LessonsView from '../views/LessonsView.vue';
 import AnalyticsView from '../views/AnalyticsView.vue';
 import LoginView from '../views/auth/LoginView.vue';
-import RegisterView from '../views/auth/RegisterView.vue';
 import LogsView from '../views/LogsView.vue';
+import UsersView from '../views/auth/UsersView.vue';       
+import ForbiddenView from '../views/ForbiddenView.vue';
 
 const routes = [
+  { path: '/login', name: 'Login', component: LoginView, meta: { guest: true, title: 'Вход' } },
   {
-    path: '/login',
-    name: 'Login',
-    component: LoginView,
-    meta: { guest: true, title: 'Вход' }
-  },
-  {
-    path: '/register',
-    name: 'Register',
-    component: RegisterView,
-    //  ТЕПЕРЬ ТРЕБУЕТ АВТОРИЗАЦИЮ
-    meta: { requiresAuth: true, title: 'Регистрация' }
+    path: '/403',
+    name: 'Forbidden',
+    component: ForbiddenView,
+    meta: { requiresAuth: true, title: 'Доступ запрещён' }
   },
   {
     path: '/',
     component: AppLayout,
     meta: { requiresAuth: true },
     children: [
-      { 
-        path: '', 
-        name: 'Dashboard', 
-        component: DashboardView, 
-        meta: { title: 'Дашборд' } 
+      {
+  path: '',
+  name: 'Dashboard',
+  component: DashboardView,
+  meta: { title: 'Дашборд', roles: ['admin', 'methodist', 'lab_assistant', 'technician'] }
+},
+      {
+        path: 'equipment', name: 'Equipment', component: EquipmentView,
+        meta: { title: 'Оборудование', roles: ['admin', 'methodist', 'lab_assistant', 'technician'] }
       },
-      { 
-        path: 'equipment', 
-        name: 'Equipment', 
-        component: EquipmentView, 
-        meta: { title: 'Оборудование' } 
+      {
+        path: 'repairs', name: 'Repairs', component: RepairsView,
+        meta: { title: 'Неисправности', roles: ['admin', 'methodist', 'lab_assistant', 'technician'] }
       },
-      { 
-        path: 'repairs', 
-        name: 'Repairs', 
-        component: RepairsView, 
-        meta: { title: 'Неисправности' } 
+      {
+        path: 'templates', name: 'Templates', component: TemplatesView,
+        meta: { title: 'Шаблоны', roles: ['admin', 'methodist', 'lab_assistant', 'technician'] }
       },
-      { 
-        path: 'templates', 
-        name: 'Templates', 
-        component: TemplatesView, 
-        meta: { title: 'Шаблоны' } 
+      {
+        path: 'lessons', name: 'Lessons', component: LessonsView,
+        meta: { title: 'Занятия', roles: ['admin', 'methodist', 'lab_assistant', 'technician'] }
       },
-      { 
-        path: 'lessons', 
-        name: 'Lessons', 
-        component: LessonsView, 
-        meta: { title: 'Занятия' } 
+      {
+        path: 'analytics', name: 'Analytics', component: AnalyticsView,
+        meta: { title: 'Аналитика', roles: ['admin', 'methodist', 'lab_assistant', 'technician'] }
       },
-      { 
-        path: 'analytics', 
-        name: 'Analytics', 
-        component: AnalyticsView, 
-        meta: { title: 'Аналитика' } 
+      {
+        path: 'logs', name: 'Logs', component: LogsView,
+        meta: { title: 'Журнал', roles: ['admin'] }
       },
-      { 
-        path: 'logs', 
-        name: 'Logs', 
-        component: LogsView, 
-        meta: { title: 'Журнал' } 
+      {
+        path: 'users', name: 'Users', component: UsersView,
+        meta: { title: 'Пользователи', roles: ['admin'] }
       }
     ]
   },
-  {
-    path: '/:pathMatch(.*)*',
-    redirect: '/'
-  }
+  { path: '/:pathMatch(.*)*', redirect: '/' }
 ];
 
 const router = createRouter({
@@ -85,7 +69,6 @@ const router = createRouter({
   routes
 });
 
-// Навигационный гард (без next())
 router.beforeEach(async (to, from) => {
   const authStore = useAuthStore();
 
@@ -93,21 +76,14 @@ router.beforeEach(async (to, from) => {
     await authStore.init();
   }
 
-  console.log('🔍 Роутер:', {
-    to: to.path,
-    requiresAuth: to.meta.requiresAuth,
-    isAuthenticated: authStore.isAuthenticated,
-    guest: to.meta.guest
-  });
+  if (to.meta.requiresAuth && !authStore.isAuthenticated) return '/login';
+  if (to.meta.guest && authStore.isAuthenticated) return '/';
 
-  if (to.meta.requiresAuth && !authStore.isAuthenticated) {
-    console.log('➡️ Редирект на /login (требуется авторизация)');
-    return '/login';
-  }
-
-  if (to.meta.guest && authStore.isAuthenticated) {
-    console.log('➡️ Редирект на / (пользователь уже авторизован)');
-    return '/';
+  // ✅ ПРОВЕРКА РОЛЕЙ
+  if (to.meta.roles && authStore.isAuthenticated) {
+    if (!authStore.hasRole(...to.meta.roles)) {
+      return '/403';
+    }
   }
 
   return true;

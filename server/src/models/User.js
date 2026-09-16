@@ -30,11 +30,11 @@ const User = sequelize.define('User', {
     type: DataTypes.DATE,
     allowNull: true
   },
-  refresh_token: {
-    type: DataTypes.TEXT,
-    allowNull: true
-  }
-}, {
+  role: {
+  type: DataTypes.ENUM('admin', 'methodist', 'lab_assistant', 'technician'),
+  allowNull: false,
+  defaultValue: 'lab_assistant'
+}}, {
   tableName: 'users',
   timestamps: true,
   createdAt: 'created_at',

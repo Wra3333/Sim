@@ -15,7 +15,12 @@
       />
 
       <div class="toolbar">
-        <button class="btn btn-primary" @click="openCreateForm">
+        <!-- Создать занятие — admin, methodist, lab_assistant -->
+        <button
+          v-if="authStore.hasRole('admin', 'methodist', 'lab_assistant')"
+          class="btn btn-primary"
+          @click="openCreateForm"
+        >
           <IconPlus class="btn-icon" />
           Создать занятие
         </button>
@@ -211,6 +216,7 @@ import { storeToRefs } from 'pinia';
 import { useLessonsStore, useTemplatesStore, useEquipmentStore } from '../stores';
 import { useUiStore } from '../stores/ui.store';
 import { useToastStore } from '../stores/toastStore';
+import { useAuthStore } from '../stores/auth.store';
 import { useUrlSync } from '../composables/useUrlSync';
 import { useConfirm } from '../composables/useConfirm';
 import LessonCard from '../components/lessons/LessonCard.vue';
@@ -236,6 +242,7 @@ const lessonsStore = useLessonsStore();
 const templatesStore = useTemplatesStore();
 const equipmentStore = useEquipmentStore();
 const toast = useToastStore();
+const authStore = useAuthStore();
 
 const { show, config, confirm, onConfirm, onCancel } = useConfirm();
 
@@ -629,9 +636,6 @@ onBeforeUnmount(() => {
   gap: 12px;
 }
 
-/* ============================================
-   ЗАГОЛОВКИ
-   ============================================ */
 h2 {
   font-size: 24px;
   font-weight: 600;
@@ -653,9 +657,6 @@ p {
   margin-bottom: 16px;
 }
 
-/* ============================================
-   ТУЛБАР
-   ============================================ */
 .toolbar {
   display: flex;
   justify-content: space-between;
@@ -677,9 +678,6 @@ p {
   font-family: inherit;
 }
 
-/* ============================================
-   КНОПКИ
-   ============================================ */
 .btn {
   padding: 6px 16px;
   border: 1px solid transparent;
@@ -720,9 +718,6 @@ p {
   color: white;
 }
 
-/* ============================================
-   ФИЛЬТРЫ
-   ============================================ */
 .filters {
   display: flex;
   flex-direction: column;
@@ -804,9 +799,6 @@ p {
   flex: 0 0 auto;
 }
 
-/* ============================================
-   ТАБЛИЦА
-   ============================================ */
 .table-container {
   background: white;
   border-radius: 12px;
@@ -835,9 +827,6 @@ p {
   white-space: nowrap;
 }
 
-/* ============================================
-   СОРТИРУЕМЫЕ ЗАГОЛОВКИ
-   ============================================ */
 .lessons-table th.sortable {
   cursor: pointer;
   user-select: none;
@@ -860,9 +849,6 @@ p {
   font-weight: 700;
 }
 
-/* ============================================
-   ПУСТЫЕ СОСТОЯНИЯ
-   ============================================ */
 .empty-state {
   text-align: center;
   padding: 40px;
@@ -879,9 +865,6 @@ p {
   stroke: #6c757d;
 }
 
-/* ============================================
-   АДАПТИВНОСТЬ
-   ============================================ */
 @media (max-width: 1200px) {
   .lessons-sidebar {
     width: 250px;

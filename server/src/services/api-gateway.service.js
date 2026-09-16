@@ -28,7 +28,7 @@ module.exports = {
 
     routes: [
       // ============================================
-      // ПУБЛИЧНЫЙ API
+      // ПУБЛИЧНЫЙ API (без авторизации)
       // ============================================
       {
         path: '/api/auth',
@@ -54,7 +54,7 @@ module.exports = {
       },
 
       // ============================================
-      // ОСНОВНОЙ API
+      // ОСНОВНОЙ API (требует авторизации)
       // ============================================
       {
         path: '/api',
@@ -67,17 +67,37 @@ module.exports = {
           'lessons.*',
           'worktime.*',
           'logs.*',
-          'auth.register'
+
+          // ✅ AUTH: управление пользователями (только админ — проверяется в экшенах)
+          'auth.register',
+          'auth.list',
+          'auth.get',
+          'auth.update',
+          'auth.delete',
+          'auth.changePassword',
+          'auth.resetPassword',
+          'auth.toggleActive'
         ],
         bodyParsers: {
           json: true,
           urlencoded: { extended: true }
         },
         aliases: {
-          // AUTH
+          // ============================================
+          // AUTH / USERS
+          // ============================================
           'POST /auth/register': 'auth.register',
-          
+          'GET /auth/users': 'auth.list',
+          'GET /auth/users/:id': 'auth.get',
+          'PUT /auth/users/:id': 'auth.update',
+          'DELETE /auth/users/:id': 'auth.delete',
+          'PUT /auth/users/:id/password': 'auth.changePassword',
+          'PUT /auth/users/:id/reset-password': 'auth.resetPassword',
+          'PUT /auth/users/:id/toggle-active': 'auth.toggleActive',
+
+          // ============================================
           // EQUIPMENT
+          // ============================================
           'GET /equipment': 'equipment.list',
           'GET /equipment/:id': 'equipment.get',
           'POST /equipment': 'equipment.create',
@@ -91,12 +111,14 @@ module.exports = {
           'DELETE /equipment/:id/photo': 'equipment.deletePhoto',
           'POST /equipment/import-excel': 'equipment.importExcel',
           'POST /equipment/export-excel': 'equipment.exportExcel',
-          
+
           // ✅ ДОПОЛНИТЕЛЬНЫЕ ФАЙЛЫ
           'POST /equipment/:id/additional-file': 'equipment.uploadAdditionalFiles',
           'DELETE /equipment/:id/additional-file/:file_id': 'equipment.deleteAdditionalFile',
 
+          // ============================================
           // REPAIRS
+          // ============================================
           'GET /repairs': 'repairs.list',
           'GET /repairs/equipment/:equipmentId': 'repairs.getByEquipment',
           'POST /repairs': 'repairs.create',
@@ -104,8 +126,10 @@ module.exports = {
           'PUT /repairs/:id': 'repairs.update',
           'PATCH /repairs/:id/resolved-by': 'repairs.updateResolvedBy',
           'DELETE /repairs/:id': 'repairs.delete',
-          
+
+          // ============================================
           // TEMPLATES
+          // ============================================
           'GET /templates': 'templates.list',
           'GET /templates/:id': 'templates.get',
           'POST /templates': 'templates.create',
@@ -113,7 +137,9 @@ module.exports = {
           'DELETE /templates/:id': 'templates.delete',
           'POST /templates/:id/sync-lessons': 'templates.syncLessons',
 
+          // ============================================
           // LESSONS
+          // ============================================
           'GET /lessons': 'lessons.list',
           'GET /lessons/:id': 'lessons.get',
           'POST /lessons': 'lessons.create',
@@ -122,21 +148,25 @@ module.exports = {
           'DELETE /lessons/:id': 'lessons.delete',
           'GET /lessons/stats/participants': 'lessons.getParticipantStats',
 
+          // ============================================
           // WORKTIME
+          // ============================================
           'GET /worktime': 'worktime.list',
           'GET /worktime/equipment/:equipmentId': 'worktime.getByEquipment',
           'GET /worktime/report': 'worktime.report',
           'GET /worktime/summary/:equipmentId': 'worktime.summary',
           'POST /worktime': 'worktime.create',
 
+          // ============================================
           // LOGS
+          // ============================================
           'GET /logs': 'logs.list',
           'GET /logs/user/:userId': 'logs.getByUser',
           'GET /logs/entity/:entity/:entityId': 'logs.getByEntity',
           'GET /logs/stats': 'logs.getStats',
           'DELETE /logs/cleanup': 'logs.cleanup'
         },
-        
+
         // ✅ ИСПОЛЬЗУЕМ ВЫНЕСЕННЫЕ МИДЛВЭРЫ
         use: [
           // 🔍 ГЛОБАЛЬНОЕ ЛОГИРОВАНИЕ ВСЕХ ЗАПРОСОВ
@@ -176,12 +206,12 @@ module.exports = {
             if (fileName.startsWith('/')) {
               fileName = fileName.slice(1);
             }
-            
+
             const filePath = path.join(uploadDir, fileName);
-            
+
             console.log('📁 [uploads] Запрос файла:', fileName);
             console.log('📁 [uploads] Полный путь:', filePath);
-            
+
             if (fs.existsSync(filePath)) {
               const ext = path.extname(filePath).toLowerCase();
               const mimeTypes = {
@@ -201,7 +231,7 @@ module.exports = {
                 '.rar': 'application/x-rar-compressed'
               };
               console.log('✅ [uploads] Файл найден, отправляем');
-              res.writeHead(200, { 
+              res.writeHead(200, {
                 'Content-Type': mimeTypes[ext] || 'application/octet-stream',
                 'Access-Control-Allow-Origin': '*',
                 'Cache-Control': 'public, max-age=31536000'
@@ -209,7 +239,7 @@ module.exports = {
               fs.createReadStream(filePath).pipe(res);
             } else {
               console.error('❌ [uploads] Файл НЕ НАЙДЕН:', filePath);
-              res.writeHead(404, { 
+              res.writeHead(404, {
                 'Content-Type': 'application/json',
                 'Access-Control-Allow-Origin': '*'
               });
@@ -224,7 +254,7 @@ module.exports = {
   methods: {
     async authenticate(ctx, route, req, res) {
       const auth = req.headers["authorization"];
-      
+
       if (!auth || !auth.startsWith("Bearer ")) {
         console.log('❌ [authenticate] Нет токена');
         throw new UnAuthorizedError("NO_TOKEN", "Требуется авторизация");
@@ -235,12 +265,14 @@ module.exports = {
 
       try {
         const decoded = jwt.verify(token, JWT_SECRET);
-        console.log('✅ [authenticate] Токен валиден, пользователь:', decoded.email);
+        console.log('✅ [authenticate] Токен валиден, пользователь:', decoded.email, '| роль:', decoded.role);
 
+        // ✅ ОБЯЗАТЕЛЬНО: добавляем role в meta.user
         ctx.meta.user = {
           id: decoded.id,
           email: decoded.email,
-          name: decoded.name
+          name: decoded.name,
+          role: decoded.role
         };
 
         return ctx.meta.user;
@@ -258,7 +290,7 @@ module.exports = {
     console.error('❌ [onError] Ошибка:', err.message);
     res.setHeader('Content-Type', 'application/json');
     res.setHeader('Access-Control-Allow-Origin', '*');
-    
+
     res.writeHead(err.code || 500);
     res.end(JSON.stringify({
       success: false,

@@ -1,24 +1,40 @@
 const { Repair, Equipment, Lesson } = require('../models');
 const { Op } = require('sequelize');
+const AuthorizeMixin = require('../mixins/authorize.mixin');
 
 const VALID_REPAIR_POSSIBILITIES = ['Самостоятельно', 'Требуется сервисный инженер', 'Не подлежит ремонту'];
 const VALID_RESOLUTION_STATUSES = ['resolved', 'needs_repair', 'impossible'];
 
 module.exports = {
   name: 'repairs',
+  mixins: [AuthorizeMixin],
+
+  // ============================================
+  // ХУКИ: проверка авторизации + роли
+  // ============================================
+  hooks: {
+    before: {
+      '*': ['checkIsAuthenticated', 'checkUserRole']
+    }
+  },
 
   actions: {
+    // ============================================
+    // CREATE — админ, методист, техник
+    // ============================================
     create: {
+      roles: ['admin', 'methodist', 'technician'],
       params: {
         equipment_ids: { type: 'array', items: 'number', min: 1 },
         detection_date: {
           type: 'string',
+          required: true,
           pattern: /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}/,
           min: 10,
           max: 20
         },
-        nature_of_malfunction: { type: 'string', min: 1, max: 500 },
-        detected_by: { type: 'string', min: 1, max: 100 },
+        nature_of_malfunction: { type: 'string', required: true, min: 1, max: 500 },
+        detected_by: { type: 'string', required: true, min: 1, max: 100 },
         repair_possibility: {
           type: 'enum',
           values: VALID_REPAIR_POSSIBILITIES,
@@ -28,28 +44,31 @@ module.exports = {
       handler: async ctx => {
         const { equipment_ids, ...data } = ctx.params;
 
+        // ✅ Уникальные ID — без дублей
+        const uniqueIds = [...new Set(equipment_ids)];
+
         const equipmentList = await Equipment.findAll({
-          where: { id: equipment_ids }
+          where: { id: uniqueIds }
         });
 
-        if (equipmentList.length !== equipment_ids.length) {
+        if (equipmentList.length !== uniqueIds.length) {
           const foundIds = equipmentList.map(e => e.id);
-          const notFound = equipment_ids.filter(id => !foundIds.includes(id));
+          const notFound = uniqueIds.filter(id => !foundIds.includes(id));
           throw new Error(`Оборудование не найдено: ${notFound.join(', ')}`);
         }
 
         const invalidEquipment = equipmentList.filter(eq =>
-          eq.write_off_status === 'Списан' || 
+          eq.write_off_status === 'Списан' ||
           eq.write_off_status === 'На списание'
         );
-        
+
         if (invalidEquipment.length > 0) {
           const names = invalidEquipment.map(e => e.name).join(', ');
           throw new Error(`Оборудование списано и не может быть отремонтировано: ${names}`);
         }
 
         const repairs = [];
-        for (const equipmentId of equipment_ids) {
+        for (const equipmentId of uniqueIds) {
           const repair = await Repair.create({
             ...data,
             equipment_id: equipmentId,
@@ -71,7 +90,11 @@ module.exports = {
       }
     },
 
+    // ============================================
+    // LIST — все роли
+    // ============================================
     list: {
+      roles: ['admin', 'methodist', 'lab_assistant', 'technician'],
       params: {
         equipment_id: { type: 'number', integer: true, positive: true, optional: true, convert: true },
         is_resolved: { type: 'boolean', optional: true }
@@ -93,7 +116,11 @@ module.exports = {
       }
     },
 
+    // ============================================
+    // GET BY EQUIPMENT — все роли
+    // ============================================
     getByEquipment: {
+      roles: ['admin', 'methodist', 'lab_assistant', 'technician'],
       params: {
         equipmentId: { type: 'number', integer: true, positive: true, convert: true }
       },
@@ -112,7 +139,11 @@ module.exports = {
       }
     },
 
+    // ============================================
+    // RESOLVE — только админ, техник
+    // ============================================
     resolve: {
+      roles: ['admin', 'technician'],
       params: {
         id: { type: 'number', integer: true, positive: true, convert: true },
         resolved_by: { type: 'string', min: 1, max: 100 },
@@ -169,9 +200,9 @@ module.exports = {
         if (activeRepairs === 0) {
           if (resolution_status === 'impossible') {
             await Equipment.update(
-              { 
-                working_status: 'Требует ремонта', 
-                write_off_status: 'Списан' 
+              {
+                working_status: 'Требует ремонта',
+                write_off_status: 'Списан'
               },
               { where: { id: repair.equipment_id } }
             );
@@ -192,7 +223,11 @@ module.exports = {
       }
     },
 
+    // ============================================
+    // UPDATE — админ, методист, техник
+    // ============================================
     update: {
+      roles: ['admin', 'methodist', 'technician'],
       params: {
         id: { type: 'number', integer: true, positive: true, convert: true },
         detection_date: {
@@ -214,20 +249,16 @@ module.exports = {
         const repair = await Repair.findByPk(id);
         if (!repair) throw new Error('Заявка не найдена');
 
-        if (data.equipment_id) {
-          throw new Error('Нельзя изменить оборудование в заявке');
-        }
-
-        if (repair.is_resolved) {
-          throw new Error('Нельзя редактировать закрытую заявку');
-        }
-
         await repair.update(data);
         return repair;
       }
     },
 
+    // ============================================
+    // UPDATE RESOLVED BY — только админ, техник
+    // ============================================
     updateResolvedBy: {
+      roles: ['admin', 'technician'],
       params: {
         id: { type: 'number', integer: true, positive: true, convert: true },
         resolved_by: { type: 'string', min: 1, max: 100 }
@@ -238,22 +269,39 @@ module.exports = {
         const repair = await Repair.findByPk(id);
         if (!repair) throw new Error('Заявка не найдена');
 
-        if (!repair.is_resolved) {
-          throw new Error('Нельзя редактировать активную заявку');
-        }
 
         await repair.update({ resolved_by });
         return repair;
       }
     },
 
+    // ============================================
+    // DELETE — разделение по статусу заявки
+    // ============================================
+    // Общая проверка: админ, техник.
+    // Если заявка ЗАКРЫТА — только админ, техник.
+    // Если заявка НЕЗАКРЫТА — админ, техник.
     delete: {
+      roles: ['admin', 'technician'],
       params: {
         id: { type: 'number', integer: true, positive: true, convert: true }
       },
       handler: async ctx => {
         const repair = await Repair.findByPk(ctx.params.id);
         if (!repair) throw new Error('Заявка не найдена');
+
+        const userRole = ctx.meta.user?.role;
+
+        // Дополнительная проверка по статусу заявки
+        if (repair.is_resolved) {
+          if (!['admin', 'technician'].includes(userRole)) {
+            throw new Error('Закрытую заявку может удалить только администратор или техник');
+          }
+        } else {
+          if (!['admin', 'technician'].includes(userRole)) {
+            throw new Error('Недостаточно прав для удаления незакрытой заявки');
+          }
+        }
 
         const equipmentId = repair.equipment_id;
         await repair.destroy();
@@ -276,7 +324,11 @@ module.exports = {
       }
     },
 
+    // ============================================
+    // GET ACTIVE FOR EQUIPMENT — все роли
+    // ============================================
     getActiveForEquipment: {
+      roles: ['admin', 'methodist', 'lab_assistant', 'technician'],
       params: {
         equipment_id: { type: 'number', integer: true, positive: true, convert: true }
       },

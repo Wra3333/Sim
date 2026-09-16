@@ -15,7 +15,12 @@
       />
 
       <div class="toolbar">
-        <button class="btn btn-primary" @click="openCreateForm">
+        <!-- Создать шаблон — admin, methodist, lab_assistant -->
+        <button
+          v-if="authStore.hasRole('admin', 'methodist', 'lab_assistant')"
+          class="btn btn-primary"
+          @click="openCreateForm"
+        >
           <IconPlus class="btn-icon" />
           Создать шаблон
         </button>
@@ -24,7 +29,6 @@
         </span>
       </div>
 
-      <!-- ФИЛЬТРЫ -->
       <div class="filters">
         <div class="filter-group">
           <label>Статус</label>
@@ -63,16 +67,13 @@
         </div>
       </div>
 
-      <!-- СКЕЛЕТОН -->
       <TemplatesTableSkeleton v-if="loading" />
 
-      <!-- ПУСТО -->
       <div v-else-if="filteredTemplates.length === 0" class="empty-state">
         <IconList class="empty-icon" />
         <span>Нет шаблонов</span>
       </div>
 
-      <!-- ТАБЛИЦА -->
       <div v-else class="table-container">
         <table class="templates-table">
           <thead>
@@ -139,7 +140,6 @@
         </table>
       </div>
 
-      <!-- ПАГИНАЦИЯ -->
       <Pagination
         v-if="!loading && showPagination"
         v-model:current-page="currentPage"
@@ -147,7 +147,6 @@
         :loading="loading"
       />
 
-      <!-- ФОРМА -->
       <TemplateFormDrawer
         :visible="showForm"
         :template="editingItem"
@@ -195,6 +194,7 @@ import { storeToRefs } from 'pinia';
 import { useTemplatesStore, useLessonsStore, useEquipmentStore } from '../stores';
 import { useUiStore } from '../stores/ui.store';
 import { useToastStore } from '../stores/toastStore';
+import { useAuthStore } from '../stores/auth.store';
 import { useUrlSync } from '../composables/useUrlSync';
 import { useConfirm } from '../composables/useConfirm';
 import TemplateFormDrawer from '../components/templates/TemplateFormDrawer.vue';
@@ -220,6 +220,7 @@ const templatesStore = useTemplatesStore();
 const lessonsStore = useLessonsStore();
 const equipmentStore = useEquipmentStore();
 const toast = useToastStore();
+const authStore = useAuthStore();
 
 const { show, config, confirm, onConfirm, onCancel } = useConfirm();
 
@@ -570,9 +571,6 @@ onBeforeUnmount(() => {
   gap: 12px;
 }
 
-/* ============================================
-   ЗАГОЛОВКИ
-   ============================================ */
 h2 {
   font-size: 24px;
   font-weight: 600;
@@ -594,9 +592,6 @@ p {
   margin-bottom: 16px;
 }
 
-/* ============================================
-   ТУЛБАР
-   ============================================ */
 .toolbar {
   display: flex;
   justify-content: space-between;
@@ -618,9 +613,6 @@ p {
   font-family: inherit;
 }
 
-/* ============================================
-   КНОПКИ
-   ============================================ */
 .btn {
   padding: 6px 16px;
   border: 1px solid transparent;
@@ -661,9 +653,6 @@ p {
   color: white;
 }
 
-/* ============================================
-   ФИЛЬТРЫ
-   ============================================ */
 .filters {
   display: flex;
   gap: 12px;
@@ -713,9 +702,6 @@ p {
   flex: 0 0 auto;
 }
 
-/* ============================================
-   ТАБЛИЦА
-   ============================================ */
 .table-container {
   background: white;
   border-radius: 12px;
@@ -744,9 +730,6 @@ p {
   white-space: nowrap;
 }
 
-/* ============================================
-   СОРТИРУЕМЫЕ ЗАГОЛОВКИ
-   ============================================ */
 .templates-table th.sortable {
   cursor: pointer;
   user-select: none;
@@ -779,9 +762,6 @@ p {
   cursor: default;
 }
 
-/* ============================================
-   ПУСТЫЕ СОСТОЯНИЯ
-   ============================================ */
 .empty-state {
   text-align: center;
   padding: 40px;
@@ -798,9 +778,6 @@ p {
   stroke: #6c757d;
 }
 
-/* ============================================
-   АДАПТИВНОСТЬ
-   ============================================ */
 @media (max-width: 1200px) {
   .templates-sidebar {
     width: 250px;

@@ -22,35 +22,61 @@
         <span class="icon"><IconDashboard /></span>
         <span class="nav-text">Дашборд</span>
       </router-link>
-      
+
+      <!-- Оборудование — все роли -->
       <router-link to="/equipment" class="nav-link" active-class="active">
         <span class="icon"><IconEquipment /></span>
         <span class="nav-text">Оборудование</span>
       </router-link>
-      
+
+      <!-- Неисправности — все роли -->
       <router-link to="/repairs" class="nav-link" active-class="active">
         <span class="icon"><IconRepairs /></span>
         <span class="nav-text">Неисправности</span>
       </router-link>
-      
-      <router-link to="/templates" class="nav-link" active-class="active">
+
+      <!-- Шаблоны — admin, methodist, lab_assistant -->
+      <router-link
+        to="/templates"
+        class="nav-link"
+        active-class="active"
+      >
         <span class="icon"><IconTemplates /></span>
         <span class="nav-text">Шаблоны</span>
       </router-link>
-      
+
+      <!-- Занятия — все роли -->
       <router-link to="/lessons" class="nav-link" active-class="active">
         <span class="icon"><IconLessons /></span>
         <span class="nav-text">Занятия</span>
       </router-link>
-      
+
+      <!-- Аналитика — все роли -->
       <router-link to="/analytics" class="nav-link" active-class="active">
         <span class="icon"><IconAnalytics /></span>
         <span class="nav-text">Аналитика</span>
       </router-link>
-      
-      <router-link to="/logs" class="nav-link" active-class="active">
+
+      <!-- Журнал — ТОЛЬКО админ -->
+      <router-link
+        v-if="authStore.isAdmin"
+        to="/logs"
+        class="nav-link"
+        active-class="active"
+      >
         <span class="icon"><IconLogs /></span>
         <span class="nav-text">Журнал</span>
+      </router-link>
+
+      <!-- Пользователи — ТОЛЬКО админ -->
+      <router-link
+        v-if="authStore.isAdmin"
+        to="/users"
+        class="nav-link"
+        active-class="active"
+      >
+        <span class="icon"><IconUser /></span>
+        <span class="nav-text">Пользователи</span>
       </router-link>
     </nav>
 
@@ -63,11 +89,19 @@
         <div class="role" :title="authStore.user?.email || 'email@example.com'">
           {{ truncateEmail(authStore.user?.email || 'email@example.com', 22) }}
         </div>
+        <div class="role-badge">{{ getRoleLabel(authStore.role) }}</div>
       </div>
       <div class="user-actions">
-        <router-link to="/register" class="add-user-btn" title="Создать пользователя">
+        <!-- Создать пользователя — ТОЛЬКО админ -->
+        <router-link
+          v-if="authStore.isAdmin"
+          to="/users"
+          class="add-user-btn"
+          title="Создать пользователя"
+        >
           <IconPlus />
         </router-link>
+
         <button 
           class="logout-btn" 
           @click="handleLogout" 
@@ -113,22 +147,32 @@ const hideSidebar = () => uiStore.hideSidebar();
 const toggleSidebar = () => uiStore.toggleSidebar();
 
 // ============================================
+//  НАЗВАНИЕ РОЛИ
+// ============================================
+const getRoleLabel = (role) => {
+  const labels = {
+    admin: 'Администратор',
+    methodist: 'Методист',
+    lab_assistant: 'Лаборант',
+    technician: 'Техник'
+  };
+  return labels[role] || '';
+};
+
+// ============================================
 //  ВЫХОД
 // ============================================
 const handleLogout = async () => {
   if (loggingOut.value) return;
-  
+
   loggingOut.value = true;
-  console.log('🚪 [Sidebar] handleLogout вызван');
-  
+
   try {
     await authStore.logout();
-    console.log('✅ [Sidebar] logout выполнен, редирект на /login');
   } catch (e) {
     console.error('❌ [Sidebar] Ошибка logout:', e);
   } finally {
     loggingOut.value = false;
-    // ✅ Редирект в любом случае
     router.push('/login');
   }
 };
@@ -353,6 +397,18 @@ onUnmounted(() => {
   max-width: 120px;
 }
 
+.role-badge {
+  font-size: 10px;
+  color: rgba(255, 255, 255, 0.55);
+  background: rgba(255, 255, 255, 0.1);
+  padding: 1px 6px;
+  border-radius: 6px;
+  display: inline-block;
+  margin-top: 2px;
+  text-transform: uppercase;
+  letter-spacing: 0.3px;
+}
+
 .user-actions {
   display: flex;
   gap: 4px;
@@ -430,12 +486,12 @@ onUnmounted(() => {
     width: 220px;
     padding: 16px 12px;
   }
-  
+
   .sidebar-hidden {
     width: 0;
     padding: 0;
   }
-  
+
   .sidebar-trigger {
     width: 12px;
   }
@@ -446,22 +502,22 @@ onUnmounted(() => {
     width: 200px;
     padding: 12px 10px;
   }
-  
+
   .nav-link {
     font-size: 13px;
     padding: 10px 12px;
   }
-  
+
   .user .name {
     max-width: 80px;
     font-size: 13px;
   }
-  
+
   .user .role {
     max-width: 80px;
     font-size: 11px;
   }
-  
+
   .sidebar-trigger {
     width: 10px;
   }

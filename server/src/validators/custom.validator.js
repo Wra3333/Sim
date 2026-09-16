@@ -5,19 +5,19 @@ const BaseValidator = Validators.Base;
 // СООБЩЕНИЯ ОБ ОШИБКАХ НА РУССКОМ
 // ============================================
 const ERROR_MESSAGES = {
-  required: (field) => ` Поле "${field}" обязательно для заполнения`,
-  type: (field, type) => ` Поле "${field}" должно быть типа "${type}"`,
-  stringMin: (field, min) => ` Поле "${field}" должно содержать минимум ${min} символов`,
-  stringMax: (field, max) => ` Поле "${field}" не должно превышать ${max} символов`,
-  stringPattern: (field) => ` Поле "${field}" имеет неверный формат`,
-  numberMin: (field, min) => ` Поле "${field}" не может быть меньше ${min}`,
-  numberMax: (field, max) => ` Поле "${field}" не может быть больше ${max}`,
-  numberInteger: (field) => ` Поле "${field}" должно быть целым числом`,
-  arrayMin: (field, min) => ` Поле "${field}" должно содержать минимум ${min} элементов`,
-  arrayMax: (field, max) => ` Поле "${field}" не должно превышать ${max} элементов`,
-  enum: (field, values) => ` Поле "${field}" должно быть одним из: ${values.join(', ')}`,
-  boolean: (field) => ` Поле "${field}" должно быть true или false`,
-  positive: (field) => ` Поле "${field}" должно быть положительным числом`,
+  required: (field) => `Поле "${field}" обязательно для заполнения`,
+  type: (field, type) => `Поле "${field}" должно быть типа "${type}"`,
+  stringMin: (field, min) => `Поле "${field}" должно содержать минимум ${min} символов`,
+  stringMax: (field, max) => `Поле "${field}" не должно превышать ${max} символов`,
+  stringPattern: (field) => `Поле "${field}" имеет неверный формат`,
+  numberMin: (field, min) => `Поле "${field}" не может быть меньше ${min}`,
+  numberMax: (field, max) => `Поле "${field}" не может быть больше ${max}`,
+  numberInteger: (field) => `Поле "${field}" должно быть целым числом`,
+  arrayMin: (field, min) => `Поле "${field}" должно содержать минимум ${min} элементов`,
+  arrayMax: (field, max) => `Поле "${field}" не должно превышать ${max} элементов`,
+  enum: (field, values) => `Поле "${field}" должно быть одним из: ${values.join(', ')}`,
+  boolean: (field) => `Поле "${field}" должно быть true или false`,
+  positive: (field) => `Поле "${field}" должно быть положительным числом`,
 };
 
 // ============================================
@@ -39,7 +39,8 @@ const FIELD_LABELS = {
   manufacturer: 'Производитель',
   original_name: 'Оригинальное название',
   realism_class: 'Класс реалистичности',
-  
+  tags: 'Теги',
+
   // REPAIRS
   equipment_ids: 'Список оборудования',
   detection_date: 'Дата обнаружения',
@@ -51,14 +52,15 @@ const FIELD_LABELS = {
   resolution_status: 'Статус закрытия',
   write_off_reason: 'Причина списания',
   repair_notes: 'Примечания к ремонту',
-  
+
   // TEMPLATES
   title: 'Название',
   discipline: 'Дисциплина',
   module: 'Модуль',
   is_active: 'Активность',
   equipment_list: 'Список оборудования',
-  
+  lessonIds: 'ID занятий',
+
   // LESSONS
   group: 'Группа',
   teacher: 'Преподаватель',
@@ -69,18 +71,53 @@ const FIELD_LABELS = {
   template_id: 'ID шаблона',
   status: 'Статус',
   notes: 'Заметки',
-  
+  participant_type: 'Тип участников',
+  faculty: 'Факультет',
+  specialty: 'Специальность',
+  course: 'Курс',
+  dateFrom: 'Дата с',
+  dateTo: 'Дата по',
+
   // WORKTIME
   equipment_id: 'ID оборудования',
+  equipmentId: 'ID оборудования',
   lesson_id: 'ID занятия',
   start: 'Начало периода',
   end: 'Конец периода',
   total_hours: 'Общее время',
-  
+
+  // AUTH / USERS
+  email: 'Email',
+  password: 'Пароль',
+  role: 'Роль',
+  is_active: 'Активность',
+  last_login: 'Последний вход',
+  oldPassword: 'Старый пароль',
+  newPassword: 'Новый пароль',
+  userId: 'ID пользователя',
+
+  // LOGS
+  user_id: 'ID пользователя',
+  user_name: 'Имя пользователя',
+  action: 'Действие',
+  entity: 'Сущность',
+  entity_id: 'ID сущности',
+  details: 'Детали',
+  ip: 'IP-адрес',
+  user_agent: 'User-Agent',
+  date_from: 'Дата с',
+  date_to: 'Дата по',
+  page: 'Страница',
+  limit: 'Лимит',
+  search: 'Поиск',
+  days: 'Количество дней',
+
   // COMMON
   id: 'ID',
   quantity: 'Количество',
   count: 'Количество',
+  fields: 'Поля',
+  equipmentIds: 'ID оборудования',
 };
 
 const getLabel = (field) => FIELD_LABELS[field] || field;
@@ -139,7 +176,16 @@ class CustomValidator extends BaseValidator {
       const normalizedParams = { ...params };
 
       // Автоматическое преобразование ID
-      const idFields = ['id', 'equipment_id', 'lesson_id', 'template_id', 'equipmentId'];
+      const idFields = [
+        'id',
+        'equipment_id',
+        'lesson_id',
+        'template_id',
+        'equipmentId',
+        'entity_id',
+        'user_id',
+        'userId'
+      ];
       idFields.forEach(field => {
         if (normalizedParams[field] !== undefined && normalizedParams[field] !== null) {
           normalizedParams[field] = this.toNumber(normalizedParams[field]);
@@ -149,6 +195,16 @@ class CustomValidator extends BaseValidator {
       // Преобразуем equipment_ids
       if (normalizedParams.equipment_ids && Array.isArray(normalizedParams.equipment_ids)) {
         normalizedParams.equipment_ids = normalizedParams.equipment_ids.map(id => this.toNumber(id));
+      }
+
+      // Преобразуем equipmentIds
+      if (normalizedParams.equipmentIds && Array.isArray(normalizedParams.equipmentIds)) {
+        normalizedParams.equipmentIds = normalizedParams.equipmentIds.map(id => this.toNumber(id));
+      }
+
+      // Преобразуем lessonIds
+      if (normalizedParams.lessonIds && Array.isArray(normalizedParams.lessonIds)) {
+        normalizedParams.lessonIds = normalizedParams.lessonIds.map(id => this.toNumber(id));
       }
 
       // Преобразуем equipment_list
@@ -232,7 +288,7 @@ class CustomValidator extends BaseValidator {
           if (isNaN(num)) {
             errors.push({
               field: key,
-              message: ` Поле "${label}" должно быть числом (получено: "${value}")`,
+              message: `Поле "${label}" должно быть числом (получено: "${value}")`,
               type: 'type'
             });
             continue;
@@ -289,7 +345,7 @@ class CustomValidator extends BaseValidator {
           if (!Array.isArray(value)) {
             errors.push({
               field: key,
-              message: ` Поле "${label}" должно быть массивом (получено: ${typeof value})`,
+              message: `Поле "${label}" должно быть массивом (получено: ${typeof value})`,
               type: 'type'
             });
             continue;
@@ -328,8 +384,8 @@ class CustomValidator extends BaseValidator {
       // Если есть ошибки - бросаем русское сообщение
       if (errors.length > 0) {
         const errorMessages = errors.map(e => `  ${e.message}`).join('\n');
-        const errorText = ` Ошибка валидации:\n${errorMessages}`;
-        
+        const errorText = `Ошибка валидации:\n${errorMessages}`;
+
         const error = new Error(errorText);
         error.code = 422;
         error.type = 'VALIDATION_ERROR';

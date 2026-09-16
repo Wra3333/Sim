@@ -1,6 +1,5 @@
 import axios from 'axios';
-
-const API_URL = import.meta.env.VITE_API_URL || '/api';
+import { API_URL } from '../config';
 
 const api = axios.create({
   baseURL: API_URL,
@@ -13,15 +12,15 @@ const api = axios.create({
 api.interceptors.request.use(
   (config) => {
     const token = localStorage.getItem('accessToken');
-    console.log('🔍 [api] Запрос:', config.method?.toUpperCase(), config.url);
-    console.log('🔍 [api] Токен в localStorage:', token ? 'ЕСТЬ' : 'НЕТ');
-
     if (token) {
       config.headers.Authorization = `Bearer ${token}`;
-      console.log('✅ [api] Authorization заголовок добавлен');
-    } else {
-      console.log('⚠️ [api] Токен отсутствует');
     }
+
+    // ✅ Если FormData — удаляем Content-Type, чтобы axios сам выставил boundary
+    if (config.data instanceof FormData) {
+      delete config.headers['Content-Type'];
+    }
+
     return config;
   },
   (error) => Promise.reject(error)
@@ -35,12 +34,12 @@ api.interceptors.response.use(
   async (error) => {
     const originalRequest = error.config;
 
-    // ✅ НЕ перехватываем 401 от logout (иначе — попытка refresh при выходе)
+    // Не перехватываем 401 от logout
     if (originalRequest.url?.includes('/auth/logout')) {
       return Promise.reject(error);
     }
 
-    // ✅ НЕ перехватываем 401 от refresh (иначе — бесконечная рекурсия)
+    // Не перехватываем 401 от refresh (иначе — рекурсия)
     if (originalRequest.url?.includes('/auth/refresh')) {
       return Promise.reject(error);
     }
@@ -54,7 +53,6 @@ api.interceptors.response.use(
           throw new Error('Нет refresh токена');
         }
 
-        console.log('🔄 [api] Попытка обновить токен...');
         const response = await axios.post(`${API_URL}/auth/refresh`, {
           refreshToken
         });
@@ -64,12 +62,9 @@ api.interceptors.response.use(
         localStorage.setItem('accessToken', accessToken);
         localStorage.setItem('refreshToken', newRefreshToken);
 
-        console.log('✅ [api] Токен обновлен');
-
         originalRequest.headers.Authorization = `Bearer ${accessToken}`;
         return api(originalRequest);
       } catch (refreshError) {
-        console.error('❌ [api] Не удалось обновить токен:', refreshError.message);
         localStorage.removeItem('accessToken');
         localStorage.removeItem('refreshToken');
         window.location.href = '/login';
@@ -82,19 +77,28 @@ api.interceptors.response.use(
 );
 
 // ============================================
-// API АВТОРИЗАЦИИ
+// API АВТОРИЗАЦИИ И ПОЛЬЗОВАТЕЛЕЙ
 // ============================================
 export const authApi = {
-  register: (data) => api.post('/auth/register', data),
+  // Публичные
   login: (data) => api.post('/auth/login', data),
   logout: (data) => api.post('/auth/logout', data),
   refresh: () => api.post('/auth/refresh'),
   validate: () => {
     const token = localStorage.getItem('accessToken');
-    console.log('🔍 [authApi.validate] Токен:', token ? 'ЕСТЬ' : 'НЕТ');
     return api.get('/auth/validate', { params: { token } });
   },
-  me: (userId) => api.get(`/auth/me/${userId}`)
+  me: (userId) => api.get(`/auth/me/${userId}`),
+
+  // Управление пользователями (только админ)
+  register: (data) => api.post('/auth/register', data),
+  getUsers: (params) => api.get('/auth/users', { params }),
+  getUser: (id) => api.get(`/auth/users/${id}`),
+  updateUser: (id, data) => api.put(`/auth/users/${id}`, data),
+  deleteUser: (id) => api.delete(`/auth/users/${id}`),
+  changePassword: (id, data) => api.put(`/auth/users/${id}/password`, data),
+  resetPassword: (id, data) => api.put(`/auth/users/${id}/reset-password`, data),
+  toggleActive: (id) => api.put(`/auth/users/${id}/toggle-active`)
 };
 
 // ============================================
@@ -109,30 +113,24 @@ export const equipmentApi = {
   deletePermanent: (id) => api.delete(`/equipment/${id}/permanent`),
   restore: (id) => api.post(`/equipment/${id}/restore`),
   archiveProblematics: () => api.post('/equipment/archive-problematics'),
+
   deletePhoto: (id) => api.delete(`/equipment/${id}/photo`),
-  uploadPhoto: (id, formData) => {
-    return api.post(`/equipment/${id}/photo`, formData, {
-      headers: { 'Content-Type': undefined }
-    });
-  },
-  importExcel: async (formData) => {
-    return await api.post('/equipment/import-excel', formData, {
-      headers: { 'Content-Type': 'multipart/form-data' }
-    });
-  },
-  exportExcel: async (fields) => {
-    return await api.post('/equipment/export-excel', { fields });
-  },
+
+  // ✅ Без ручного Content-Type — axios сам выставит multipart/form-data с boundary
+  uploadPhoto: (id, formData) => api.post(`/equipment/${id}/photo`, formData),
+
+  // ✅ То же самое
+  importExcel: (formData) => api.post('/equipment/import-excel', formData),
+
+  exportExcel: (fields, equipmentIds = null) =>
+    api.post('/equipment/export-excel', { fields, equipmentIds }),
+
   getTags: () => api.get('/equipment/tags'),
   updateTags: (id, tags) => api.put(`/equipment/${id}/tags`, { tags }),
-  uploadAdditionalFile: (id, formData) => {
-    return api.post(`/equipment/${id}/additional-file`, formData, {
-      headers: { 'Content-Type': 'multipart/form-data' }
-    });
-  },
-  deleteAdditionalFile: (id, fileId) => {
-    return api.delete(`/equipment/${id}/additional-file/${fileId}`);
-  }
+
+  // ✅ То же самое
+  uploadAdditionalFile: (id, formData) => api.post(`/equipment/${id}/additional-file`, formData),
+  deleteAdditionalFile: (id, fileId) => api.delete(`/equipment/${id}/additional-file/${fileId}`)
 };
 
 // ============================================
@@ -189,7 +187,6 @@ export const workTimeApi = {
   getByEquipment: (equipmentId) => api.get(`/worktime/equipment/${equipmentId}`),
   getReport: (params) => api.get('/worktime/report', { params }),
   getSummary: (equipmentId, params) => api.get(`/worktime/summary/${equipmentId}`, { params }),
-  create: (data) => api.post('/worktime', data)
 };
 
 // ============================================
@@ -202,5 +199,16 @@ export const logsApi = {
   cleanup: (params) => api.delete('/logs/cleanup', { params }),
   getStats: () => api.get('/logs/stats')
 };
+
+// ============================================
+// РЕЭКСПОРТ УТИЛИТ ИЗ КОНФИГА
+// ============================================
+export {
+  API_URL,
+  UPLOADS_URL,
+  getUploadsUrl,
+  getPhotoUrl,
+  getAdditionalFileUrl
+} from '../config';
 
 export default api;

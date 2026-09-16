@@ -181,9 +181,9 @@
 </template>
 
 <script setup>
-import { UPLOADS_URL } from '@/config';
 import { ref, computed, watch } from 'vue';
 import { equipmentApi } from '../../api';
+import { getAdditionalFileUrl } from '../../config';
 import ConfirmModal from '../ConfirmModal.vue';
 import { useToastStore } from '../../stores/toastStore';
 
@@ -219,35 +219,29 @@ const fileList = computed(() => {
   return props.files || [];
 });
 
-const API_URL = `${UPLOADS_URL}/`;
+const getFileUrl = (filename) => getAdditionalFileUrl(filename);
 
 const getFileTypeByExtension = (filename) => {
   if (!filename) return 'other';
-  
+
   const ext = filename.split('.').pop()?.toLowerCase() || '';
-  
+
   const imageExtensions = ['jpg', 'jpeg', 'png', 'gif', 'webp', 'svg', 'bmp', 'ico', 'tiff'];
   if (imageExtensions.includes(ext)) {
     return 'image';
   }
-  
+
   const documentExtensions = ['pdf', 'doc', 'docx', 'txt', 'rtf', 'odt'];
   if (documentExtensions.includes(ext)) {
     return 'document';
   }
-  
+
   const instructionExtensions = ['pdf', 'doc', 'docx'];
   if (instructionExtensions.includes(ext)) {
     return 'instruction';
   }
-  
-  return 'other';
-};
 
-const getFileUrl = (filename) => {
-  if (!filename) return '#';
-  if (filename.startsWith('http')) return filename;
-  return `${API_URL}${filename}`;
+  return 'other';
 };
 
 const getFileTypeLabel = (type) => {
@@ -280,8 +274,7 @@ const handleFileSelect = (event) => {
   }
 
   selectedFiles.value = Array.from(files);
-  console.log('✅ Выбрано файлов:', selectedFiles.value.length);
-  
+
   if (fileInput.value) {
     fileInput.value.value = '';
   }
@@ -295,13 +288,11 @@ const clearSelectedFiles = () => {
 };
 
 const uploadFiles = async () => {
-  console.log('🚀 uploadFiles вызван');
-  
   if (!selectedFiles.value.length) {
     toast.warning('Выберите файлы для загрузки');
     return;
   }
-  
+
   if (!props.equipmentId) {
     toast.error('Сначала сохраните оборудование');
     return;
@@ -315,7 +306,7 @@ const uploadFiles = async () => {
   for (const file of selectedFiles.value) {
     const fileType = getFileTypeByExtension(file.name);
     const description = newFileDescription.value || '';
-    
+
     const formData = new FormData();
     formData.append('file', file);
     formData.append('file_type', fileType);
@@ -323,16 +314,15 @@ const uploadFiles = async () => {
 
     try {
       const response = await equipmentApi.uploadAdditionalFile(props.equipmentId, formData);
-      console.log('✅ Ответ сервера:', response.data);
-      
+
       let newFiles = [];
-      
+
       if (response.data.files && Array.isArray(response.data.files)) {
         newFiles = response.data.files;
       } else if (response.data.file) {
         newFiles = [response.data.file];
       }
-      
+
       if (newFiles.length > 0) {
         uploadedFiles.push(...newFiles);
         successCount += newFiles.length;
@@ -340,7 +330,7 @@ const uploadFiles = async () => {
         errorCount++;
       }
     } catch (error) {
-      console.error('❌ Ошибка загрузки:', error);
+      console.error('Ошибка загрузки:', error);
       errorCount++;
     }
   }
@@ -365,23 +355,14 @@ const uploadFiles = async () => {
 };
 
 const confirmDelete = (fileId) => {
-  console.log('🗑️ [FilesManager] confirmDelete вызван, fileId:', fileId);
   deleteFileId.value = fileId;
   showDeleteModal.value = true;
 };
 
 const handleDelete = async () => {
-  console.log('🗑️ [FilesManager] handleDelete вызван');
-  console.log('🗑️ deleteFileId:', deleteFileId.value);
-  console.log('🗑️ equipmentId:', props.equipmentId);
-  
-  if (!deleteFileId.value) {
-    console.error('❌ deleteFileId отсутствует');
-    return;
-  }
+  if (!deleteFileId.value) return;
 
   if (!props.equipmentId) {
-    console.error('❌ equipmentId отсутствует');
     toast.error('Оборудование не найдено');
     showDeleteModal.value = false;
     deleteFileId.value = null;
@@ -390,23 +371,21 @@ const handleDelete = async () => {
 
   try {
     await equipmentApi.deleteAdditionalFile(props.equipmentId, deleteFileId.value);
-    
+
     const currentFiles = localFiles.value.length > 0 ? localFiles.value : props.files || [];
     const updatedFiles = currentFiles.filter(f => f.id !== deleteFileId.value);
-    
+
     localFiles.value = updatedFiles;
     emit('update:files', updatedFiles);
-    
-    // ✅ СООБЩАЕМ РОДИТЕЛЮ, ЧТО ФАЙЛ УДАЛЕН
-    emit('fileDeleted', { 
-      equipmentId: props.equipmentId, 
-      fileId: deleteFileId.value 
+
+    emit('fileDeleted', {
+      equipmentId: props.equipmentId,
+      fileId: deleteFileId.value
     });
-    
+
     toast.success('Файл удален');
   } catch (error) {
-    console.error('❌ Ошибка удаления файла:', error);
-    console.error('❌ Детали:', error.response?.data || error.message);
+    console.error('Ошибка удаления файла:', error);
     toast.error(error?.response?.data?.message || "Ошибка удаления файла");
   } finally {
     showDeleteModal.value = false;
@@ -740,20 +719,20 @@ watch(() => props.equipmentId, () => {
     flex-direction: column;
     align-items: stretch;
   }
-  
+
   .upload-row .btn {
     justify-content: center;
   }
-  
+
   .upload-row .form-control-sm {
     width: 100%;
   }
-  
+
   .file-item {
     flex-direction: column;
     align-items: stretch;
   }
-  
+
   .file-actions {
     justify-content: flex-end;
   }

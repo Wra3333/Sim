@@ -41,16 +41,21 @@
 
     <td class="actions-cell" @click.stop>
       <div class="table-actions">
-        <button 
-          class="btn btn-sm btn-outline-primary" 
-          @click="$emit('edit', template)" 
+        <!-- Редактировать — admin, methodist, lab_assistant -->
+        <button
+          v-if="authStore.hasRole('admin', 'methodist', 'lab_assistant')"
+          class="btn btn-sm btn-outline-primary"
+          @click="$emit('edit', template)"
           title="Редактировать"
         >
           <IconEdit class="btn-icon" />
         </button>
-        <button 
-          class="btn btn-sm btn-outline-danger" 
-          @click="$emit('delete', template.id)" 
+
+        <!-- Удалить — admin, methodist, lab_assistant -->
+        <button
+          v-if="authStore.hasRole('admin', 'methodist', 'lab_assistant')"
+          class="btn btn-sm btn-outline-danger"
+          @click="$emit('delete', template.id)"
           title="Удалить"
         >
           <IconTrash class="btn-icon" />
@@ -63,6 +68,7 @@
 <script setup>
 import { computed } from 'vue';
 import { useFormatters } from '../../composables/useFormatters';
+import { useAuthStore } from '../../stores/auth.store';
 import {
   IconCheck,
   IconAlert,
@@ -71,6 +77,7 @@ import {
 } from '../icons';
 
 const { formatDate } = useFormatters();
+const authStore = useAuthStore();
 
 // ============================================
 //  PROPS
@@ -114,9 +121,6 @@ const equipmentList = computed(() => {
 
 const equipmentCount = computed(() => equipmentList.value.length);
 
-// Проблемное оборудование — «Требует ремонта», «В ремонте», «Списан»
-// и write_off «На списание» / «Списан».
-// «Исправен» и «Частично неисправен» — не проблемные.
 const isEquipmentProblematic = (eq) => {
   if (!eq) return false;
   return (
