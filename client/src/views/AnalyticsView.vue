@@ -177,7 +177,7 @@ import {
   IconRefresh, IconReset, IconInbox, IconEquipment
 } from '../components/icons';
 
-// ⚠️ Поправь путь под свой проект, если файл лежит в другом месте
+// ⚠️ Поправь путь под свой проект
 import {
   EDUCATION_LEVELS,
   getEducationLevelLabel
@@ -345,6 +345,11 @@ const getEquipmentTotalParticipants = (equipmentId) => {
   return total;
 };
 
+// ============================================
+//  ИТОГИ (С ПОВТОРАМИ ПО ОБОРУДОВАНИЮ)
+// ============================================
+
+// Часы работы — сумма по связкам «занятие × оборудование»
 const totalHours = computed(() => {
   let hours = 0;
   for (const lesson of filteredLessons.value) {
@@ -356,11 +361,25 @@ const totalHours = computed(() => {
   return hours;
 });
 
-const totalParticipants = computed(() =>
-  filteredLessons.value.reduce((sum, l) => sum + (l.students_count || 0), 0)
-);
+// Участники — сумма по связкам «занятие × оборудование» (с повторами)
+const totalParticipants = computed(() => {
+  let sum = 0;
+  for (const lesson of filteredLessons.value) {
+    const count = lesson.students_count || 0;
+    const list = getEquipmentList(lesson);
+    sum += count * list.length;
+  }
+  return sum;
+});
 
-const totalLessons = computed(() => filteredLessons.value.length);
+// Занятия — сумма по связкам «занятие × оборудование» (с повторами)
+const totalLessons = computed(() => {
+  let sum = 0;
+  for (const lesson of filteredLessons.value) {
+    sum += getEquipmentList(lesson).length;
+  }
+  return sum;
+});
 
 // ============================================
 //  МЕТОДЫ
