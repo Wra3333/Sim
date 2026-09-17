@@ -43,13 +43,13 @@
               <label>Уровни образования</label>
               <select v-model="analyticsFilters.participantType" class="form-control">
                 <option value="">Все категории</option>
-                <option value="vo_specialist">ВО (Специалитет)</option>
-                <option value="vo_residency">ВО (Ординатура)</option>
-                <option value="dpo_pp">ДПО — ПП</option>
-                <option value="dpo_pk_vo">ДПО — ПК (ВО)</option>
-                <option value="dpo_pk_spo">ДПО — ПК (СПО)</option>
-                <option value="do">ДО</option>
-                <option value="master_class">Мастер-класс</option>
+                <option
+                  v-for="level in EDUCATION_LEVELS"
+                  :key="level.value"
+                  :value="level.value"
+                >
+                  {{ level.label }}
+                </option>
               </select>
             </div>
 
@@ -176,6 +176,12 @@ import {
   IconAnalytics, IconClock, IconStudents, IconLessons,
   IconRefresh, IconReset, IconInbox, IconEquipment
 } from '../components/icons';
+
+// ⚠️ Поправь путь под свой проект, если файл лежит в другом месте
+import {
+  EDUCATION_LEVELS,
+  getEducationLevelLabel
+} from '../constants/education';
 
 // ============================================
 //  STORE

@@ -190,17 +190,19 @@ import {
   IconChevronDown, IconInfo
 } from '../icons';
 
+// ⚠️ Поправь путь под свой проект
+import {
+  EDUCATION_LEVEL_LABELS,
+  getEducationLevelLabel
+} from '../../constants/education';
+
 const props = defineProps({
   items: { type: Array, default: () => [] },
   expandedIds: { type: Array, default: () => [] },
   expandedLessonIds: { type: Array, default: () => [] },
-  // (equipmentId) => Lesson[]
   getLessons: { type: Function, required: true },
-  // (equipmentId) => number
   getTotalHours: { type: Function, required: true },
-  // (equipmentId) => number
   getTotalParticipants: { type: Function, required: true },
-  // (lessonId, equipmentId) => WorkTime | undefined
   getWorkTimeForLesson: { type: Function, required: true }
 });
 
@@ -226,31 +228,31 @@ const getLessonHours = (lesson, equipmentId) => {
   return '0 ч';
 };
 
+// ============================================
+//  КАТЕГОРИИ (из EDUCATION_LEVELS)
+// ============================================
 const getCategoryLabel = (type) => {
-  const labels = {
-    vo_specialist: 'ВО (Специалитет)',
-    vo_residency: 'ВО (Ординатура)',
-    dpo_pp: 'ДПО — ПП',
-    dpo_pk_vo: 'ДПО — ПК (ВО)',
-    dpo_pk_spo: 'ДПО — ПК (СПО)',
-    do: 'ДО',
-    master_class: 'Мастер-класс'
-  };
-  return labels[type] || 'Не указан';
+  return getEducationLevelLabel(type) || 'Не указан';
 };
 
 const getCategoryClass = (type) => {
   const classes = {
     vo_specialist: 'level-vo-spec',
-    vo_residency: 'level-vo-res',
-    dpo_pp: 'level-dpo-pp',
-    dpo_pk_vo: 'level-dpo-pk-vo',
-    dpo_pk_spo: 'level-dpo-pk-spo',
-    do: 'level-do',
-    master_class: 'level-mk'
+    vo_residency:  'level-vo-res',
+    aspirantura:   'level-asp',
+    pa:            'level-pa',
+    psa:           'level-psa',
+    dpo_pp:        'level-dpo-pp',
+    dpo_pk_vo:     'level-dpo-pk-vo',
+    dpo_pk_spo:    'level-dpo-pk-spo',
+    do:            'level-do',
+    master_class:  'level-mk'
   };
   return classes[type] || 'level-unknown';
 };
+
+// Экспортируем лейблы, чтобы можно было использовать в других местах
+// (не обязательно, но удобно, если понадобится)
 </script>
 
 <style scoped>
@@ -297,12 +299,6 @@ const getCategoryClass = (type) => {
   align-items: center;
   gap: 10px;
   flex-wrap: wrap;
-}
-
-.equipment-id {
-  font-weight: 600;
-  color: #0d6efd;
-  font-size: 13px;
 }
 
 .equipment-title {
@@ -450,21 +446,10 @@ const getCategoryClass = (type) => {
   color: #212529;
 }
 
-.info-value.badge-success {
-  color: #155724;
-}
-
-.info-value.badge-warning {
-  color: #856404;
-}
-
-.info-value.badge-danger {
-  color: #721c24;
-}
-
-.info-value.badge-secondary {
-  color: #495057;
-}
+.info-value.badge-success { color: #155724; }
+.info-value.badge-warning { color: #856404; }
+.info-value.badge-danger  { color: #721c24; }
+.info-value.badge-secondary { color: #495057; }
 
 /* ============================================
    ЗАНЯТИЯ
@@ -537,20 +522,9 @@ const getCategoryClass = (type) => {
   font-weight: 500;
 }
 
-.lesson-status.badge-success {
-  background: #d4edda;
-  color: #155724;
-}
-
-.lesson-status.badge-warning {
-  background: #fff3cd;
-  color: #856404;
-}
-
-.lesson-status.badge-danger {
-  background: #f8d7da;
-  color: #721c24;
-}
+.lesson-status.badge-success { background: #d4edda; color: #155724; }
+.lesson-status.badge-warning { background: #fff3cd; color: #856404; }
+.lesson-status.badge-danger  { background: #f8d7da; color: #721c24; }
 
 .lesson-category {
   font-size: 11px;
@@ -559,35 +533,18 @@ const getCategoryClass = (type) => {
   font-weight: 500;
 }
 
-.lesson-category.category-student {
-  background: #cfe2ff;
-  color: #084298;
-}
-
-.lesson-category.category-intern {
-  background: #d1e7dd;
-  color: #0f5132;
-}
-
-.lesson-category.category-resident {
-  background: #fff3cd;
-  color: #664d03;
-}
-
-.lesson-category.category-doctor {
-  background: #f8d7da;
-  color: #842029;
-}
-
-.lesson-category.category-nurse {
-  background: #e2d9f3;
-  color: #432874;
-}
-
-.lesson-category.category-unspecified {
-  background: #e9ecef;
-  color: #495057;
-}
+/* Классы уровней образования */
+.lesson-category.level-vo-spec    { background: #cfe2ff; color: #084298; }
+.lesson-category.level-vo-res     { background: #d1e7dd; color: #0f5132; }
+.lesson-category.level-asp        { background: #e2d9f3; color: #432874; }
+.lesson-category.level-pa         { background: #ffe5d0; color: #8a4b08; }
+.lesson-category.level-psa        { background: #fff3cd; color: #664d03; }
+.lesson-category.level-dpo-pp     { background: #d0e2ff; color: #0a3675; }
+.lesson-category.level-dpo-pk-vo  { background: #cff4fc; color: #055160; }
+.lesson-category.level-dpo-pk-spo { background: #d3d3f7; color: #2b2b7a; }
+.lesson-category.level-do         { background: #d1e7dd; color: #0f5132; }
+.lesson-category.level-mk         { background: #f8d7da; color: #842029; }
+.lesson-category.level-unknown    { background: #e9ecef; color: #495057; }
 
 .lesson-right {
   display: flex;
