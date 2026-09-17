@@ -36,9 +36,9 @@
             <div class="form-group">
               <label>
                 <IconUser class="label-icon" />
-                Преподаватель *
+                Преподаватель 
               </label>
-              <input v-model="form.teacher" type="text" class="form-control" placeholder="Иванов И.И." required />
+              <input v-model="form.teacher" type="text" class="form-control" placeholder="Иванов И.И." />
             </div>
             <div class="form-group">
               <label>
@@ -456,10 +456,6 @@ const submit = async () => {
     toast.warning('Введите название занятия');
     return;
   }
-  if (!form.value.teacher.trim()) {
-    toast.warning('Введите преподавателя');
-    return;
-  }
   if (!form.value.date) {
     toast.warning('Выберите дату');
     return;
@@ -470,11 +466,6 @@ const submit = async () => {
   }
   if (!form.value.end_time) {
     toast.warning('Выберите время окончания');
-    return;
-  }
-
-  if (equipmentList.value.length === 0) {
-    toast.warning('Выберите оборудование для занятия');
     return;
   }
 

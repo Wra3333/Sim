@@ -32,11 +32,21 @@ export function useUrlSync({ resolvers = {} } = {}) {
 
   let isUpdatingFromStore = false
   let isUpdatingFromUrl = false
+  let urlInitialized = false
 
   const syncConfig = {
     equipment_search:      { get: () => store.filters.equipment.search,           set: (v) => store.filters.equipment.search = v || '' },
     equipment_status:      { get: () => store.filters.equipment.working_status,   set: (v) => store.filters.equipment.working_status = v || '' },
     equipment_write_off:   { get: () => store.filters.equipment.write_off_status, set: (v) => store.filters.equipment.write_off_status = v || '' },
+    equipment_ids: {
+      get: () => store.filters.equipment.ids?.length > 0
+        ? JSON.stringify(store.filters.equipment.ids)
+        : '',
+      set: (v) => {
+        try { store.filters.equipment.ids = v ? JSON.parse(v) : [] }
+        catch (e) { store.filters.equipment.ids = [] }
+      }
+    },
     equipment_page:        { get: () => store.pagination.equipment.page || 1,     set: (v) => store.pagination.equipment.page = parseInt(v, 10) || 1 },
     equipment_view: {
       get: () => store.viewMode.equipment || 'cards',
@@ -135,7 +145,6 @@ export function useUrlSync({ resolvers = {} } = {}) {
     },
     templates_edit:        { get: () => store.editing.template,                   set: (v) => store.editing.template = parseInt(v, 10) || null },
 
-    // АНАЛИТИКА
     analytics_equipment_ids: {
       get: () => store.filters.analytics.equipmentIds?.length > 0 ? JSON.stringify(store.filters.analytics.equipmentIds) : '',
       set: (v) => {
@@ -161,6 +170,7 @@ export function useUrlSync({ resolvers = {} } = {}) {
 
   const DEFAULTS = {
     equipment_search: '', equipment_status: '', equipment_write_off: '',
+    equipment_ids: [],
     equipment_page: 1, equipment_view: 'cards',
     equipment_edit: null, equipment_history: null,
 
@@ -196,6 +206,7 @@ export function useUrlSync({ resolvers = {} } = {}) {
   }
 
   const syncToUrl = () => {
+    if (!urlInitialized) return
     if (isUpdatingFromUrl) return
     isUpdatingFromStore = true
 
@@ -276,10 +287,11 @@ export function useUrlSync({ resolvers = {} } = {}) {
 
   onMounted(() => {
     syncFromUrl()
+    urlInitialized = true
   })
   onActivated(() => {
-  syncFromUrl()
-})
+    syncFromUrl()
+  })
 
   return { store, syncToUrl, syncFromUrl, openFromUrl }
 }

@@ -322,7 +322,7 @@ const { openFromUrl } = useUrlSync({
 //  ФИЛЬТРЫ
 // ============================================
 const equipmentFilters = computed({
-  get: () => filters.value.equipment || { working_status: '', write_off_status: '', search: '', tags: [] },
+  get: () => filters.value.equipment || { working_status: '', write_off_status: '', search: '', tags: [], ids: [] },
   set: (val) => { filters.value.equipment = val; }
 });
 
@@ -342,7 +342,7 @@ const pageSize = computed({
 });
 
 // ============================================
-//  VIEW MODE — только через стор
+//  VIEW MODE
 // ============================================
 const equipmentViewMode = computed({
   get: () => viewMode.value.equipment || 'cards',
@@ -354,7 +354,7 @@ const handleViewModeChange = (mode) => {
 };
 
 // ============================================
-//  DRAWER — computed над uiStore
+//  DRAWER
 // ============================================
 const editingItem = computed(() => {
   const id = editing.value.equipment;
@@ -370,7 +370,7 @@ const showForm = computed({
 });
 
 // ============================================
-//  HISTORY — computed над uiStore
+//  HISTORY
 // ============================================
 const showHistoryModal = computed({
   get: () => !!history.value.equipment,
@@ -418,9 +418,14 @@ const exportFieldLabels = {
 };
 
 // ============================================
-//  MULTI SELECT
+//  MULTI SELECT (Вариант A)
 // ============================================
-const selectedEquipmentIds = ref([]);
+const selectedEquipmentIds = computed({
+  get: () => equipmentFilters.value.ids || [],
+  set: (val) => {
+    equipmentFilters.value = { ...equipmentFilters.value, ids: val };
+  }
+});
 
 const allEquipmentForSelect = computed(() =>
   equipmentStore.allEquipment.filter(eq =>
@@ -432,13 +437,11 @@ const allEquipmentForSelect = computed(() =>
 
 const handleEquipmentSelect = (ids) => {
   selectedEquipmentIds.value = ids;
-  const names = ids.map(id => equipmentStore.getById(id)?.name || '').filter(Boolean);
-  equipmentFilters.value = { ...equipmentFilters.value, search: names.join(' ') };
   currentPage.value = 1;
 };
 
 // ============================================
-//  РАСШИРЕННЫЕ ФИЛЬТРЫ (локальные)
+//  РАСШИРЕННЫЕ ФИЛЬТРЫ
 // ============================================
 const advancedFilters = ref({
   tags: [],
@@ -480,12 +483,12 @@ const resetAdvancedFilters = () => {
 const filterConfig = {
   working_status: { filterFn: (item, v) => !v || item.working_status === v },
   write_off_status: { filterFn: (item, v) => !v || item.write_off_status === v },
+  ids: {
+    filterFn: (item, v) => !v || v.length === 0 || v.includes(item.id)
+  },
   search: {
     filterFn: (item, v) => {
       if (!v) return true;
-      if (selectedEquipmentIds.value.length > 0) {
-        return selectedEquipmentIds.value.includes(item.id);
-      }
       const s = v.toLowerCase();
       return item.name?.toLowerCase().includes(s)
           || item.inventory_number?.toLowerCase().includes(s)
@@ -719,9 +722,12 @@ const handleKeydown = (e) => {
 //  WATCH
 // ============================================
 watch(
-  [() => equipmentFilters.value.working_status,
-  () => equipmentFilters.value.write_off_status,
-  () => equipmentFilters.value.search],
+  [
+    () => equipmentFilters.value.working_status,
+    () => equipmentFilters.value.write_off_status,
+    () => equipmentFilters.value.search,
+    () => equipmentFilters.value.ids
+  ],
   () => { if (!showArchived.value) currentPage.value = 1; },
   { deep: true }
 );

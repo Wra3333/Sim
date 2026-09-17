@@ -15,7 +15,7 @@ export const useUiStore = defineStore('ui', {
     },
 
     filters: {
-      equipment: { working_status: '', write_off_status: '', search: '', tags: [] },
+      equipment: { working_status: '', write_off_status: '', search: '', tags: [], ids: [] },
 
       lessons: {
         status: '',
@@ -116,7 +116,7 @@ export const useUiStore = defineStore('ui', {
 
     resetFilters(module) {
       const defaults = {
-        equipment: { working_status: '', write_off_status: '', search: '', tags: [] },
+        equipment: { working_status: '', write_off_status: '', search: '', tags: [], ids: [] },
         lessons: {
           status: '',
           group: '',
@@ -162,7 +162,7 @@ export const useUiStore = defineStore('ui', {
 
     resetAllFilters() {
       this.filters = {
-        equipment: { working_status: '', write_off_status: '', search: '', tags: [] },
+        equipment: { working_status: '', write_off_status: '', search: '', tags: [], ids: [] },
         lessons: {
           status: '',
           group: '',

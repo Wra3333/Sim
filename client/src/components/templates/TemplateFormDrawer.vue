@@ -239,10 +239,6 @@ const submit = async () => {
     toast.warning('Введите дисциплину');
     return;
   }
-  if (equipmentIds.value.length === 0) {
-    toast.warning('Выберите оборудование для шаблона');
-    return;
-  }
 
   // Блокируем «Требует ремонта», «В ремонте», «Списан»
   // и write_off «На списание» / «Списан».

@@ -65,7 +65,7 @@ module.exports = {
         title: { type: 'string', required: true, min: 1, max: 255 },
         group: { type: 'string', optional: true, max: 100 },
         teacher: { type: 'string', optional: true, max: 100 },
-        students_count: { type: 'number', required: true, integer: true, min: 0, convert: true },
+        students_count: { type: 'number', integer: true, min: 0, convert: true },
         date: { type: 'string', required: true, pattern: /^\d{4}-\d{2}-\d{2}$/ },
         start_time: { type: 'string', required: true, pattern: /^\d{2}:\d{2}(:\d{2})?$/ },
         end_time: { type: 'string', required: true, pattern: /^\d{2}:\d{2}(:\d{2})?$/ },

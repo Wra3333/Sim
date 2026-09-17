@@ -9,7 +9,6 @@
       <div class="equipment-header" @click="$emit('toggle-equipment', equipment.id)">
         <div class="equipment-info">
           <div class="equipment-main">
-            <span class="equipment-id">#{{ equipment.id }}</span>
             <h3 class="equipment-title">{{ equipment.name }}</h3>
             <span
               class="equipment-status"
