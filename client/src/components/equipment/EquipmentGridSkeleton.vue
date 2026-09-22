@@ -1,10 +1,8 @@
 <template>
-  <div class="equipment-grid">
-    <div v-for="i in 6" :key="i" class="equipment-card skeleton-card">
-      <!-- Фото -->
+  <div class="equipment-grid" :class="{ 'is-mobile': isMobile }">
+    <div v-for="i in count" :key="i" class="equipment-card skeleton-card">
       <div class="card-photo skeleton"></div>
 
-      <!-- Тело -->
       <div class="card-body">
         <div class="skeleton skeleton-line w-60"></div>
         <div class="skeleton skeleton-line w-40"></div>
@@ -31,7 +29,25 @@
 </template>
 
 <script setup>
-// Количество карточек зафиксировано — 6 (совпадает с pageSize модуля оборудования)
+import { ref, onMounted, onBeforeUnmount } from 'vue';
+
+const isMobile = ref(false);
+let mediaQuery = null;
+const updateIsMobile = (e) => { isMobile.value = e.matches; };
+
+onMounted(() => {
+  if (typeof window !== 'undefined' && window.matchMedia) {
+    mediaQuery = window.matchMedia('(max-width: 1275px)');
+    isMobile.value = mediaQuery.matches;
+    mediaQuery.addEventListener('change', updateIsMobile);
+  }
+});
+
+onBeforeUnmount(() => {
+  if (mediaQuery) mediaQuery.removeEventListener('change', updateIsMobile);
+});
+
+const count = 6;
 </script>
 
 <style scoped>
@@ -43,93 +59,53 @@
 }
 
 .skeleton-card {
-  background: white;
-  border-radius: 12px;
+  background: white; border-radius: 12px;
   border: 1px solid #e9ecef;
   box-shadow: 0 2px 8px rgba(0, 0, 0, 0.06);
-  overflow: hidden;
-  pointer-events: none;
+  overflow: hidden; pointer-events: none;
 }
 
-/* ============================================
-   ФОТО
-   ============================================ */
-.card-photo {
-  width: 100%;
-  height: 180px;
-  border-radius: 0;
-}
+.card-photo { width: 100%; height: 180px; border-radius: 0; }
 
-/* ============================================
-   ТЕЛО КАРТОЧКИ
-   ============================================ */
 .card-body {
   padding: 14px 16px 16px;
-  display: flex;
-  flex-direction: column;
-  gap: 10px;
+  display: flex; flex-direction: column; gap: 10px;
 }
 
-.tags-row {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 4px;
-}
+.tags-row { display: flex; flex-wrap: wrap; gap: 4px; }
+.badges-row { display: flex; gap: 6px; flex-wrap: wrap; }
+.actions-row { display: flex; gap: 6px; margin-top: 4px; }
 
-.badges-row {
-  display: flex;
-  gap: 6px;
-  flex-wrap: wrap;
-}
-
-.actions-row {
-  display: flex;
-  gap: 6px;
-  margin-top: 4px;
-}
-
-/* ============================================
-   ОБЩИЙ SHIMMER
-   ============================================ */
+/* SHIMMER */
 .skeleton {
-  background: linear-gradient(
-    90deg,
-    #eef1f4 0%,
-    #f6f8fa 50%,
-    #eef1f4 100%
-  );
+  background: linear-gradient(90deg, #eef1f4 0%, #f6f8fa 50%, #eef1f4 100%);
   background-size: 200% 100%;
   animation: skeleton-shimmer 1.4s ease-in-out infinite;
   border-radius: 4px;
 }
-
 @keyframes skeleton-shimmer {
   0%   { background-position: 200% 0; }
   100% { background-position: -200% 0; }
 }
 
-.skeleton-line {
-  height: 12px;
-}
-
-.skeleton-tag {
-  height: 16px;
-  width: 48px;
-  border-radius: 10px;
-}
-
-.skeleton-pill {
-  height: 18px;
-  width: 80px;
-  border-radius: 12px;
-}
-
-.skeleton-btn {
-  width: 32px;
-  height: 32px;
-  border-radius: 6px;
-}
+.skeleton-line { height: 12px; }
+.skeleton-tag { height: 16px; width: 48px; border-radius: 10px; }
+.skeleton-pill { height: 18px; width: 80px; border-radius: 12px; }
+.skeleton-btn { width: 32px; height: 32px; border-radius: 6px; }
 
 .w-40 { width: 40%; }
 .w-60 { width: 60%; }
+
+@media (max-width: 1275px) {
+  .equipment-grid {
+    grid-template-columns: 1fr;
+    gap: 12px;
+  }
+
+  .card-photo { height: 200px; }
+
+  .actions-row .skeleton-btn {
+    width: 40px; height: 40px; border-radius: 8px;
+  }
+}
 </style>

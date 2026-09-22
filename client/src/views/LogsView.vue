@@ -5,27 +5,49 @@
       <div class="toolbar-left">
         <h2>
           <IconLogs class="title-icon" />
-          Журнал действий
+          <span class="title-text">Журнал действий</span>
         </h2>
-        <span class="count">Всего записей: {{ total }}</span>
-        <span class="count" style="margin-left: 16px; color: #0d6efd;">
+        <span v-if="!isMobile" class="count">Всего записей: {{ total }}</span>
+        <span v-if="!isMobile" class="count count-blue">
           На странице: {{ logs.length }}
         </span>
       </div>
+
       <div class="toolbar-right">
-        <button class="btn btn-outline-danger btn-sm" @click="confirmCleanup">
+        <button
+          class="btn btn-outline-danger btn-sm btn-mobile-icon"
+          @click="confirmCleanup"
+          title="Очистить старые"
+        >
           <IconTrash class="btn-icon" />
-          Очистить старые
+          <span class="btn-text">Очистить старые</span>
         </button>
-        <button class="btn btn-outline-secondary btn-sm" @click="loadLogs">
+
+        <button
+          v-if="isNarrow || isMobile"
+          class="btn btn-outline-secondary btn-sm btn-mobile-icon"
+          :class="{ 'btn-active': mobileFiltersOpen }"
+          @click="mobileFiltersOpen = true"
+          title="Фильтры"
+        >
+          <IconFilter class="btn-icon" />
+          <span class="btn-text">Фильтры</span>
+          <span v-if="activeFiltersCount > 0" class="badge">{{ activeFiltersCount }}</span>
+        </button>
+
+        <button
+          class="btn btn-outline-secondary btn-sm btn-mobile-icon"
+          @click="loadLogs"
+          title="Обновить"
+        >
           <IconRefresh class="btn-icon" />
-          Обновить
+          <span class="btn-text">Обновить</span>
         </button>
       </div>
     </div>
 
-    <!-- ФИЛЬТРЫ -->
-    <div class="filters">
+    <!-- DESKTOP: ФИЛЬТРЫ — только > 1600px -->
+    <div v-if="!isNarrow && !isMobile" class="filters">
       <div class="filters-row">
         <div class="filter-group">
           <label>Пользователь</label>
@@ -109,7 +131,7 @@
     </div>
 
     <!-- СТАТИСТИКА -->
-    <div class="stats-grid">
+    <div class="stats-grid" :class="{ 'is-mobile': isMobile }">
       <div class="stat-card">
         <div class="stat-icon"><IconList /></div>
         <div class="stat-info">
@@ -121,7 +143,7 @@
         <div class="stat-icon"><IconUser /></div>
         <div class="stat-info">
           <div class="stat-value">{{ uniqueUsers }}</div>
-          <div class="stat-label">Уникальных пользователей</div>
+          <div class="stat-label">Пользователей</div>
         </div>
       </div>
       <div class="stat-card">
@@ -140,69 +162,93 @@
       </div>
     </div>
 
-    <!-- ТАБЛИЦА ЛОГОВ -->
-    <div class="table-container">
-      <div v-if="loading" class="text-center text-muted" style="padding: 40px;">
+    <!-- DESKTOP: ТАБЛИЦА -->
+    <template v-if="!isMobile">
+      <div class="table-container">
+        <div v-if="loading" class="text-center text-muted" style="padding: 40px;">
+          <IconLoading class="loading-icon" />
+          Загрузка...
+        </div>
+        <table v-else class="table">
+          <thead>
+            <tr>
+              <th class="col-id">ID</th>
+              <th class="col-user">Пользователь</th>
+              <th class="col-action">Действие</th>
+              <th class="col-entity">Сущность</th>
+              <th class="col-entity-id">ID сущности</th>
+              <th class="col-date">Дата</th>
+              <th class="col-details">Детали</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr v-if="!logs || logs.length === 0">
+              <td colspan="7" class="text-center text-muted">Нет записей</td>
+            </tr>
+            <tr
+              v-for="log in logs"
+              :key="'row-' + log.id"
+              @click="openDetails(log)"
+              class="clickable-row"
+            >
+              <td class="cell-id">{{ log.id }}</td>
+              <td class="cell-user">
+                <strong>{{ log.user_name || 'Система' }}</strong>
+                <span v-if="log.user_id" class="user-id">(ID: {{ log.user_id }})</span>
+              </td>
+              <td class="cell-action">
+                <span class="badge" :class="getActionClass(log.action)">
+                  {{ log.action }}
+                </span>
+              </td>
+              <td class="cell-entity">
+                <span class="badge badge-entity">{{ getEntityLabel(log.entity) }}</span>
+              </td>
+              <td class="cell-entity-id">{{ log.entity_id || '—' }}</td>
+              <td class="cell-date">
+                <div class="date-cell">
+                  <div class="date">{{ formatDate(log.created_at) }}</div>
+                  <div class="time">{{ formatTime(log.created_at) }}</div>
+                </div>
+              </td>
+              <td class="cell-details">
+                <button
+                  v-if="log.details"
+                  class="btn btn-sm btn-outline-info"
+                  @click.stop="openDetails(log)"
+                >
+                  <IconEye class="btn-icon" />
+                  Детали
+                </button>
+                <span v-else class="text-muted">—</span>
+              </td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+    </template>
+
+    <!-- MOBILE: КАРТОЧКИ -->
+    <template v-else>
+      <div v-if="loading" class="loading-state">
         <IconLoading class="loading-icon" />
         Загрузка...
       </div>
-      <table v-else class="table table-hover">
-        <thead>
-          <tr>
-            <th style="width: 60px;">ID</th>
-            <th style="min-width: 150px;">Пользователь</th>
-            <th style="min-width: 140px;">Действие</th>
-            <th style="min-width: 120px;">Сущность</th>
-            <th style="width: 80px;">ID</th>
-            <th style="min-width: 150px;">Дата</th>
-            <th style="width: 60px;">Детали</th>
-          </tr>
-        </thead>
-        <tbody>
-          <tr v-if="!logs || logs.length === 0">
-            <td colspan="7" class="text-center text-muted">Нет записей</td>
-          </tr>
-          <tr
-            v-for="log in logs"
-            :key="'row-' + log.id"
-            @click="openDetails(log)"
-            style="cursor: pointer;"
-          >
-            <td>{{ log.id }}</td>
-            <td>
-              <strong>{{ log.user_name || 'Система' }}</strong>
-              <span v-if="log.user_id" class="user-id">(ID: {{ log.user_id }})</span>
-            </td>
-            <td>
-              <span class="badge" :class="getActionClass(log.action)">
-                {{ log.action }}
-              </span>
-            </td>
-            <td>
-              <span class="badge badge-entity">{{ getEntityLabel(log.entity) }}</span>
-            </td>
-            <td>{{ log.entity_id || '—' }}</td>
-            <td>
-              <div class="date-cell">
-                <div class="date">{{ formatDate(log.created_at) }}</div>
-                <div class="time">{{ formatTime(log.created_at) }}</div>
-              </div>
-            </td>
-            <td>
-              <button
-                v-if="log.details"
-                class="btn btn-sm btn-outline-info"
-                @click.stop="openDetails(log)"
-              >
-                <IconEye class="btn-icon" />
-                Детали
-              </button>
-              <span v-else class="text-muted">—</span>
-            </td>
-          </tr>
-        </tbody>
-      </table>
-    </div>
+
+      <div v-else-if="logs.length === 0" class="empty-state">
+        <IconList class="empty-icon" />
+        <span>Нет записей</span>
+      </div>
+
+      <div v-else class="logs-cards">
+        <LogMobileCard
+          v-for="log in logs"
+          :key="log.id"
+          :log="log"
+          @open-details="openDetails"
+        />
+      </div>
+    </template>
 
     <!-- ПАГИНАЦИЯ -->
     <Pagination
@@ -212,89 +258,188 @@
       :loading="loading"
     />
 
-    <!-- МОДАЛЬНОЕ ОКНО ДЕТАЛЕЙ -->
-    <div v-if="selectedLog" class="modal-overlay" @click="closeDetails">
-      <div class="modal-content" @click.stop>
-        <div class="modal-header">
-          <h3>Детали записи #{{ selectedLog.id }}</h3>
-          <button class="btn-close" @click="closeDetails">×</button>
-        </div>
-        <div class="modal-body">
-          <!-- Основная информация -->
-          <div class="details-grid">
-            <div class="detail-item">
-              <span class="detail-label">Пользователь:</span>
-              <span class="detail-value">{{ selectedLog.user_name || 'Система' }}</span>
+    <!-- OFF-CANVAS ФИЛЬТРЫ -->
+    <transition name="drawer-fade">
+      <div
+        v-if="mobileFiltersOpen"
+        class="drawer-overlay"
+        @click.self="mobileFiltersOpen = false"
+      >
+        <transition name="drawer-slide" appear>
+          <div class="drawer-window">
+            <div class="drawer-header">
+              <h3><IconFilter class="drawer-icon" /> Фильтры</h3>
+              <button class="drawer-close" @click="mobileFiltersOpen = false">×</button>
             </div>
-            <div class="detail-item">
-              <span class="detail-label">Действие:</span>
-              <span class="detail-value">
-                <span class="badge" :class="getActionClass(selectedLog.action)">
-                  {{ selectedLog.action }}
-                </span>
-              </span>
-            </div>
-            <div class="detail-item">
-              <span class="detail-label">Сущность:</span>
-              <span class="detail-value">
-                <span class="badge badge-entity">{{ getEntityLabel(selectedLog.entity) }}</span>
-              </span>
-            </div>
-            <div class="detail-item">
-              <span class="detail-label">ID сущности:</span>
-              <span class="detail-value">{{ selectedLog.entity_id || '—' }}</span>
-            </div>
-            <div class="detail-item">
-              <span class="detail-label">IP:</span>
-              <span class="detail-value">{{ selectedLog.ip || '—' }}</span>
-            </div>
-            <div class="detail-item">
-              <span class="detail-label">Дата:</span>
-              <span class="detail-value">
-                {{ formatDate(selectedLog.created_at) }} {{ formatTime(selectedLog.created_at) }}
-              </span>
-            </div>
-          </div>
 
-          <!-- Параметры действия -->
-          <div v-if="getDetailsParams(selectedLog.details)" class="params-section">
-            <div class="params-header" @click="showParams = !showParams">
-              <span>Параметры действия</span>
-              <span class="toggle-icon">{{ showParams ? '▼' : '▶' }}</span>
-            </div>
-            <div v-if="showParams" class="params-grid">
-              <div
-                v-for="(value, key) in getDetailsParams(selectedLog.details)"
-                :key="key"
-                class="param-item"
-              >
-                <span class="param-key">{{ formatParamKey(key) }}:</span>
-                <span class="param-value">{{ formatParamValue(value) }}</span>
+            <div class="drawer-body">
+              <div class="filter-group">
+                <label>Пользователь (ID)</label>
+                <input
+                  v-model="filters.user_id"
+                  type="number"
+                  class="form-control"
+                  placeholder="ID пользователя"
+                />
+              </div>
+
+              <div class="filter-group">
+                <label>Действие</label>
+                <select v-model="filters.action" class="form-control">
+                  <option value="">Все действия</option>
+                  <optgroup label="Авторизация">
+                    <option value="login">Вход</option>
+                    <option value="logout">Выход</option>
+                    <option value="register">Регистрация</option>
+                    <option value="change_password">Смена пароля</option>
+                    <option value="refresh">Обновление токена</option>
+                  </optgroup>
+                  <optgroup label="Оборудование">
+                    <option value="create">Создание</option>
+                    <option value="update">Обновление</option>
+                    <option value="delete">Удаление</option>
+                    <option value="import">Импорт</option>
+                    <option value="export">Экспорт</option>
+                    <option value="upload_photo">Загрузка фото</option>
+                    <option value="delete_photo">Удаление фото</option>
+                  </optgroup>
+                  <optgroup label="Занятия">
+                    <option value="complete">Завершение</option>
+                  </optgroup>
+                  <optgroup label="Ремонты">
+                    <option value="resolve">Закрытие заявки</option>
+                  </optgroup>
+                  <optgroup label="Шаблоны">
+                    <option value="add_equipment">Добавление оборудования</option>
+                    <option value="remove_equipment">Удаление оборудования</option>
+                    <option value="sync">Синхронизация</option>
+                  </optgroup>
+                  <optgroup label="Ошибки">
+                    <option value="error">Ошибка</option>
+                  </optgroup>
+                </select>
+              </div>
+
+              <div class="filter-group">
+                <label>Сущность</label>
+                <select v-model="filters.entity" class="form-control">
+                  <option value="">Все сущности</option>
+                  <option value="auth">Авторизация</option>
+                  <option value="equipment">Оборудование</option>
+                  <option value="lessons">Занятия</option>
+                  <option value="templates">Шаблоны</option>
+                  <option value="repairs">Ремонты</option>
+                  <option value="worktime">Время работы</option>
+                  <option value="logs">Логи</option>
+                </select>
+              </div>
+
+              <div class="filter-group">
+                <label>От</label>
+                <input v-model="filters.date_from" type="date" class="form-control" />
+              </div>
+
+              <div class="filter-group">
+                <label>До</label>
+                <input v-model="filters.date_to" type="date" class="form-control" />
               </div>
             </div>
-          </div>
 
-          <!-- Время выполнения -->
-          <div v-if="getDetailsDuration(selectedLog.details)" class="duration-section">
-            <span class="duration-label">Время выполнения:</span>
-            <span class="duration-value">{{ getDetailsDuration(selectedLog.details) }}</span>
-          </div>
-
-          <!-- JSON -->
-          <div class="json-section">
-            <div class="json-header" @click="showJson = !showJson">
-              <span>JSON (сырые данные)</span>
-              <span class="toggle-icon">{{ showJson ? '▼' : '▶' }}</span>
+            <div class="drawer-footer">
+              <button class="btn btn-outline-secondary" @click="resetAllFilters">
+                <IconReset class="btn-icon" />
+                Сбросить
+              </button>
+              <button class="btn btn-primary" @click="applyFiltersAndClose">
+                <IconSearch class="btn-icon" />
+                Применить
+              </button>
             </div>
-            <div v-if="showJson" class="json-body">
-              <pre class="json-content">{{ formatDetails(selectedLog.details) }}</pre>
+          </div>
+        </transition>
+      </div>
+    </transition>
+
+    <!-- МОДАЛЬНОЕ ОКНО ДЕТАЛЕЙ -->
+    <Teleport to="body">
+      <div v-if="selectedLog" class="modal-overlay" @click="closeDetails">
+        <div class="modal-content" @click.stop>
+          <div class="modal-header">
+            <h3>Детали записи #{{ selectedLog.id }}</h3>
+            <button class="btn-close" @click="closeDetails">×</button>
+          </div>
+          <div class="modal-body">
+            <div class="details-grid" :class="{ 'is-mobile': isMobile }">
+              <div class="detail-item">
+                <span class="detail-label">Пользователь:</span>
+                <span class="detail-value">{{ selectedLog.user_name || 'Система' }}</span>
+              </div>
+              <div class="detail-item">
+                <span class="detail-label">Действие:</span>
+                <span class="detail-value">
+                  <span class="badge" :class="getActionClass(selectedLog.action)">
+                    {{ selectedLog.action }}
+                  </span>
+                </span>
+              </div>
+              <div class="detail-item">
+                <span class="detail-label">Сущность:</span>
+                <span class="detail-value">
+                  <span class="badge badge-entity">{{ getEntityLabel(selectedLog.entity) }}</span>
+                </span>
+              </div>
+              <div class="detail-item">
+                <span class="detail-label">ID сущности:</span>
+                <span class="detail-value">{{ selectedLog.entity_id || '—' }}</span>
+              </div>
+              <div class="detail-item">
+                <span class="detail-label">IP:</span>
+                <span class="detail-value">{{ selectedLog.ip || '—' }}</span>
+              </div>
+              <div class="detail-item">
+                <span class="detail-label">Дата:</span>
+                <span class="detail-value">
+                  {{ formatDate(selectedLog.created_at) }} {{ formatTime(selectedLog.created_at) }}
+                </span>
+              </div>
+            </div>
+
+            <div v-if="getDetailsParams(selectedLog.details)" class="params-section">
+              <div class="params-header" @click="showParams = !showParams">
+                <span>Параметры действия</span>
+                <span class="toggle-icon">{{ showParams ? '▼' : '▶' }}</span>
+              </div>
+              <div v-if="showParams" class="params-grid" :class="{ 'is-mobile': isMobile }">
+                <div
+                  v-for="(value, key) in getDetailsParams(selectedLog.details)"
+                  :key="key"
+                  class="param-item"
+                >
+                  <span class="param-key">{{ formatParamKey(key) }}:</span>
+                  <span class="param-value">{{ formatParamValue(value) }}</span>
+                </div>
+              </div>
+            </div>
+
+            <div v-if="getDetailsDuration(selectedLog.details)" class="duration-section">
+              <span class="duration-label">Время выполнения:</span>
+              <span class="duration-value">{{ getDetailsDuration(selectedLog.details) }}</span>
+            </div>
+
+            <div class="json-section">
+              <div class="json-header" @click="showJson = !showJson">
+                <span>JSON (сырые данные)</span>
+                <span class="toggle-icon">{{ showJson ? '▼' : '▶' }}</span>
+              </div>
+              <div v-if="showJson" class="json-body">
+                <pre class="json-content">{{ formatDetails(selectedLog.details) }}</pre>
+              </div>
             </div>
           </div>
         </div>
       </div>
-    </div>
+    </Teleport>
 
-    <!-- МОДАЛ ПОДТВЕРЖДЕНИЯ ОЧИСТКИ -->
     <ConfirmModal
       v-model:visible="showCleanupModal"
       title="Очистка логов"
@@ -307,27 +452,58 @@
 </template>
 
 <script setup>
-import { ref, computed, onMounted, watch } from 'vue';
+import { ref, computed, onMounted, onBeforeUnmount, watch } from 'vue';
 import { logsApi } from '../api';
 import Pagination from '../components/Pagination.vue';
 import ConfirmModal from '../components/ConfirmModal.vue';
+import LogMobileCard from '../components/logs/LogMobileCard.vue';
 import { useToastStore } from '../stores/toastStore';
 import { useFormatters } from '../composables/useFormatters';
 import {
-  IconLogs,
-  IconTrash,
-  IconRefresh,
-  IconReset,
-  IconSearch,
-  IconList,
-  IconUser,
-  IconCalendar,
-  IconLoading,
-  IconEye
+  IconLogs, IconTrash, IconRefresh, IconReset, IconSearch,
+  IconList, IconUser, IconCalendar, IconLoading, IconEye,
+  IconFilter
 } from '../components/icons';
 
 const toast = useToastStore();
 const { formatDate, formatTime } = useFormatters();
+
+// ============================================
+//  MOBILE (≤ 1275px)
+// ============================================
+const isMobile = ref(false);
+let mediaQuery = null;
+const mobileFiltersOpen = ref(false);
+
+const updateIsMobile = (e) => {
+  isMobile.value = e.matches;
+  if (!isMobile.value) mobileFiltersOpen.value = false;
+};
+
+// ============================================
+//  NARROW (≤ 1600px)
+// ============================================
+const isNarrow = ref(false);
+let narrowQuery = null;
+
+const updateIsNarrow = (e) => { isNarrow.value = e.matches; };
+
+onMounted(() => {
+  if (typeof window !== 'undefined' && window.matchMedia) {
+    mediaQuery = window.matchMedia('(max-width: 1275px)');
+    isMobile.value = mediaQuery.matches;
+    mediaQuery.addEventListener('change', updateIsMobile);
+
+    narrowQuery = window.matchMedia('(max-width: 1600px)');
+    isNarrow.value = narrowQuery.matches;
+    narrowQuery.addEventListener('change', updateIsNarrow);
+  }
+});
+
+onBeforeUnmount(() => {
+  if (mediaQuery) mediaQuery.removeEventListener('change', updateIsMobile);
+  if (narrowQuery) narrowQuery.removeEventListener('change', updateIsNarrow);
+});
 
 // ============================================
 //  СОСТОЯНИЕ
@@ -346,7 +522,7 @@ const showParams = ref(false);
 const showJson = ref(false);
 
 // ============================================
-//  ФИЛЬТРЫ (локальные, не уходят в URL)
+//  ФИЛЬТРЫ
 // ============================================
 const filters = ref({
   user_id: '',
@@ -354,6 +530,16 @@ const filters = ref({
   entity: '',
   date_from: '',
   date_to: ''
+});
+
+const activeFiltersCount = computed(() => {
+  let n = 0;
+  if (filters.value.user_id) n++;
+  if (filters.value.action) n++;
+  if (filters.value.entity) n++;
+  if (filters.value.date_from) n++;
+  if (filters.value.date_to) n++;
+  return n;
 });
 
 // ============================================
@@ -408,12 +594,14 @@ const loadLogs = async () => {
   }
 };
 
-// ============================================
-//  ПРИМЕНЕНИЕ ФИЛЬТРОВ
-// ============================================
 const applyFilters = () => {
   currentPage.value = 1;
   loadLogs();
+};
+
+const applyFiltersAndClose = () => {
+  applyFilters();
+  mobileFiltersOpen.value = false;
 };
 
 const resetAllFilters = () => {
@@ -426,6 +614,7 @@ const resetAllFilters = () => {
   };
   currentPage.value = 1;
   loadLogs();
+  mobileFiltersOpen.value = false;
 };
 
 // ============================================
@@ -607,23 +796,15 @@ const getEntityLabel = (entity) => {
   return labels[entity] || entity || '—';
 };
 
-// ============================================
-//  WATCH
-// ============================================
 watch(currentPage, () => {
   loadLogs();
 });
 
-// ============================================
-//  LIFECYCLE
-// ============================================
 onMounted(loadLogs);
 </script>
 
 <style scoped>
-.logs-view {
-  padding: 0;
-}
+.logs-view { padding: 0; }
 
 /* ============================================
    TOOLBAR
@@ -637,26 +818,35 @@ onMounted(loadLogs);
   gap: 12px;
 }
 
+.toolbar-left {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  flex-wrap: wrap;
+  min-width: 0;
+}
+
 .toolbar-left h2 {
   font-size: 24px;
   font-weight: 600;
-  margin-bottom: 4px;
+  margin: 0;
   color: #212529;
   display: flex;
   align-items: center;
   gap: 8px;
+  min-width: 0;
 }
-
 .toolbar-left h2 .title-icon {
-  width: 24px;
-  height: 24px;
-  stroke: #212529;
+  width: 24px; height: 24px; stroke: #212529; flex-shrink: 0;
+}
+.toolbar-left h2 .title-text {
+  overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
 }
 
 .toolbar-left .count {
-  font-size: 13px;
-  color: #888;
+  font-size: 13px; color: #888; white-space: nowrap;
 }
+.toolbar-left .count-blue { color: #0d6efd; }
 
 .toolbar-right {
   display: flex;
@@ -664,8 +854,25 @@ onMounted(loadLogs);
   flex-wrap: wrap;
 }
 
+.btn-mobile-icon .badge {
+  background: #dc3545;
+  color: white;
+  border-radius: 999px;
+  padding: 0 6px;
+  font-size: 10.5px;
+  line-height: 16px;
+  min-width: 16px;
+  text-align: center;
+}
+
+.btn-active {
+  background: #e7f1ff !important;
+  color: #0d6efd !important;
+  border-color: #0d6efd !important;
+}
+
 /* ============================================
-   ФИЛЬТРЫ
+   ФИЛЬТРЫ (desktop)
    ============================================ */
 .filters {
   display: flex;
@@ -729,20 +936,8 @@ onMounted(loadLogs);
   flex: 0 0 auto;
 }
 
-.date-filters label {
-  font-size: 13px;
-  color: #888;
-}
-
-.date-filters .form-control {
-  min-width: 130px;
-  flex: 1;
-}
-
-.filters-actions .btn {
-  flex: 0 0 auto;
-  white-space: nowrap;
-}
+.date-filters label { font-size: 13px; color: #888; }
+.date-filters .form-control { min-width: 130px; flex: 1; }
 
 /* ============================================
    КНОПКИ
@@ -757,62 +952,29 @@ onMounted(loadLogs);
   display: inline-flex;
   align-items: center;
   gap: 6px;
+  white-space: nowrap;
 }
+.btn .btn-icon { width: 16px; height: 16px; stroke: currentColor; }
 
-.btn .btn-icon {
-  width: 16px;
-  height: 16px;
-  stroke: currentColor;
-}
-
-.btn-primary {
-  background: #0d6efd;
-  color: white;
-  border-color: #0d6efd;
-}
-
-.btn-primary:hover {
-  background: #0b5ed7;
-  border-color: #0a58ca;
-}
+.btn-primary { background: #0d6efd; color: white; border-color: #0d6efd; }
+.btn-primary:hover { background: #0b5ed7; border-color: #0a58ca; }
 
 .btn-outline-secondary {
-  background: transparent;
-  color: #6c757d;
-  border-color: #6c757d;
+  background: transparent; color: #6c757d; border-color: #6c757d;
 }
-
-.btn-outline-secondary:hover {
-  background: #6c757d;
-  color: white;
-}
+.btn-outline-secondary:hover { background: #6c757d; color: white; }
 
 .btn-outline-danger {
-  background: transparent;
-  color: #dc3545;
-  border-color: #dc3545;
+  background: transparent; color: #dc3545; border-color: #dc3545;
 }
-
-.btn-outline-danger:hover {
-  background: #dc3545;
-  color: white;
-}
+.btn-outline-danger:hover { background: #dc3545; color: white; }
 
 .btn-outline-info {
-  background: transparent;
-  color: #0dcaf0;
-  border-color: #0dcaf0;
+  background: transparent; color: #0dcaf0; border-color: #0dcaf0;
 }
+.btn-outline-info:hover { background: #0dcaf0; color: white; }
 
-.btn-outline-info:hover {
-  background: #0dcaf0;
-  color: white;
-}
-
-.btn-sm {
-  padding: 2px 8px;
-  font-size: 12px;
-}
+.btn-sm { padding: 2px 8px; font-size: 12px; }
 
 /* ============================================
    СТАТИСТИКА
@@ -835,41 +997,23 @@ onMounted(loadLogs);
 }
 
 .stat-icon {
-  width: 28px;
-  height: 28px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  color: #0d6efd;
-  flex-shrink: 0;
+  width: 28px; height: 28px;
+  display: flex; align-items: center; justify-content: center;
+  color: #0d6efd; flex-shrink: 0;
 }
-
-.stat-icon svg {
-  width: 24px;
-  height: 24px;
-  stroke: currentColor;
-}
-
-.stat-value {
-  font-size: 18px;
-  font-weight: 700;
-  color: #1a1a2e;
-}
-
-.stat-label {
-  font-size: 12px;
-  color: #888;
-}
+.stat-icon svg { width: 24px; height: 24px; stroke: currentColor; }
+.stat-value { font-size: 18px; font-weight: 700; color: #1a1a2e; }
+.stat-label { font-size: 12px; color: #888; }
 
 /* ============================================
-   ТАБЛИЦА
+   ТАБЛИЦА — РЕЗИНОВАЯ
    ============================================ */
 .table-container {
   background: white;
   border-radius: 12px;
-  padding: 0;
   box-shadow: 0 2px 8px rgba(0, 0, 0, 0.06);
-  overflow-x: auto;
+  overflow: hidden;
+  border: 1px solid #e9ecef;
 }
 
 .table {
@@ -877,41 +1021,64 @@ onMounted(loadLogs);
   font-size: 14px;
   width: 100%;
   border-collapse: collapse;
+  table-layout: fixed;
 }
+
+.table thead { background: #f4f7fc; }
 
 .table th {
   background: #f4f7fc;
   font-weight: 600;
   color: #555;
   border-bottom: 2px solid #e0e0e0;
-  padding: 12px 16px;
+  padding: 12px 14px;
   text-align: left;
-  white-space: nowrap;
+  vertical-align: middle;
+  word-break: normal;
+  overflow-wrap: break-word;
 }
 
 .table td {
-  padding: 10px 16px;
-  vertical-align: middle;
+  padding: 10px 14px;
   border-bottom: 1px solid #e9ecef;
+  vertical-align: middle;
+  word-break: normal;
+  overflow-wrap: break-word;
 }
 
-.table tbody tr:hover {
-  background: #f8f9fa;
-}
+.table tbody tr:hover { background: #f8f9fa; }
 
-.text-center {
-  text-align: center;
-}
+.clickable-row { cursor: pointer; }
 
-.text-muted {
-  color: #888;
-}
+.text-center { text-align: center; }
+.text-muted { color: #888; }
 
+/* Ширины колонок */
+.col-id         { width: 7%; }
+.col-user       { width: 20%; }
+.col-action     { width: 14%; }
+.col-entity     { width: 14%; }
+.col-entity-id  { width: 10%; }
+.col-date       { width: 17%; }
+.col-details    { width: 130px; }
+
+.cell-id { color: #6c757d; font-size: 13px; }
+
+.cell-user strong { color: #212529; }
 .user-id {
   font-size: 12px;
   color: #888;
   margin-left: 4px;
 }
+
+.date-cell {
+  display: flex;
+  flex-direction: column;
+}
+.date-cell .date { font-size: 13px; color: #212529; }
+.date-cell .time { font-size: 12px; color: #888; }
+
+.cell-details { white-space: nowrap; text-align: right; }
 
 /* ============================================
    БЕЙДЖИ
@@ -922,8 +1089,8 @@ onMounted(loadLogs);
   font-size: 12px;
   font-weight: 500;
   display: inline-block;
+  white-space: nowrap;
 }
-
 .badge-success { background: #d4edda; color: #155724; }
 .badge-danger { background: #f8d7da; color: #721c24; }
 .badge-warning { background: #fff3cd; color: #856404; }
@@ -932,117 +1099,68 @@ onMounted(loadLogs);
 .badge-info { background: #d1ecf1; color: #0c5460; }
 .badge-entity { background: #e9ecef; color: #495057; }
 
-.date-cell {
-  display: flex;
-  flex-direction: column;
-}
-
-.date-cell .date {
-  font-size: 13px;
-  color: #212529;
-}
-
-.date-cell .time {
-  font-size: 12px;
-  color: #888;
-}
-
+/* ============================================
+   ЗАГРУЗКА / ПУСТО
+   ============================================ */
 .loading-icon {
-  width: 18px;
-  height: 18px;
-  stroke: #888;
+  width: 18px; height: 18px; stroke: #888;
   animation: spin 1s linear infinite;
-  display: inline-block;
-  margin-right: 8px;
+  display: inline-block; margin-right: 8px;
+}
+@keyframes spin { to { transform: rotate(360deg); } }
+
+.loading-state {
+  display: flex; align-items: center; justify-content: center;
+  padding: 60px; color: #888; font-size: 14px; gap: 8px;
 }
 
-@keyframes spin {
-  to { transform: rotate(360deg); }
+.empty-state {
+  text-align: center; padding: 60px 20px; color: #6c757d;
+  display: flex; flex-direction: column; align-items: center; gap: 8px;
 }
+.empty-state .empty-icon { width: 40px; height: 40px; stroke: #6c757d; }
+
+.logs-cards { display: flex; flex-direction: column; }
 
 /* ============================================
    МОДАЛЬНОЕ ОКНО
    ============================================ */
 .modal-overlay {
-  position: fixed;
-  top: 0;
-  left: 0;
-  width: 100%;
-  height: 100%;
+  position: fixed; inset: 0;
   background: rgba(0, 0, 0, 0.5);
-  display: flex;
-  justify-content: center;
-  align-items: center;
+  display: flex; justify-content: center; align-items: center;
   z-index: 1000;
   animation: fadeIn 0.2s ease;
+  padding: 16px;
 }
-
-@keyframes fadeIn {
-  from { opacity: 0; }
-  to { opacity: 1; }
-}
+@keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
 
 .modal-content {
-  background: white;
-  border-radius: 12px;
-  max-width: 700px;
-  width: 90%;
-  max-height: 80vh;
-  overflow: hidden;
+  background: white; border-radius: 12px;
+  max-width: 700px; width: 100%; max-height: 80vh;
+  overflow: hidden; display: flex; flex-direction: column;
   box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
   animation: slideUp 0.3s ease;
 }
-
 @keyframes slideUp {
-  from {
-    opacity: 0;
-    transform: translateY(30px);
-  }
-  to {
-    opacity: 1;
-    transform: translateY(0);
-  }
+  from { opacity: 0; transform: translateY(30px); }
+  to { opacity: 1; transform: translateY(0); }
 }
 
 .modal-header {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  padding: 16px 24px;
-  border-bottom: 2px solid #e9ecef;
-  background: #f8f9fa;
-  position: sticky;
-  top: 0;
-  z-index: 1;
+  display: flex; justify-content: space-between; align-items: center;
+  padding: 16px 24px; border-bottom: 2px solid #e9ecef;
+  background: #f8f9fa; flex-shrink: 0;
 }
-
-.modal-header h3 {
-  margin: 0;
-  font-size: 18px;
-  font-weight: 600;
-  color: #212529;
-}
-
+.modal-header h3 { margin: 0; font-size: 18px; font-weight: 600; color: #212529; }
 .btn-close {
-  background: none;
-  border: none;
-  font-size: 28px;
-  cursor: pointer;
-  color: #888;
-  line-height: 1;
-  padding: 0 4px;
+  background: none; border: none; font-size: 28px;
+  cursor: pointer; color: #888; line-height: 1; padding: 0 4px;
   transition: color 0.15s;
 }
+.btn-close:hover { color: #212529; }
 
-.btn-close:hover {
-  color: #212529;
-}
-
-.modal-body {
-  padding: 20px 24px;
-  overflow-y: auto;
-  max-height: calc(80vh - 70px);
-}
+.modal-body { padding: 20px 24px; overflow-y: auto; flex: 1; }
 
 .details-grid {
   display: grid;
@@ -1050,25 +1168,9 @@ onMounted(loadLogs);
   gap: 8px 24px;
   margin-bottom: 16px;
 }
-
-.detail-item {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  padding: 4px 0;
-}
-
-.detail-label {
-  font-weight: 600;
-  color: #495057;
-  font-size: 13px;
-  min-width: 100px;
-}
-
-.detail-value {
-  color: #212529;
-  font-size: 13px;
-}
+.detail-item { display: flex; align-items: center; gap: 8px; padding: 4px 0; }
+.detail-label { font-weight: 600; color: #495057; font-size: 13px; min-width: 100px; }
+.detail-value { color: #212529; font-size: 13px; }
 
 .params-section {
   margin: 12px 0;
@@ -1077,27 +1179,17 @@ onMounted(loadLogs);
   overflow: hidden;
 }
 
-.params-header {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  padding: 8px 14px;
-  background: #f1f3f5;
-  cursor: pointer;
-  font-weight: 500;
-  font-size: 13px;
-  color: #495057;
+.params-header,
+.json-header {
+  display: flex; justify-content: space-between; align-items: center;
+  padding: 8px 14px; background: #f1f3f5; cursor: pointer;
+  font-weight: 500; font-size: 13px; color: #495057;
   transition: background 0.15s;
 }
+.params-header:hover,
+.json-header:hover { background: #e9ecef; }
 
-.params-header:hover {
-  background: #e9ecef;
-}
-
-.toggle-icon {
-  font-size: 12px;
-  color: #888;
-}
+.toggle-icon { font-size: 12px; color: #888; }
 
 .params-grid {
   display: grid;
@@ -1106,43 +1198,16 @@ onMounted(loadLogs);
   padding: 10px 14px;
   background: white;
 }
-
-.param-item {
-  display: flex;
-  align-items: center;
-  gap: 6px;
-  padding: 2px 0;
-  font-size: 13px;
-}
-
-.param-key {
-  font-weight: 500;
-  color: #495057;
-  min-width: 120px;
-}
-
-.param-value {
-  color: #212529;
-  word-break: break-word;
-}
+.param-item { display: flex; align-items: center; gap: 6px; padding: 2px 0; font-size: 13px; }
+.param-key { font-weight: 500; color: #495057; min-width: 120px; }
+.param-value { color: #212529; word-break: break-word; }
 
 .duration-section {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  padding: 8px 0;
-  font-size: 13px;
+  display: flex; align-items: center; gap: 8px;
+  padding: 8px 0; font-size: 13px;
 }
-
-.duration-label {
-  font-weight: 500;
-  color: #495057;
-}
-
-.duration-value {
-  color: #0d6efd;
-  font-weight: 600;
-}
+.duration-label { font-weight: 500; color: #495057; }
+.duration-value { color: #0d6efd; font-weight: 600; }
 
 .json-section {
   margin: 12px 0 0 0;
@@ -1150,34 +1215,14 @@ onMounted(loadLogs);
   border-radius: 6px;
   overflow: hidden;
 }
-
-.json-header {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  padding: 8px 14px;
-  background: #f1f3f5;
-  cursor: pointer;
-  font-weight: 500;
-  font-size: 13px;
-  color: #495057;
-  transition: background 0.15s;
-}
-
-.json-header:hover {
-  background: #e9ecef;
-}
-
 .json-body {
   padding: 12px 14px;
   background: #1a1a2e;
   max-height: 300px;
   overflow: auto;
 }
-
 .json-content {
-  margin: 0;
-  padding: 8px;
+  margin: 0; padding: 8px;
   background: transparent;
   color: #00ff9d;
   font-family: 'Consolas', 'Monaco', monospace;
@@ -1188,74 +1233,181 @@ onMounted(loadLogs);
 }
 
 /* ============================================
-   АДАПТИВНОСТЬ
+   OFF-CANVAS DRAWER
    ============================================ */
-@media (max-width: 768px) {
-  .filters-row {
-    flex-direction: column;
-    align-items: stretch;
-  }
+.drawer-overlay {
+  position: fixed; inset: 0; background: rgba(0, 0, 0, 0.45);
+  z-index: 1000; display: flex; justify-content: flex-end;
+}
+.drawer-window {
+  background: white; width: 90vw; max-width: 420px; height: 100%;
+  display: flex; flex-direction: column;
+  box-shadow: -20px 0 60px rgba(0, 0, 0, 0.25);
+  overflow: hidden; margin-left: auto;
+}
+.drawer-header {
+  display: flex; justify-content: space-between; align-items: center;
+  padding: 16px 20px; border-bottom: 1px solid #e9ecef; flex-shrink: 0;
+}
+.drawer-header h3 {
+  font-size: 16px; font-weight: 600; margin: 0; color: #212529;
+  display: flex; align-items: center; gap: 8px;
+}
+.drawer-header .drawer-icon { width: 18px; height: 18px; stroke: #212529; }
+.drawer-close {
+  background: none; border: none; font-size: 26px; line-height: 1;
+  color: #6c757d; cursor: pointer; padding: 0 6px;
+}
+.drawer-close:hover { color: #212529; }
+.drawer-body {
+  padding: 16px 20px; overflow-y: auto; flex: 1;
+  display: flex; flex-direction: column; gap: 12px;
+}
+.drawer-footer {
+  display: flex; justify-content: space-between; gap: 8px;
+  padding: 14px 20px; border-top: 1px solid #e9ecef; flex-shrink: 0;
+}
 
-  .filter-group {
-    min-width: 100%;
-    flex: 1 1 100%;
-  }
+.drawer-fade-enter-active,
+.drawer-fade-leave-active { transition: opacity 0.2s ease; }
+.drawer-fade-enter-from,
+.drawer-fade-leave-to { opacity: 0; }
+.drawer-slide-enter-active,
+.drawer-slide-leave-active { transition: transform 0.25s ease; }
+.drawer-slide-enter-from,
+.drawer-slide-leave-to { transform: translateX(100%); }
 
-  .date-filters {
-    flex-direction: row;
-    flex-wrap: wrap;
-    align-items: center;
-  }
+/* ============================================
+   ПЛАВНОЕ СЖАТИЕ ТАБЛИЦЫ (1401 – 1600px)
+   ============================================ */
+@media (max-width: 1600px) {
+  .table th, .table td { padding: 10px 12px; font-size: 13.5px; }
+}
+@media (max-width: 1500px) {
+  .table th, .table td { padding: 9px 10px; font-size: 13px; }
+}
+@media (max-width: 1400px) {
+  .table th, .table td { padding: 8px 8px; font-size: 12.5px; }
+}
 
-  .date-filters .form-control {
-    flex: 1;
-    min-width: 120px;
-  }
-
-  .filters-actions {
-    width: 100%;
-    justify-content: stretch;
-  }
-
-  .filters-actions .btn {
-    flex: 1 1 auto;
-    justify-content: center;
-  }
-
-  .stats-grid {
-    grid-template-columns: 1fr 1fr;
-  }
+/* ============================================
+   ≤ 1275px — МОБИЛЬНАЯ ВЁРСТКА
+   ============================================ */
+@media (max-width: 1275px) {
+  .logs-view { padding: 0 10px; }
 
   .toolbar {
     flex-direction: column;
     align-items: stretch;
+    gap: 12px;
+    margin-bottom: 18px;
+  }
+  .toolbar-left {
+    justify-content: flex-start;
+    gap: 10px;
+    flex-wrap: wrap;
+  }
+  .toolbar-left h2 { font-size: 20px; }
+  .toolbar-left h2 .title-icon { width: 22px; height: 22px; }
+
+  .toolbar-right {
+    display: flex;
+    flex-wrap: nowrap;
+    gap: 8px;
+    width: 100%;
+  }
+  .toolbar-right .btn {
+    flex: 1 1 0;
+    min-width: 0;
+    height: 40px;
+    padding: 4px 10px;
+    font-size: 12.5px;
+    justify-content: center;
+    white-space: nowrap;
+  }
+  .toolbar-right .btn .btn-icon {
+    width: 16px;
+    height: 16px;
+    flex-shrink: 0;
+  }
+  .toolbar-right .btn .btn-text {
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
   }
 
-  .details-grid {
-    grid-template-columns: 1fr;
+  /* Статистика — 2 колонки */
+  .stats-grid {
+    grid-template-columns: 1fr 1fr;
+    gap: 10px;
+    margin-bottom: 16px;
   }
+  .stat-card { padding: 10px 12px; gap: 10px; }
+  .stat-icon { width: 24px; height: 24px; }
+  .stat-icon svg { width: 20px; height: 20px; }
+  .stat-value { font-size: 16px; }
+  .stat-label { font-size: 11.5px; }
 
-  .params-grid {
-    grid-template-columns: 1fr;
+  /* Drawer */
+  .drawer-body .filter-group .form-control {
+    height: 40px;
+    font-size: 14px;
   }
-
-  .detail-item {
+  .drawer-body .date-filters {
     flex-direction: column;
-    align-items: flex-start;
+    align-items: stretch;
+  }
+  .drawer-body .date-filters label {
+    font-size: 13px;
+    margin-top: 4px;
+  }
+  .drawer-footer { flex-direction: column; }
+  .drawer-footer .btn {
+    width: 100%; justify-content: center; height: 42px;
   }
 
-  .param-item {
-    flex-direction: column;
-    align-items: flex-start;
-  }
-
+  /* Модалка — bottom sheet */
+  .modal-overlay { padding: 0; align-items: flex-end; }
   .modal-content {
-    width: 95%;
-    max-height: 90vh;
+    max-width: 100%;
+    width: 100%;
+    border-radius: 16px 16px 0 0;
+    max-height: 92vh;
+  }
+  .modal-header,
+  .modal-body { padding-left: 18px; padding-right: 18px; }
+
+  .details-grid { grid-template-columns: 1fr; gap: 4px; margin-bottom: 12px; }
+  .detail-item { flex-direction: column; align-items: flex-start; gap: 2px; }
+  .detail-label { min-width: 0; }
+
+  .params-grid { grid-template-columns: 1fr; }
+  .param-item { flex-direction: column; align-items: flex-start; gap: 2px; padding: 4px 0; }
+  .param-key { min-width: 0; }
+
+  .json-body { max-height: 220px; }
+  .json-content { font-size: 11px; }
+}
+
+@media (max-width: 480px) {
+  .logs-view { padding: 0 6px; }
+
+  .toolbar-left h2 { font-size: 18px; }
+  .toolbar-left h2 .title-text {
+    white-space: normal;
+    overflow: visible;
+    text-overflow: clip;
   }
 
-  .modal-body {
-    padding: 16px;
-  }
+  .toolbar-right .btn .btn-text { display: none; }
+  .toolbar-right .btn { height: 40px; padding: 4px 8px; }
+  .toolbar-right .btn .btn-icon { width: 18px; height: 18px; }
+
+  .stats-grid { grid-template-columns: 1fr 1fr; }
+
+  .drawer-window { width: 100vw; max-width: 100vw; }
+  .drawer-body { padding: 16px 14px 20px; }
+
+  .modal-header h3 { font-size: 16px; }
 }
 </style>

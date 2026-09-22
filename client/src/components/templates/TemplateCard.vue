@@ -5,7 +5,7 @@
   >
     <td class="template-date">{{ formatDate(template.created_at) }}</td>
 
-    <td>
+    <td class="template-title-cell">
       <strong class="template-title">{{ template.title }}</strong>
       <span v-if="template.description" class="template-desc">
         {{ template.description }}
@@ -14,7 +14,7 @@
 
     <td class="discipline-cell">{{ template.discipline || '—' }}</td>
 
-    <td>
+    <td class="equipment-cell">
       <div class="equipment-preview">
         <span 
           v-for="(item, index) in equipmentPreview" 
@@ -31,7 +31,7 @@
       </div>
     </td>
 
-    <td>
+    <td class="status-cell">
       <span class="badge" :class="template.is_active ? 'badge-success' : 'badge-secondary'">
         <IconCheck v-if="template.is_active" class="badge-icon" />
         <IconAlert v-else class="badge-icon" />
@@ -41,7 +41,6 @@
 
     <td class="actions-cell" @click.stop>
       <div class="table-actions">
-        <!-- Редактировать — admin, methodist, lab_assistant -->
         <button
           v-if="authStore.hasRole('admin', 'methodist', 'lab_assistant')"
           class="btn btn-sm btn-outline-primary"
@@ -51,7 +50,6 @@
           <IconEdit class="btn-icon" />
         </button>
 
-        <!-- Удалить — admin, methodist, lab_assistant -->
         <button
           v-if="authStore.hasRole('admin', 'methodist', 'lab_assistant')"
           class="btn btn-sm btn-outline-danger"
@@ -166,19 +164,28 @@ const isPreviewBroken = (index) => {
 }
 
 /* ============================================
-   ЯЧЕЙКИ
+   ЯЧЕЙКИ — базовые
    ============================================ */
 .template-card-row td {
-  padding: 10px 16px;
+  padding: 10px 12px;
   border-bottom: 1px solid #e9ecef;
-  vertical-align: middle;
-  line-height: 1.4;
+  vertical-align: top;
+  line-height: 1.35;
+  word-break: normal;              /* ← НЕ ломаем слова по буквам */
+  overflow-wrap: break-word;       /* ← ломаем только длинные слова */
+  min-width: 0;
 }
 
+/* Дата — не переносится */
 .template-date {
   font-size: 13px;
   color: #495057;
-  white-space: nowrap;
+  white-space: nowrap;             /* ← дата в одну строку */
+}
+
+/* Название — может переноситься по словам */
+.template-title-cell {
+  word-break: normal;
 }
 
 .template-title {
@@ -186,6 +193,8 @@ const isPreviewBroken = (index) => {
   font-weight: 600;
   color: #212529;
   display: block;
+  word-break: normal;
+  overflow-wrap: break-word;
 }
 
 .template-desc {
@@ -193,35 +202,50 @@ const isPreviewBroken = (index) => {
   font-size: 12px;
   color: #6c757d;
   margin-top: 2px;
+  word-break: normal;
+  overflow-wrap: break-word;
 }
 
+/* Дисциплина — не переносится, если влезает */
 .discipline-cell {
   color: #495057;
-  white-space: nowrap;
+  white-space: nowrap;             /* ← дисциплина в одну строку */
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
 /* ============================================
    ОБОРУДОВАНИЕ
    ============================================ */
+.equipment-cell {
+  word-break: normal;
+}
+
 .equipment-preview {
   display: flex;
   flex-wrap: wrap;
   gap: 4px;
+  min-width: 0;
 }
 
 .equipment-tag {
   display: inline-block;
   background: #e8f0fe;
   color: #1a73e8;
-  padding: 0 8px;
+  padding: 2px 8px;
   border-radius: 10px;
   font-size: 11px;
-  white-space: nowrap;
+  white-space: normal;
+  word-break: normal;
+  overflow-wrap: break-word;
+  max-width: 100%;
+  line-height: 1.3;
 }
 
 .equipment-tag.more {
   background: #e9ecef;
   color: #495057;
+  white-space: nowrap;
 }
 
 .equipment-tag.equipment-tag-broken {
@@ -236,8 +260,12 @@ const isPreviewBroken = (index) => {
 }
 
 /* ============================================
-   БЕЙДЖИ
+   СТАТУС
    ============================================ */
+.status-cell {
+  white-space: nowrap;
+}
+
 .badge {
   padding: 4px 10px;
   border-radius: 12px;
@@ -270,7 +298,9 @@ const isPreviewBroken = (index) => {
    ДЕЙСТВИЯ
    ============================================ */
 .actions-cell {
-  padding-left: 10px;
+  padding-left: 8px;
+  white-space: nowrap;
+  width: 80px;                     /* ← фиксируем ширину */
 }
 
 .table-actions {
@@ -334,5 +364,65 @@ const isPreviewBroken = (index) => {
 .btn-outline-danger:hover {
   background: #dc3545;
   color: white;
+}
+
+/* ============================================
+   АДАПТИВНОЕ СЖАТИЕ
+   ============================================ */
+@media (max-width: 1400px) {
+  .template-card-row td {
+    padding: 9px 10px;
+  }
+}
+
+@media (max-width: 1280px) {
+  .template-card-row td {
+    padding: 8px 8px;
+  }
+  .template-title { font-size: 13.5px; }
+  .template-desc  { font-size: 11.5px; }
+  .template-date  { font-size: 12.5px; }
+}
+
+@media (max-width: 1100px) {
+  .template-card-row td {
+    padding: 7px 6px;
+  }
+  .template-title { font-size: 13px; }
+  .template-desc  { font-size: 11px; }
+
+  .equipment-tag {
+    font-size: 10px;
+    padding: 1px 6px;
+  }
+
+  .badge {
+    font-size: 10px;
+    padding: 3px 8px;
+  }
+
+  .btn-sm {
+    width: 26px;
+    height: 26px;
+  }
+}
+
+@media (max-width: 1024px) {
+  .template-card-row td {
+    padding: 6px 5px;
+  }
+  .template-title { font-size: 12.5px; }
+  .template-desc  { display: none; }
+
+  .equipment-tag {
+    font-size: 9.5px;
+    padding: 1px 5px;
+  }
+
+  .badge {
+    font-size: 9.5px;
+    padding: 2px 6px;
+  }
+  .badge .badge-icon { width: 10px; height: 10px; }
 }
 </style>

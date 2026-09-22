@@ -21,10 +21,10 @@ import { onMounted } from 'vue';
 import { useAuthStore } from '../../stores/auth.store';
 import Sidebar from './Sidebar.vue';
 import ToastContainer from '../ToastContainer.vue';
-import { useUrlSync } from '../../composables/useUrlSync'
+import { useUrlSync } from '../../composables/useUrlSync';
 
 const authStore = useAuthStore();
-useUrlSync()
+useUrlSync();
 
 onMounted(async () => {
   await authStore.init();
@@ -66,7 +66,7 @@ onMounted(async () => {
 }
 
 .fade-leave-active {
-  transition: none; 
+  transition: none;
 }
 
 .fade-enter-from {
@@ -79,13 +79,43 @@ onMounted(async () => {
   transform: translateY(0);
 }
 
+/* ============================================
+   📱 МОБИЛЬНАЯ ВЁРСТКА
+   ============================================ */
 @media (max-width: 768px) {
   .main {
     padding: 16px;
+    padding-bottom: 80px;   /* ← отступ под нижнюю панель (64px + запас) */
   }
-  
+
   .page-container {
     padding: 16px;
+  }
+}
+
+@media (max-width: 480px) {
+  .main {
+    padding: 12px;
+    padding-bottom: 74px;   /* ← панель 58px + запас */
+  }
+
+  .page-container {
+    padding: 14px;
+  }
+}
+
+/* Учёт безопасной зоны iPhone (notch) */
+@supports (padding-bottom: env(safe-area-inset-bottom)) {
+  @media (max-width: 768px) {
+    .main {
+      padding-bottom: calc(80px + env(safe-area-inset-bottom));
+    }
+  }
+
+  @media (max-width: 480px) {
+    .main {
+      padding-bottom: calc(74px + env(safe-area-inset-bottom));
+    }
   }
 }
 </style>

@@ -6,6 +6,30 @@
     <!-- КОНТЕНТ -->
     <template v-else>
       <!-- ========================================== -->
+      <!-- TOOLBAR -->
+      <!-- ========================================== -->
+      <div class="toolbar">
+        <div class="toolbar-left">
+          <h2>
+            <IconDashboard class="title-icon" />
+            <span class="title-text">Панель управления</span>
+          </h2>
+        </div>
+
+        <!-- Кнопка «Обновить» — только desktop -->
+        <div v-if="!isMobile" class="toolbar-right">
+          <button
+            class="btn btn-outline-secondary btn-sm btn-mobile-icon"
+            @click="loadData"
+            title="Обновить"
+          >
+            <IconRefresh class="btn-icon" />
+            <span class="btn-text">Обновить</span>
+          </button>
+        </div>
+      </div>
+
+      <!-- ========================================== -->
       <!-- СТАТИСТИКА -->
       <!-- ========================================== -->
       <div class="stats-grid">
@@ -204,7 +228,7 @@
 </template>
 
 <script setup>
-import { ref, computed, onMounted } from 'vue';
+import { ref, computed, onMounted, onBeforeUnmount } from 'vue';
 import { useRouter } from 'vue-router';
 import { storeToRefs } from 'pinia';
 import { useEquipmentStore, useRepairsStore, useLessonsStore, useWorkTimeStore } from '../stores';
@@ -222,7 +246,9 @@ import {
   IconList,
   IconChevronRight,
   IconUser,
-  IconCalendar
+  IconCalendar,
+  IconDashboard,
+  IconRefresh
 } from '../components/icons';
 
 // ============================================
@@ -258,6 +284,26 @@ const { getStatusClass } = useStatusClasses();
 // СОСТОЯНИЕ
 // ============================================
 const loading = ref(true);
+
+// ============================================
+// MOBILE (≤ 1275px)
+// ============================================
+const isMobile = ref(false);
+let mediaQuery = null;
+
+const updateIsMobile = (e) => { isMobile.value = e.matches; };
+
+onMounted(() => {
+  if (typeof window !== 'undefined' && window.matchMedia) {
+    mediaQuery = window.matchMedia('(max-width: 1275px)');
+    isMobile.value = mediaQuery.matches;
+    mediaQuery.addEventListener('change', updateIsMobile);
+  }
+});
+
+onBeforeUnmount(() => {
+  if (mediaQuery) mediaQuery.removeEventListener('change', updateIsMobile);
+});
 
 // ============================================
 // СТАТИСТИКА
@@ -335,6 +381,94 @@ onMounted(loadData);
 
 <style scoped>
 .dashboard { padding: 0; }
+
+/* ==========================================
+   TOOLBAR
+   ========================================== */
+.toolbar {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 20px;
+  flex-wrap: wrap;
+  gap: 12px;
+}
+
+.toolbar-left {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  flex-wrap: wrap;
+  min-width: 0;
+}
+
+.toolbar-left h2 {
+  font-size: 24px;
+  font-weight: 600;
+  margin: 0;
+  color: #212529;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
+}
+
+.toolbar-left h2 .title-icon {
+  width: 24px;
+  height: 24px;
+  stroke: #212529;
+  flex-shrink: 0;
+}
+
+.toolbar-left h2 .title-text {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.toolbar-right {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+  flex-wrap: wrap;
+}
+
+/* ==========================================
+   КНОПКИ
+   ========================================== */
+.btn {
+  padding: 6px 16px;
+  border: 1px solid transparent;
+  border-radius: 4px;
+  font-size: 14px;
+  cursor: pointer;
+  transition: all 0.15s;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.btn .btn-icon {
+  width: 16px;
+  height: 16px;
+  stroke: currentColor;
+}
+
+.btn-outline-secondary {
+  background: transparent;
+  color: #6c757d;
+  border: 1px solid #6c757d;
+}
+
+.btn-outline-secondary:hover {
+  background: #6c757d;
+  color: white;
+}
+
+.btn-sm {
+  padding: 4px 12px;
+  font-size: 13px;
+}
 
 /* ==========================================
    СТАТИСТИКА
@@ -628,37 +762,346 @@ onMounted(loadData);
 }
 
 /* ==========================================
-   АДАПТИВНОСТЬ
+   ПЛАВНОЕ СЖАТИЕ (десктоп)
    ========================================== */
-@media (max-width: 1200px) {
+@media (max-width: 1600px) {
   .stats-grid {
     grid-template-columns: repeat(2, 1fr);
+    gap: 12px;
   }
 
   .two-columns {
-    grid-template-columns: 1fr;
-  }
-}
-
-@media (max-width: 768px) {
-  .stats-grid {
     grid-template-columns: 1fr;
   }
 
   .stat-card {
     padding: 14px 16px;
   }
+}
 
-  .recent {
-    padding: 12px 14px;
+/* ==========================================
+   МОБИЛЬНАЯ ВЁРСТКА (≤ 1275px)
+   ========================================== */
+@media (max-width: 1275px) {
+  .toolbar {
+    flex-direction: column;
+    align-items: stretch;
+    gap: 12px;
+    margin-bottom: 14px;
   }
 
-  .recent-item {
+  .toolbar-left {
+    justify-content: flex-start;
+    gap: 8px;
     flex-wrap: wrap;
   }
 
+  .toolbar-left h2 {
+    font-size: 20px;
+    gap: 6px;
+  }
+
+  .toolbar-left h2 .title-icon {
+    width: 22px;
+    height: 22px;
+  }
+
+  /* Статистика: 2 колонки */
+  .stats-grid {
+    grid-template-columns: 1fr 1fr;
+    gap: 10px;
+    margin-bottom: 16px;
+  }
+
+  .stat-card {
+    flex-direction: row;
+    align-items: center;
+    padding: 12px 14px;
+    gap: 10px;
+    border-radius: 10px;
+  }
+
+  .stat-icon {
+    width: 36px;
+    height: 36px;
+    border-radius: 8px;
+  }
+
+  .stat-icon svg {
+    width: 18px;
+    height: 18px;
+  }
+
+  .stat-value {
+    font-size: 20px;
+    line-height: 1.1;
+  }
+
+  .stat-label {
+    font-size: 12px;
+    line-height: 1.2;
+  }
+
+  .stat-detail {
+    gap: 4px;
+    margin-top: 3px;
+  }
+
+  .detail-badge {
+    font-size: 9.5px;
+    padding: 1px 7px;
+    border-radius: 8px;
+  }
+
+  .stat-arrow {
+    position: static;
+    width: 14px;
+    height: 14px;
+    opacity: 0.6;
+  }
+
+  /* Карточки со списками */
+  .recent {
+    padding: 12px 14px;
+    border-radius: 10px;
+  }
+
+  .recent h3 {
+    font-size: 13px;
+    gap: 6px;
+  }
+
+  .recent h3 .h-icon {
+    width: 14px;
+    height: 14px;
+  }
+
+  .section-header {
+    margin-bottom: 8px;
+  }
+
+  .section-link {
+    font-size: 11px;
+  }
+
+  .two-columns { gap: 12px; }
+
+  /* Элементы списков */
+  .recent-item {
+    padding: 6px 4px;
+    gap: 6px;
+    align-items: flex-start;
+    flex-wrap: wrap;
+  }
+
+  .item-title {
+    font-size: 12.5px;
+    line-height: 1.25;
+  }
+
+  .item-desc {
+    font-size: 11px;
+    line-height: 1.25;
+  }
+
+  .item-meta {
+    font-size: 10px;
+    gap: 3px;
+    margin-top: 2px;
+  }
+
+  .item-meta .meta-icon {
+    width: 10px;
+    height: 10px;
+  }
+
   .text-muted {
+    font-size: 10px;
     white-space: normal;
+    margin-left: auto;
+  }
+
+  /* Бейджи */
+  .badge {
+    font-size: 9.5px;
+    padding: 1px 6px;
+    gap: 3px;
+    border-radius: 8px;
+  }
+
+  .badge .badge-icon {
+    width: 10px;
+    height: 10px;
+  }
+
+  .badge-lesson {
+    min-width: 70px;
+    font-size: 9.5px;
+  }
+
+  .equipment-count {
+    font-size: 9.5px;
+    padding: 0 5px;
+    border-radius: 8px;
+  }
+
+  /* Пустые состояния */
+  .empty-state {
+    padding: 10px;
+    font-size: 12px;
+    gap: 4px;
+  }
+
+  .empty-state .empty-icon {
+    width: 20px;
+    height: 20px;
+  }
+}
+
+/* ==========================================
+   ОЧЕНЬ УЗКИЕ ЭКРАНЫ (≤ 768px)
+   ========================================== */
+@media (max-width: 768px) {
+  .toolbar-left h2 {
+    font-size: 18px;
+  }
+
+  .toolbar-left h2 .title-text {
+    white-space: normal;
+    overflow: visible;
+    text-overflow: clip;
+  }
+
+  .stats-grid {
+    grid-template-columns: 1fr 1fr;
+    gap: 8px;
+  }
+
+  .stat-card {
+    padding: 10px 12px;
+    gap: 8px;
+  }
+
+  .stat-icon {
+    width: 32px;
+    height: 32px;
+    border-radius: 8px;
+  }
+
+  .stat-icon svg {
+    width: 16px;
+    height: 16px;
+  }
+
+  .stat-value {
+    font-size: 18px;
+  }
+
+  .stat-label {
+    font-size: 11px;
+  }
+
+  .detail-badge {
+    font-size: 9px;
+    padding: 1px 6px;
+  }
+
+  .stat-arrow {
+    width: 12px;
+    height: 12px;
+  }
+
+  .recent {
+    padding: 10px;
+  }
+
+  .recent-item {
+    padding: 5px 2px;
+    gap: 5px;
+  }
+
+  .item-title {
+    font-size: 12px;
+  }
+
+  .item-desc {
+    font-size: 10.5px;
+  }
+
+  .item-meta {
+    font-size: 9.5px;
+  }
+
+  .badge {
+    font-size: 9px;
+    padding: 1px 5px;
+  }
+
+  .badge-lesson {
+    min-width: 64px;
+  }
+}
+
+/* ==========================================
+   УЗКИЕ ЭКРАНЫ (≤ 480px)
+   ========================================== */
+@media (max-width: 480px) {
+  .stats-grid {
+    grid-template-columns: 1fr;
+    gap: 6px;
+  }
+
+  .toolbar-left h2 {
+    font-size: 16px;
+  }
+
+  .stat-card {
+    padding: 8px 10px;
+    gap: 10px;
+  }
+
+  .stat-icon {
+    width: 28px;
+    height: 28px;
+  }
+
+  .stat-icon svg {
+    width: 14px;
+    height: 14px;
+  }
+
+  .stat-value {
+    font-size: 16px;
+  }
+
+  .stat-label {
+    font-size: 10.5px;
+  }
+
+  .recent {
+    padding: 8px;
+  }
+
+  .recent-item {
+    padding: 4px 2px;
+    gap: 4px;
+  }
+
+  .item-title {
+    font-size: 11.5px;
+  }
+
+  .item-desc {
+    font-size: 10px;
+  }
+
+  .item-meta {
+    font-size: 9px;
+  }
+
+  .badge {
+    font-size: 8.5px;
+    padding: 1px 4px;
   }
 }
 </style>

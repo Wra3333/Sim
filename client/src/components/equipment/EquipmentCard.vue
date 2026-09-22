@@ -70,7 +70,6 @@
 
       <div class="actions" @click.stop>
         <template v-if="equipment.is_archived">
-          <!-- Восстановить — admin, technician -->
           <button
             v-if="authStore.hasRole('admin', 'technician')"
             class="btn btn-sm btn-success"
@@ -80,13 +79,11 @@
             Восстановить
           </button>
 
-          <!-- История — все -->
           <button class="btn btn-sm btn-outline-secondary" @click="$emit('history', equipment)">
             <IconHistory class="btn-icon" />
             История
           </button>
 
-          <!-- Удалить навсегда — ТОЛЬКО admin -->
           <button
             v-if="authStore.isAdmin"
             class="btn btn-sm btn-danger btn-full-width"
@@ -98,7 +95,6 @@
         </template>
 
         <template v-else>
-          <!-- Редактировать — admin, methodist, technician -->
           <button
             v-if="authStore.hasRole('admin', 'methodist', 'technician')"
             class="btn btn-sm btn-outline-primary"
@@ -108,7 +104,6 @@
             Редактировать
           </button>
 
-          <!-- В архив — admin, technician -->
           <button
             v-if="authStore.hasRole('admin', 'technician')"
             class="btn btn-sm btn-outline-danger"
@@ -118,7 +113,6 @@
             В архив
           </button>
 
-          <!-- История — все -->
           <button class="btn btn-sm btn-outline-secondary btn-history" @click="$emit('history', equipment)">
             <IconHistory class="btn-icon" />
             История поломок
@@ -222,7 +216,7 @@ const handleDeleteFromContext = async ({ equipmentId, fileId }) => {
     toast.success('Файл удален');
   } catch (error) {
     console.error('Ошибка удаления файла:', error);
-    toast.error(error?.response?.data?.message || "Ошибка удаления файла");
+    toast.error(error?.response?.data?.message || 'Ошибка удаления файла');
   }
   closeContextMenu();
 };
@@ -302,6 +296,7 @@ onBeforeUnmount(() => {
   position: relative;
   cursor: pointer;
   transition: opacity 0.2s;
+  flex-shrink: 0;
 }
 
 .card-image:hover {
@@ -361,6 +356,8 @@ onBeforeUnmount(() => {
   justify-content: space-between;
   align-items: center;
   margin-bottom: 6px;
+  gap: 6px;
+  flex-wrap: wrap;
 }
 
 .inventory-number {
@@ -373,6 +370,7 @@ onBeforeUnmount(() => {
   display: inline-flex;
   align-items: center;
   gap: 4px;
+  white-space: nowrap;
 }
 
 .inventory-number .inventory-icon {
@@ -389,18 +387,23 @@ onBeforeUnmount(() => {
   display: flex;
   align-items: center;
   gap: 6px;
+  word-break: normal;
+  overflow-wrap: anywhere;
 }
 
 .title .title-icon {
   width: 16px;
   height: 16px;
   stroke: #1a1a2e;
+  flex-shrink: 0;
 }
 
 .subtitle {
   font-size: 13px;
   color: #888;
   margin: 0 0 6px 0;
+  word-break: normal;
+  overflow-wrap: anywhere;
 }
 
 .description {
@@ -423,7 +426,8 @@ onBeforeUnmount(() => {
 }
 
 .description .description-text {
-  word-break: break-word;
+  word-break: normal;
+  overflow-wrap: anywhere;
 }
 
 .meta {
@@ -434,6 +438,8 @@ onBeforeUnmount(() => {
   color: #666;
   padding-top: 8px;
   border-top: 1px solid #f0f0f0;
+  gap: 6px;
+  flex-wrap: wrap;
 }
 
 .meta span {
@@ -446,6 +452,7 @@ onBeforeUnmount(() => {
   width: 14px;
   height: 14px;
   stroke: #666;
+  flex-shrink: 0;
 }
 
 .purchase-basis {
@@ -455,12 +462,15 @@ onBeforeUnmount(() => {
   display: flex;
   align-items: center;
   gap: 4px;
+  word-break: normal;
+  overflow-wrap: anywhere;
 }
 
 .purchase-basis .purchase-icon {
   width: 14px;
   height: 14px;
   stroke: #888;
+  flex-shrink: 0;
 }
 
 .actions {
@@ -523,6 +533,7 @@ onBeforeUnmount(() => {
   width: 14px;
   height: 14px;
   stroke: currentColor;
+  flex-shrink: 0;
 }
 
 .btn-sm {
@@ -536,12 +547,10 @@ onBeforeUnmount(() => {
   color: #0077c8;
   border: 1.5px solid #0077c8;
 }
-
 .btn-outline-primary:hover {
   background: #0077c8;
   color: white;
 }
-
 .btn-outline-primary:hover .btn-icon {
   stroke: white;
 }
@@ -551,12 +560,10 @@ onBeforeUnmount(() => {
   color: #dc3545;
   border: 1.5px solid #dc3545;
 }
-
 .btn-outline-danger:hover {
   background: #dc3545;
   color: white;
 }
-
 .btn-outline-danger:hover .btn-icon {
   stroke: white;
 }
@@ -566,12 +573,10 @@ onBeforeUnmount(() => {
   color: #6c757d;
   border: 1.5px solid #6c757d;
 }
-
 .btn-outline-secondary:hover {
   background: #6c757d;
   color: white;
 }
-
 .btn-outline-secondary:hover .btn-icon {
   stroke: white;
 }
@@ -581,12 +586,10 @@ onBeforeUnmount(() => {
   color: white;
   border: 1.5px solid #28a745;
 }
-
 .btn-success:hover {
   background: #218838;
   border-color: #1e7e34;
 }
-
 .btn-success .btn-icon {
   stroke: white;
 }
@@ -596,12 +599,10 @@ onBeforeUnmount(() => {
   color: white;
   border: 1.5px solid #dc3545;
 }
-
 .btn-danger:hover {
   background: #c82333;
   border-color: #bd2130;
 }
-
 .btn-danger .btn-icon {
   stroke: white;
 }
@@ -614,47 +615,50 @@ onBeforeUnmount(() => {
   display: inline-flex;
   align-items: center;
   gap: 4px;
+  white-space: nowrap;
 }
 
 .badge .badge-icon {
   width: 12px;
   height: 12px;
   stroke: currentColor;
+  flex-shrink: 0;
 }
 
-.badge-success {
-  background: #e6f9f2;
-  color: #06d6a0;
+.badge-success { background: #e6f9f2; color: #06d6a0; }
+.badge-warning { background: #fff6e0; color: #ff9f1c; }
+.badge-danger  { background: #fce4ec; color: #ef476f; }
+
+/* ==========================================
+   ПЛАВНОЕ СЖАТИЕ (синхрон с EquipmentCardView)
+   ========================================== */
+@media (max-width: 1600px) {
+  .card-image { height: 130px; }
+  .card-body { padding: 14px; }
 }
 
-.badge-warning {
-  background: #fff6e0;
-  color: #ff9f1c;
+@media (max-width: 1400px) {
+  .card-image { height: 120px; }
+  .card-body { padding: 13px; }
+  .title { font-size: 15px; }
+  .subtitle { font-size: 12.5px; }
+  .description { font-size: 12.5px; }
 }
 
-.badge-danger {
-  background: #fce4ec;
-  color: #ef476f;
+@media (max-width: 1275px) {
+  .card-image { height: 160px; }
+  .card-body { padding: 14px; }
+  .title { font-size: 15px; }
 }
 
 @media (max-width: 768px) {
-  .card-image {
-    height: 120px;
-  }
-
-  .card-body {
-    padding: 12px;
-  }
-
-  .title {
-    font-size: 14px;
-  }
-
+  .card-image { height: 140px; }
+  .card-body { padding: 12px; }
+  .title { font-size: 14px; }
   .actions .btn {
     font-size: 11px;
     padding: 3px 8px;
   }
-
   .btn .btn-icon {
     width: 12px;
     height: 12px;
@@ -662,28 +666,17 @@ onBeforeUnmount(() => {
 }
 
 @media (max-width: 480px) {
-  .card-image {
-    height: 100px;
-  }
-
+  .card-image { height: 120px; }
   .card-header {
     flex-wrap: wrap;
     gap: 4px;
   }
-
-  .inventory-number {
-    font-size: 10px;
-  }
-
+  .inventory-number { font-size: 10px; }
   .badge {
     font-size: 10px;
     padding: 2px 8px;
   }
-
-  .description {
-    font-size: 12px;
-  }
-
+  .description { font-size: 12px; }
   .meta {
     font-size: 12px;
     flex-wrap: wrap;

@@ -5,10 +5,12 @@
         <div class="problem-alert-icon">
           <IconAlert class="alert-icon" />
         </div>
+
         <div class="problem-alert-info">
           <span class="problem-alert-title">Обнаружены проблемные занятия</span>
           <span class="problem-alert-count">{{ problemLessons.length }}</span>
         </div>
+
         <button class="btn-toggle" @click="showProblemLessons = !showProblemLessons">
           <IconEye v-if="!showProblemLessons" class="toggle-icon" />
           <IconEyeOff v-else class="toggle-icon" />
@@ -27,13 +29,14 @@
           <span class="problem-item-title">{{ lesson.title }}</span>
           <div class="problem-item-meta">
             <IconCalendar class="meta-icon" />
-            {{ formatDate(lesson.date) }}
+            <span>{{ formatDate(lesson.date) }}</span>
             <IconClock class="meta-icon" />
-            {{ lesson.start_time }}–{{ lesson.end_time }}
+            <span>{{ lesson.start_time }}–{{ lesson.end_time }}</span>
             <IconUser class="meta-icon" />
-            {{ lesson.teacher }} · {{ lesson.group }}
+            <span>{{ lesson.teacher }} · {{ lesson.group }}</span>
           </div>
         </div>
+
         <div class="problem-item-equipment">
           <span 
             v-for="item in lesson.equipment_list" 
@@ -42,14 +45,14 @@
             :class="getEquipmentStatusClass(item.equipment_id)"
           >
             <IconEquipment class="tag-icon" />
-            {{ getEquipmentName(item.equipment_id) }}
+            <span class="equipment-tag-name">{{ getEquipmentName(item.equipment_id) }}</span>
             <span class="equipment-tag-status">
               {{ getEquipmentStatus(item.equipment_id) }}
             </span>
           </span>
         </div>
+
         <div class="problem-item-actions">
-          <!-- Исправить — admin, methodist, lab_assistant -->
           <button
             v-if="authStore.hasRole('admin', 'methodist', 'lab_assistant')"
             class="btn-fix"
@@ -79,18 +82,9 @@ import {
 } from './icons';
 
 const props = defineProps({
-  lessons: {
-    type: Array,
-    default: () => []
-  },
-  equipmentList: {
-    type: Array,
-    default: () => []
-  },
-  onReplaceClick: {
-    type: Function,
-    default: null
-  }
+  lessons: { type: Array, default: () => [] },
+  equipmentList: { type: Array, default: () => [] },
+  onReplaceClick: { type: Function, default: null }
 });
 
 const authStore = useAuthStore();
@@ -121,8 +115,6 @@ const getEquipmentStatusClass = (id) => {
   return classes[status] || '';
 };
 
-// Проблемное оборудование — то, которое нельзя использовать.
-// «Исправен» и «Частично неисправен» — допустимы.
 const isEquipmentProblematic = (id) => {
   const eq = props.equipmentList.find(e => e.id === id);
   if (!eq) return false;
@@ -138,7 +130,6 @@ const isEquipmentProblematic = (id) => {
 const isLessonProblem = (lesson) => {
   if (!lesson.equipment_list || lesson.equipment_list.length === 0) return false;
   if (lesson.status !== 'Запланировано') return false;
-
   for (const item of lesson.equipment_list) {
     if (isEquipmentProblematic(item.equipment_id)) return true;
   }
@@ -160,36 +151,46 @@ const formatDate = (date) => {
 </script>
 
 <style scoped>
-/* без изменений */
+/* ==========================================
+   АЛАРТ
+   ========================================== */
 .problem-alert {
   background: #f8fafc;
   border: 1px solid #dee2e6;
   border-radius: 8px;
-  padding: 12px 16px;
+  padding: 14px 18px;
   margin-bottom: 16px;
 }
 
 .problem-alert-content {
   display: flex;
   align-items: center;
-  gap: 12px;
+  gap: 14px;
+  min-width: 0;
 }
 
 .problem-alert-icon {
   flex-shrink: 0;
-  color: #6c757d;
+  width: 36px;
+  height: 36px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: #fff3e0;
+  color: #e65100;
+  border-radius: 8px;
 }
 
 .problem-alert-icon .alert-icon {
-  width: 22px;
-  height: 22px;
+  width: 20px;
+  height: 20px;
   stroke: currentColor;
 }
 
 .problem-alert-info {
   display: flex;
-  align-items: baseline;
-  gap: 8px;
+  align-items: center;
+  gap: 10px;
   flex: 1;
   min-width: 0;
 }
@@ -198,42 +199,61 @@ const formatDate = (date) => {
   font-size: 14px;
   font-weight: 500;
   color: #212529;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .problem-alert-count {
-  font-size: 14px;
+  font-size: 12px;
   font-weight: 600;
-  color: #dc3545;
+  color: #c62828;
   background: #fce4ec;
-  padding: 0 8px;
-  border-radius: 12px;
+  padding: 2px 10px;
+  border-radius: 10px;
+  flex-shrink: 0;
+  line-height: 1.4;
 }
 
 .btn-toggle {
   display: inline-flex;
   align-items: center;
-  gap: 4px;
-  padding: 4px 12px;
+  gap: 6px;
+  padding: 6px 14px;
   border: 1px solid #dee2e6;
   border-radius: 6px;
-  background: transparent;
-  color: #6c757d;
+  background: white;
+  color: #495057;
   font-size: 13px;
+  font-weight: 500;
   cursor: pointer;
   transition: all 0.15s;
   flex-shrink: 0;
+  white-space: nowrap;
+  margin-left: auto;
 }
 
 .btn-toggle:hover {
-  background: #f8f9fa;
+  background: #f1f3f5;
+  border-color: #adb5bd;
+  color: #212529;
+}
+
+.btn-toggle:active {
+  background: #e9ecef;
 }
 
 .btn-toggle .toggle-icon {
   width: 14px;
   height: 14px;
   stroke: currentColor;
+  flex-shrink: 0;
 }
 
+/* ==========================================
+   СПИСОК
+   ========================================== */
 .problem-list {
   display: flex;
   flex-direction: column;
@@ -247,14 +267,15 @@ const formatDate = (date) => {
   border-radius: 8px;
   padding: 12px 16px;
   display: flex;
-  align-items: center;
+  align-items: flex-start;
   gap: 12px;
   flex-wrap: wrap;
+  min-width: 0;
 }
 
 .problem-item-info {
-  flex: 1;
-  min-width: 160px;
+  flex: 1 1 200px;
+  min-width: 0;
 }
 
 .problem-item-title {
@@ -262,7 +283,9 @@ const formatDate = (date) => {
   font-size: 14px;
   color: #212529;
   display: block;
-  margin-bottom: 2px;
+  margin-bottom: 4px;
+  word-break: normal;
+  overflow-wrap: anywhere;
 }
 
 .problem-item-meta {
@@ -272,20 +295,32 @@ const formatDate = (date) => {
   align-items: center;
   gap: 6px;
   flex-wrap: wrap;
+  min-width: 0;
+  overflow-wrap: anywhere;
 }
 
 .problem-item-meta .meta-icon {
   width: 12px;
   height: 12px;
   stroke: #6c757d;
+  flex-shrink: 0;
 }
 
+.problem-item-meta span {
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+
+/* ==========================================
+   ОБОРУДОВАНИЕ
+   ========================================== */
 .problem-item-equipment {
   display: flex;
   flex-wrap: wrap;
   gap: 4px;
-  flex: 1;
-  min-width: 120px;
+  flex: 1 1 240px;
+  min-width: 0;
+  align-content: flex-start;
 }
 
 .equipment-tag {
@@ -298,24 +333,34 @@ const formatDate = (date) => {
   font-size: 12px;
   color: #212529;
   background: #f8f9fa;
+  max-width: 100%;
+  min-width: 0;
 }
 
 .equipment-tag .tag-icon {
   width: 12px;
   height: 12px;
   stroke: #6c757d;
+  flex-shrink: 0;
+}
+
+.equipment-tag-name {
+  word-break: normal;
+  overflow-wrap: anywhere;
+  min-width: 0;
 }
 
 .equipment-tag .equipment-tag-status {
   font-weight: 500;
   margin-left: 2px;
+  white-space: nowrap;
+  flex-shrink: 0;
 }
 
 .equipment-tag.status-ok {
   background: #e8f5e9;
   border-color: #a5d6a7;
 }
-
 .equipment-tag.status-ok .equipment-tag-status {
   color: #2e7d32;
 }
@@ -324,7 +369,6 @@ const formatDate = (date) => {
   background: #fff3e0;
   border-color: #ffcc80;
 }
-
 .equipment-tag.status-warning .equipment-tag-status {
   color: #e65100;
 }
@@ -333,13 +377,18 @@ const formatDate = (date) => {
   background: #fce4ec;
   border-color: #ef9a9a;
 }
-
 .equipment-tag.status-danger .equipment-tag-status {
   color: #c62828;
 }
 
+/* ==========================================
+   ДЕЙСТВИЯ
+   ========================================== */
 .problem-item-actions {
-  flex-shrink: 0;
+  flex: 0 0 auto;
+  display: flex;
+  align-items: flex-start;
+  justify-content: flex-end;
 }
 
 .btn-fix {
@@ -354,6 +403,7 @@ const formatDate = (date) => {
   font-size: 13px;
   cursor: pointer;
   transition: background 0.15s;
+  white-space: nowrap;
 }
 
 .btn-fix:hover {
@@ -366,14 +416,155 @@ const formatDate = (date) => {
   stroke: currentColor;
 }
 
+/* ==========================================
+   АДАПТИВНОСТЬ
+   ========================================== */
+
+@media (max-width: 1100px) {
+  .problem-alert {
+    padding: 12px 14px;
+  }
+
+  .problem-item {
+    padding: 10px 14px;
+    gap: 10px;
+  }
+
+  .problem-item-title {
+    font-size: 13.5px;
+  }
+
+  .equipment-tag {
+    font-size: 11.5px;
+    padding: 2px 8px;
+  }
+
+  .btn-fix {
+    padding: 4px 12px;
+    font-size: 12.5px;
+  }
+}
+
 @media (max-width: 768px) {
+  .problem-alert {
+    padding: 12px;
+  }
+
+  .problem-alert-content {
+    gap: 10px;
+    align-items: flex-start;
+    flex-wrap: wrap;
+  }
+
+  .problem-alert-icon {
+    width: 32px;
+    height: 32px;
+  }
+  .problem-alert-icon .alert-icon {
+    width: 18px;
+    height: 18px;
+  }
+
+  .problem-alert-info {
+    flex: 1;
+    min-width: 0;
+    flex-wrap: wrap;
+    row-gap: 4px;
+  }
+
+  .problem-alert-title {
+    white-space: normal;
+    overflow: visible;
+    text-overflow: clip;
+    font-size: 13.5px;
+    overflow-wrap: anywhere;
+  }
+
+  .problem-alert-count {
+    font-size: 11.5px;
+    padding: 1px 8px;
+  }
+
+  .btn-toggle {
+    flex: 1 1 100%;
+    justify-content: center;
+    margin-left: 0;
+    order: 10;
+    height: 40px;
+    font-size: 13px;
+  }
+
   .problem-item {
     flex-direction: column;
     align-items: stretch;
+    gap: 10px;
+  }
+
+  .problem-item-info {
+    flex: 1 1 auto;
+  }
+
+  .problem-item-equipment {
+    flex: 1 1 auto;
   }
 
   .problem-item-actions {
-    align-self: flex-end;
+    align-self: stretch;
+    justify-content: flex-end;
+  }
+
+  .btn-fix {
+    width: 100%;
+    justify-content: center;
+    height: 40px;
+  }
+
+  .equipment-tag {
+    font-size: 12px;
+    padding: 4px 10px;
+  }
+}
+
+@media (max-width: 480px) {
+  .problem-alert {
+    padding: 10px 12px;
+  }
+
+  .problem-alert-icon {
+    width: 28px;
+    height: 28px;
+    border-radius: 6px;
+  }
+  .problem-alert-icon .alert-icon {
+    width: 16px;
+    height: 16px;
+  }
+
+  .problem-alert-title {
+    font-size: 13px;
+  }
+
+  .problem-item {
+    padding: 10px 12px;
+  }
+
+  .problem-item-title {
+    font-size: 13px;
+  }
+
+  .problem-item-meta {
+    font-size: 11px;
+    gap: 4px;
+  }
+
+  .equipment-tag {
+    font-size: 11px;
+    padding: 3px 8px;
+  }
+
+  .btn-toggle {
+    font-size: 12px;
+    height: 38px;
   }
 }
 </style>

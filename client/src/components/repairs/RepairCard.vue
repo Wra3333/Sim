@@ -9,7 +9,7 @@
   >
     <td class="repair-date">{{ formatDate(repair.detection_date) }}</td>
 
-    <td>
+    <td class="equipment-cell">
       <strong class="equipment-name">{{ repair.equipment?.name || 'Оборудование' }}</strong>
       <span class="inv-number">Инв. № {{ repair.equipment?.inventory_number || '—' }}</span>
     </td>
@@ -44,7 +44,7 @@
           v-else-if="repair.repair_possibility === 'Не подлежит ремонту'" 
           class="badge-icon" 
         />
-        <span>{{ repair.repair_possibility || '—' }}</span>
+        <span class="possibility-text">{{ repair.repair_possibility || '—' }}</span>
       </span>
     </td>
 
@@ -60,7 +60,6 @@
 
     <td class="actions-cell" @click.stop>
       <div class="table-actions">
-        <!-- Устранить — admin, technician -->
         <button
           v-if="!repair.is_resolved && authStore.hasRole('admin', 'technician')"
           class="btn btn-sm btn-success"
@@ -70,7 +69,6 @@
           <IconCheck class="btn-icon" />
         </button>
 
-        <!-- Кто устранил — admin, technician -->
         <button
           v-if="repair.is_resolved && authStore.hasRole('admin', 'technician')"
           class="btn btn-sm btn-outline-secondary"
@@ -80,7 +78,6 @@
           <IconUser class="btn-icon" />
         </button>
 
-        <!-- Редактировать — admin, methodist, technician -->
         <button
           v-if="authStore.hasRole('admin', 'methodist', 'technician')"
           class="btn btn-sm btn-outline-primary"
@@ -90,7 +87,6 @@
           <IconEdit class="btn-icon" />
         </button>
 
-        <!-- ✅ Удалить — только admin, technician -->
         <button
           v-if="canDelete"
           class="btn btn-sm btn-outline-danger"
@@ -123,7 +119,6 @@ const emit = defineEmits(['row-click', 'resolve', 'edit-resolved-by', 'edit', 'd
 
 const authStore = useAuthStore();
 
-// ✅ Удалять может только admin или technician
 const canDelete = computed(() => {
   return authStore.hasRole('admin', 'technician');
 });
@@ -186,18 +181,27 @@ const getPossibilityClass = (value) => {
 }
 
 /* ============================================
-   ЯЧЕЙКИ
+   ЯЧЕЙКИ — базовые
    ============================================ */
 .repair-card-row td {
-  padding: 12px 16px;
-  vertical-align: middle;
+  padding: 12px 12px;
+  vertical-align: top;
   line-height: 1.4;
+  word-break: normal;
+  overflow-wrap: break-word;
+  min-width: 0;
 }
 
+/* Дата — не переносится */
 .repair-date {
   font-size: 13px;
   color: #495057;
   white-space: nowrap;
+}
+
+/* Оборудование — может переноситься */
+.equipment-cell {
+  word-break: normal;
 }
 
 .equipment-name {
@@ -206,17 +210,21 @@ const getPossibilityClass = (value) => {
   font-weight: 600;
   color: #212529;
   margin-bottom: 3px;
+  word-break: normal;
+  overflow-wrap: anywhere;
 }
 
 .inv-number {
   display: block;
   font-size: 12px;
   color: #6c757d;
+  word-break: normal;
+  overflow-wrap: anywhere;
 }
 
+/* Описание — обрезка до 2 строк */
 .description-cell {
-  max-width: 300px;
-  padding-right: 22px;
+  word-break: normal;
 }
 
 .desc-text {
@@ -226,15 +234,19 @@ const getPossibilityClass = (value) => {
   overflow: hidden;
   text-overflow: ellipsis;
   line-height: 1.45;
-  word-break: break-word;
+  word-break: normal;
+  overflow-wrap: anywhere;
 }
 
+/* Кто выявил / Кто устранил — может переноситься */
 .detected-by-cell,
 .resolved-by-cell {
   color: #495057;
-  white-space: nowrap;
+  word-break: normal;
+  overflow-wrap: anywhere;
 }
 
+/* Статус и возможность — не переносятся */
 .status-cell,
 .possibility-cell {
   white-space: nowrap;
@@ -261,20 +273,9 @@ const getPossibilityClass = (value) => {
   flex-shrink: 0;
 }
 
-.badge-success {
-  background: #d1e7dd;
-  color: #0f5132;
-}
-
-.badge-warning {
-  background: #fff3cd;
-  color: #664d03;
-}
-
-.badge-danger {
-  background: #f8d7da;
-  color: #842029;
-}
+.badge-success { background: #d1e7dd; color: #0f5132; }
+.badge-warning { background: #fff3cd; color: #664d03; }
+.badge-danger  { background: #f8d7da; color: #842029; }
 
 .badge-sm {
   font-size: 10px;
@@ -294,6 +295,7 @@ const getPossibilityClass = (value) => {
   font-size: 12px;
   font-weight: 500;
   white-space: nowrap;
+  max-width: 100%;
 }
 
 .possibility-badge .badge-icon {
@@ -303,31 +305,24 @@ const getPossibilityClass = (value) => {
   flex-shrink: 0;
 }
 
-.possibility-easy {
-  background: #d4edda;
-  color: #155724;
+.possibility-text {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  min-width: 0;
 }
 
-.possibility-medium {
-  background: #fff3cd;
-  color: #856404;
-}
-
-.possibility-hard {
-  background: #f8d7da;
-  color: #721c24;
-}
-
-.possibility-unknown {
-  background: #e9ecef;
-  color: #495057;
-}
+.possibility-easy    { background: #d4edda; color: #155724; }
+.possibility-medium  { background: #fff3cd; color: #856404; }
+.possibility-hard    { background: #f8d7da; color: #721c24; }
+.possibility-unknown { background: #e9ecef; color: #495057; }
 
 /* ============================================
-   КНОПКИ
+   ДЕЙСТВИЯ
    ============================================ */
 .actions-cell {
-  padding-left: 10px;
+  padding-left: 8px;
+  white-space: nowrap;
 }
 
 .table-actions {
@@ -376,7 +371,6 @@ const getPossibilityClass = (value) => {
   color: white;
   border-color: #198754;
 }
-
 .btn-success:hover {
   background: #157347;
   border-color: #146c43;
@@ -387,7 +381,6 @@ const getPossibilityClass = (value) => {
   color: #6c757d;
   border: 1px solid #6c757d;
 }
-
 .btn-outline-secondary:hover {
   background: #6c757d;
   color: white;
@@ -398,7 +391,6 @@ const getPossibilityClass = (value) => {
   color: #0d6efd;
   border: 1px solid #0d6efd;
 }
-
 .btn-outline-primary:hover {
   background: #0d6efd;
   color: white;
@@ -409,9 +401,77 @@ const getPossibilityClass = (value) => {
   color: #dc3545;
   border: 1px solid #dc3545;
 }
-
 .btn-outline-danger:hover {
   background: #dc3545;
   color: white;
+}
+
+/* ============================================
+   АДАПТИВНОЕ СЖАТИЕ (синхронизировано с RepairsView)
+   ============================================ */
+@media (max-width: 1600px) {
+  .repair-card-row td {
+    padding: 10px 10px;
+  }
+  .equipment-name { font-size: 13.5px; }
+  .inv-number     { font-size: 11.5px; }
+  .repair-date    { font-size: 12.5px; }
+
+  .badge,
+  .possibility-badge {
+    font-size: 11.5px;
+    padding: 4px 10px;
+  }
+}
+
+@media (max-width: 1500px) {
+  .repair-card-row td {
+    padding: 9px 8px;
+  }
+  .equipment-name { font-size: 13px; }
+  .desc-text      { font-size: 13px; }
+
+  .badge,
+  .possibility-badge {
+    font-size: 11px;
+    padding: 4px 9px;
+  }
+  .badge .badge-icon,
+  .possibility-badge .badge-icon {
+    width: 12px;
+    height: 12px;
+  }
+
+  .btn-sm {
+    width: 24px;
+    height: 24px;
+  }
+  .table-actions .btn .btn-icon {
+    width: 12px;
+    height: 12px;
+  }
+}
+
+@media (max-width: 1400px) {
+  .repair-card-row td {
+    padding: 8px 7px;
+  }
+  .equipment-name { font-size: 12.5px; }
+  .desc-text      { font-size: 12.5px; }
+
+  .badge,
+  .possibility-badge {
+    font-size: 10.5px;
+    padding: 3px 8px;
+  }
+
+  .btn-sm {
+    width: 22px;
+    height: 22px;
+  }
+  .table-actions .btn .btn-icon {
+    width: 11px;
+    height: 11px;
+  }
 }
 </style>
