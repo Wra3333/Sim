@@ -90,14 +90,14 @@
           <div class="stat-card">
             <div class="stat-icon"><IconEquipment /></div>
             <div class="stat-info">
-              <div class="stat-value">{{ filteredEquipment.length }}</div>
+              <div class="stat-value">{{ equipmentWithWork }}</div>
               <div class="stat-label">Оборудования</div>
             </div>
           </div>
           <div class="stat-card">
             <div class="stat-icon"><IconClock /></div>
             <div class="stat-info">
-              <div class="stat-value">{{ formatHours(Number(totalHours)) }}</div>
+              <div class="stat-value">{{ formatHours(totalHours) }}</div>
               <div class="stat-label">Всего часов работы</div>
             </div>
           </div>
@@ -260,7 +260,7 @@ const mobileFiltersOpen = ref(false);
 
 const updateIsMobile = (e) => { isMobile.value = e.matches; };
 
-// ===== NARROW (≤ 1600px) — скрытие сайдбара и встроенных фильтров =====
+// ===== NARROW (≤ 1600px) =====
 const isNarrow = ref(false);
 let narrowQuery = null;
 
@@ -327,6 +327,9 @@ const getEquipmentList = (lesson) => {
   return lesson.equipment_list || [];
 };
 
+// ============================================
+//  ФИЛЬТРАЦИЯ ЗАНЯТИЙ
+// ============================================
 const filteredLessons = computed(() => {
   let result = [...lessonsItems.value];
   const f = analyticsFilters.value;
@@ -357,20 +360,52 @@ const filteredLessons = computed(() => {
   return result;
 });
 
-const filteredEquipmentIds = computed(() => {
-  const ids = new Set();
-  for (const lesson of filteredLessons.value) {
-    for (const eq of getEquipmentList(lesson)) ids.add(eq.equipment_id);
-  }
-  return ids;
+// ============================================
+//  ФИЛЬТРОВАННЫЕ WORKTIME — основа всех расчётов
+// ============================================
+const filteredWorkTime = computed(() => {
+  const lessonIds = new Set(filteredLessons.value.map(l => l.id));
+  const selectedIds = analyticsFilters.value.equipmentIds || [];
+
+  return workTimeStore.items.filter(wt => {
+    if (!lessonIds.has(wt.lesson_id)) return false;
+    if (selectedIds.length > 0 && !selectedIds.includes(wt.equipment_id)) return false;
+    return true;
+  });
 });
 
+// ============================================
+//  ИТОГОВЫЕ ЦИФРЫ
+// ============================================
+
+// Оборудования — уникальные единицы
+const equipmentWithWork = computed(() => {
+  const ids = new Set(filteredWorkTime.value.map(wt => wt.equipment_id));
+  return ids.size;
+});
+
+// Часы — простая сумма
+const totalHours = computed(() =>
+  filteredWorkTime.value.reduce((s, wt) => s + Number(wt.total_hours || 0), 0)
+);
+
+// Участники — простая сумма
+const totalParticipants = computed(() =>
+  filteredWorkTime.value.reduce((s, wt) => s + Number(wt.students_count || 0), 0)
+);
+
+// Занятий — просто количество записей worktime
+const totalLessons = computed(() => filteredWorkTime.value.length);
+
+// ============================================
+//  СПИСОК ОБОРУДОВАНИЯ
+// ============================================
 const filteredEquipment = computed(() => {
   const selected = analyticsFilters.value.equipmentIds || [];
   if (selected.length > 0) {
     return allEquipment.value.filter(eq => selected.includes(eq.id));
   }
-  const ids = filteredEquipmentIds.value;
+  const ids = new Set(filteredWorkTime.value.map(wt => wt.equipment_id));
   return allEquipment.value.filter(eq => ids.has(eq.id));
 });
 
@@ -381,61 +416,54 @@ const uniqueGroups = computed(() => {
   return [...new Set(groups)].sort();
 });
 
+// ============================================
+//  ФУНКЦИИ ДЛЯ КАРТОЧКИ ОБОРУДОВАНИЯ
+// ============================================
 const getWorkTimeForLesson = (lessonId, equipmentId) =>
-  workTimeStore.items.find(wt => wt.lesson_id === lessonId && wt.equipment_id === equipmentId);
-
-const getEquipmentLessons = (equipmentId) =>
-  filteredLessons.value.filter(lesson => {
-    const list = getEquipmentList(lesson);
-    return list.some(eq => eq.equipment_id === equipmentId);
-  });
+  filteredWorkTime.value.find(
+    wt => wt.lesson_id === lessonId && wt.equipment_id === equipmentId
+  );
 
 const getEquipmentTotalHours = (equipmentId) => {
-  let hours = 0;
-  for (const lesson of getEquipmentLessons(equipmentId)) {
-    const wt = getWorkTimeForLesson(lesson.id, equipmentId);
-    if (wt) hours += Number(wt.total_hours || 0);
-  }
-  return hours;
+  return filteredWorkTime.value
+    .filter(wt => wt.equipment_id === equipmentId)
+    .reduce((sum, wt) => sum + Number(wt.total_hours || 0), 0);
 };
 
 const getEquipmentTotalParticipants = (equipmentId) => {
-  let total = 0;
-  for (const lesson of getEquipmentLessons(equipmentId)) {
-    total += lesson.students_count || 0;
-  }
-  return total;
+  return filteredWorkTime.value
+    .filter(wt => wt.equipment_id === equipmentId)
+    .reduce((sum, wt) => sum + Number(wt.students_count || 0), 0);
 };
 
-const totalHours = computed(() => {
-  let hours = 0;
-  for (const lesson of filteredLessons.value) {
-    for (const eq of getEquipmentList(lesson)) {
-      const wt = getWorkTimeForLesson(lesson.id, eq.equipment_id);
-      if (wt) hours += Number(wt.total_hours || 0);
-    }
-  }
-  return hours;
+const getEquipmentLessons = (equipmentId) => {
+  const lessonIds = new Set(
+    filteredWorkTime.value
+      .filter(wt => wt.equipment_id === equipmentId)
+      .map(wt => wt.lesson_id)
+  );
+  return filteredLessons.value.filter(l => lessonIds.has(l.id));
+};
+
+// ============================================
+//  ПАГИНАЦИЯ
+// ============================================
+const totalPages = computed(() =>
+  Math.ceil(filteredEquipment.value.length / pageSize.value) || 1
+);
+
+const paginatedEquipment = computed(() => {
+  const start = (currentPage.value - 1) * pageSize.value;
+  return filteredEquipment.value.slice(start, start + pageSize.value);
 });
 
-const totalParticipants = computed(() => {
-  let sum = 0;
-  for (const lesson of filteredLessons.value) {
-    const count = lesson.students_count || 0;
-    const list = getEquipmentList(lesson);
-    sum += count * list.length;
-  }
-  return sum;
-});
+const showPagination = computed(() =>
+  filteredEquipment.value.length > pageSize.value
+);
 
-const totalLessons = computed(() => {
-  let sum = 0;
-  for (const lesson of filteredLessons.value) {
-    sum += getEquipmentList(lesson).length;
-  }
-  return sum;
-});
-
+// ============================================
+//  ДЕЙСТВИЯ
+// ============================================
 const toggleEquipment = (id) => {
   const i = expandedEquipment.value.indexOf(id);
   if (i === -1) expandedEquipment.value.push(id);
@@ -471,19 +499,6 @@ const loadAllData = async () => {
     loading.value = false;
   }
 };
-
-const totalPages = computed(() =>
-  Math.ceil(filteredEquipment.value.length / pageSize.value) || 1
-);
-
-const paginatedEquipment = computed(() => {
-  const start = (currentPage.value - 1) * pageSize.value;
-  return filteredEquipment.value.slice(start, start + pageSize.value);
-});
-
-const showPagination = computed(() =>
-  filteredEquipment.value.length > pageSize.value
-);
 
 watch(
   () => filters.value.analytics,
@@ -704,8 +719,6 @@ onActivated(loadAllData);
 /* ==========================================
    АДАПТИВ
    ========================================== */
-
-/* Плавное сжатие статы — от 1600px */
 @media (max-width: 1600px) {
   .analytics-layout { grid-template-columns: 1fr; }
   .analytics-sidebar { display: none; }
@@ -717,7 +730,6 @@ onActivated(loadAllData);
   .stat-card { padding: 14px 16px; }
 }
 
-/* ≤ 1275px — мобильная вёрстка */
 @media (max-width: 1275px) {
   .analytics-view { padding: 0 10px; }
 
@@ -756,7 +768,6 @@ onActivated(loadAllData);
     text-overflow: ellipsis;
   }
 
-  /* Стата — 2 колонки */
   .stats-grid {
     grid-template-columns: 1fr 1fr;
     gap: 10px;
