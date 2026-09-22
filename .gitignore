@@ -8,7 +8,7 @@ node_modules/
 
 # Логи
 *.log
-logs/
+/logs/
 
 # IDE
 .vscode/
