@@ -275,6 +275,7 @@ const { filters, pagination, editing } = storeToRefs(uiStore);
 // ===== MOBILE (≤1100px) =====
 const isMobile = ref(false);
 let mediaQuery = null;
+const mobileFiltersOpen = ref(false);   // ← ДОБАВЛЕНО
 
 const updateIsMobile = (e) => { isMobile.value = e.matches; };
 

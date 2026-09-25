@@ -3,12 +3,13 @@
     class="lesson-card-row"
     @click="handleRowClick"
   >
-    <!-- ДАТА СОЗДАНИЯ -->
-    <td class="lesson-created">
-      {{ formatDate(lesson.created_at) }}
+    <!-- КОГДА -->
+    <td class="when-cell">
+      <span class="when-date">{{ formatDate(lesson.date) }}</span>
+      <span class="when-time">{{ lesson.start_time }}–{{ lesson.end_time }}</span>
     </td>
 
-    <!-- ОБРАЗОВАНИЕ: уровень · факультет · курс -->
+    <!-- ОБРАЗОВАНИЕ -->
     <td class="lesson-education">
       <template v-if="educationInfo.length > 0">
         <span 
@@ -23,8 +24,8 @@
       <span v-else class="edu-empty">—</span>
     </td>
 
-    <!-- НАЗВАНИЕ + СПЕЦИАЛЬНОСТЬ + ПРИМЕЧАНИЯ -->
-    <td>
+    <!-- НАЗВАНИЕ + СПЕЦИАЛЬНОСТЬ -->
+    <td class="title-cell">
       <strong class="lesson-title">{{ lesson.title }}</strong>
       <span v-if="lesson.specialty" class="lesson-specialty">
         {{ shortSpecialty(lesson.specialty) }}
@@ -35,10 +36,9 @@
 
     <td class="teacher-cell">{{ lesson.teacher || '—' }}</td>
 
-    <!-- КОГДА: дата сверху, время снизу -->
-    <td class="when-cell">
-      <span class="when-date">{{ formatDate(lesson.date) }}</span>
-      <span class="when-time">{{ lesson.start_time }}–{{ lesson.end_time }}</span>
+    <!-- ДАТА СОЗДАНИЯ -->
+    <td class="lesson-created">
+      {{ formatDate(lesson.created_at) }}
     </td>
 
     <td class="students-cell">
@@ -56,7 +56,6 @@
 
     <td class="actions-cell" @click.stop>
       <div class="table-actions">
-        <!-- Завершить — admin, methodist, lab_assistant -->
         <button
           v-if="lesson.status === 'Запланировано' && authStore.hasRole('admin', 'methodist', 'lab_assistant')"
           class="btn btn-sm btn-success"
@@ -66,7 +65,6 @@
           <IconCheck class="btn-icon" />
         </button>
 
-        <!-- Редактировать — admin, methodist, lab_assistant -->
         <button
           v-if="authStore.hasRole('admin', 'methodist', 'lab_assistant')"
           class="btn btn-sm btn-outline-primary"
@@ -76,7 +74,15 @@
           <IconEdit class="btn-icon" />
         </button>
 
-        <!-- Удалить — admin, methodist, lab_assistant -->
+        <button
+          v-if="authStore.hasRole('admin', 'methodist', 'lab_assistant')"
+          class="btn btn-sm btn-outline-secondary"
+          @click="$emit('duplicate', lesson)"
+          title="Дублировать"
+        >
+          <IconCopy class="btn-icon" />
+        </button>
+
         <button
           v-if="authStore.hasRole('admin', 'methodist', 'lab_assistant')"
           class="btn btn-sm btn-outline-danger"
@@ -101,12 +107,10 @@ import {
   IconClock,
   IconAlert,
   IconEdit,
+  IconCopy,
   IconTrash
 } from '../icons';
 
-// ============================================
-//  PROPS
-// ============================================
 const props = defineProps({
   lesson: {
     type: Object,
@@ -114,25 +118,13 @@ const props = defineProps({
   }
 });
 
-// ============================================
-//  EMITS
-// ============================================
-const emit = defineEmits(['row-click', 'complete', 'edit', 'delete']);
+const emit = defineEmits(['row-click', 'complete', 'edit', 'duplicate', 'delete']);
 
-// ============================================
-//  STORES
-// ============================================
 const authStore = useAuthStore();
 
-// ============================================
-//  КОМПОЗАБЛЫ
-// ============================================
 const { formatDate } = useFormatters();
 const { getStatusClass } = useStatusClasses();
 
-// ============================================
-//  ОБРАЗОВАНИЕ — собираем в массив строк
-// ============================================
 const shortFaculty = (faculty) => {
   if (!faculty) return '';
   return faculty
@@ -167,17 +159,11 @@ const educationInfo = computed(() => {
   return result;
 });
 
-// ============================================
-//  СПЕЦИАЛЬНОСТЬ — убираем шифр типа 31.05.01
-// ============================================
 const shortSpecialty = (specialty) => {
   if (!specialty) return '';
   return specialty.replace(/^\d+\.\d+\.\d+\s+/, '');
 };
 
-// ============================================
-//  КЛИК ПО СТРОКЕ
-// ============================================
 const handleRowClick = () => {
   emit('row-click', props.lesson);
 };
@@ -196,14 +182,16 @@ const handleRowClick = () => {
   background: #f0f7ff;
 }
 
-/* ============================================
-   ЯЧЕЙКИ
-   ============================================ */
 .lesson-card-row td {
   padding: 10px 16px;
   border-bottom: 1px solid #e9ecef;
   vertical-align: middle;
   line-height: 1.4;
+  /* ✅ ПЕРЕНОС ТЕКСТА ПО СЛОВАМ */
+  white-space: normal;
+  word-break: break-word;
+  overflow-wrap: anywhere;
+  hyphens: auto;
 }
 
 /* ============================================
@@ -212,7 +200,7 @@ const handleRowClick = () => {
 .lesson-created {
   font-size: 13px;
   color: #495057;
-  white-space: nowrap;
+  white-space: nowrap; /* дата короткая — не переносим */
 }
 
 /* ============================================
@@ -221,42 +209,43 @@ const handleRowClick = () => {
 .lesson-education {
   font-size: 12px;
   color: #495057;
-  max-width: 200px;
+  /* ✅ убрали max-width: 200px — колонка сама задаёт ширину */
 }
 
 .lesson-education .edu-line {
   display: block;
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
+  /* ✅ ПЕРЕНОС строк внутри строки образования */
+  white-space: normal;
+  word-break: break-word;
+  overflow-wrap: anywhere;
+  line-height: 1.3;
+  margin-bottom: 2px;
 }
 
-.edu-level {
-  font-weight: 500;
-  color: #0d6efd;
-}
-
-.edu-faculty {
-  color: #495057;
-}
-
-.edu-course {
-  color: #6c757d;
-}
-
-.edu-empty {
-  color: #adb5bd;
-  font-size: 13px;
-}
+.edu-level { font-weight: 500; color: #0d6efd; }
+.edu-faculty { color: #495057; }
+.edu-course { color: #6c757d; }
+.edu-empty { color: #adb5bd; font-size: 13px; }
 
 /* ============================================
    НАЗВАНИЕ
    ============================================ */
+.title-cell {
+  /* ✅ ПЕРЕНОС для названия */
+  white-space: normal;
+  word-break: break-word;
+  overflow-wrap: anywhere;
+}
+
 .lesson-title {
   font-size: 14px;
   font-weight: 600;
   color: #212529;
   display: block;
+  /* ✅ ПЕРЕНОС названия */
+  white-space: normal;
+  word-break: break-word;
+  overflow-wrap: anywhere;
 }
 
 .lesson-specialty {
@@ -264,22 +253,22 @@ const handleRowClick = () => {
   font-size: 12px;
   color: #495057;
   margin-top: 2px;
-}
-
-.lesson-notes {
-  display: block;
-  font-size: 12px;
-  color: #6c757d;
-  margin-top: 2px;
+  /* ✅ ПЕРЕНОС специальности */
+  white-space: normal;
+  word-break: break-word;
+  overflow-wrap: anywhere;
 }
 
 /* ============================================
-   ОБЫЧНЫЕ ЯЧЕЙКИ
+   ОБЫЧНЫЕ ЯЧЕЙКИ — теперь переносятся
    ============================================ */
 .group-cell,
 .teacher-cell {
   color: #495057;
-  white-space: nowrap;
+  /* ✅ ПЕРЕНОС вместо nowrap */
+  white-space: normal;
+  word-break: break-word;
+  overflow-wrap: anywhere;
 }
 
 .students-cell {
@@ -289,6 +278,7 @@ const handleRowClick = () => {
 }
 
 .status-cell {
+  /* бейдж не переносим — он должен быть компактным */
   white-space: nowrap;
 }
 
@@ -298,7 +288,7 @@ const handleRowClick = () => {
 .when-cell {
   font-size: 13px;
   color: #495057;
-  white-space: nowrap;
+  white-space: nowrap; /* дата и время — компактно */
 }
 
 .when-cell .when-date {
@@ -333,26 +323,16 @@ const handleRowClick = () => {
   flex-shrink: 0;
 }
 
-.badge-success {
-  background: #d4edda;
-  color: #155724;
-}
-
-.badge-warning {
-  background: #fff3cd;
-  color: #856404;
-}
-
-.badge-danger {
-  background: #f8d7da;
-  color: #721c24;
-}
+.badge-success { background: #d4edda; color: #155724; }
+.badge-warning { background: #fff3cd; color: #856404; }
+.badge-danger  { background: #f8d7da; color: #721c24; }
 
 /* ============================================
    ДЕЙСТВИЯ
    ============================================ */
 .actions-cell {
   padding-left: 10px;
+  white-space: nowrap;
 }
 
 .table-actions {
@@ -401,7 +381,6 @@ const handleRowClick = () => {
   color: white;
   border-color: #198754;
 }
-
 .btn-success:hover {
   background: #157347;
   border-color: #146c43;
@@ -412,9 +391,18 @@ const handleRowClick = () => {
   color: #0d6efd;
   border: 1px solid #0d6efd;
 }
-
 .btn-outline-primary:hover {
   background: #0d6efd;
+  color: white;
+}
+
+.btn-outline-secondary {
+  background: transparent;
+  color: #6c757d;
+  border: 1px solid #6c757d;
+}
+.btn-outline-secondary:hover {
+  background: #6c757d;
   color: white;
 }
 
@@ -423,7 +411,6 @@ const handleRowClick = () => {
   color: #dc3545;
   border: 1px solid #dc3545;
 }
-
 .btn-outline-danger:hover {
   background: #dc3545;
   color: white;

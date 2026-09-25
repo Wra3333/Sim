@@ -24,7 +24,6 @@
           <span class="btn-text">Создать занятие</span>
         </button>
 
-        <!-- Кнопка «Фильтры» — показывается, когда сайдбар и встроенные фильтры скрыты -->
         <button
           v-if="isNarrow || isMobile"
           class="btn btn-outline-secondary btn-mobile-icon"
@@ -46,6 +45,16 @@
         <!-- Встроенные фильтры — только на > 1600px -->
         <div v-if="!isNarrow" class="filters">
           <div class="filters-row">
+            <!-- ДАТА ПРОВЕДЕНИЯ — НА ПЕРВОМ МЕСТЕ -->
+            <div class="filter-group date-filters">
+              <label>Дата проведения</label>
+              <div class="date-inputs">
+                <input v-model="lessonsFilters.dateFrom" type="date" class="form-control date-input" placeholder="От" />
+                <span class="date-separator">—</span>
+                <input v-model="lessonsFilters.dateTo" type="date" class="form-control date-input" placeholder="До" />
+              </div>
+            </div>
+
             <div class="filter-group">
               <label>Статус</label>
               <select v-model="lessonsFilters.status" class="form-control">
@@ -76,15 +85,6 @@
               />
             </div>
 
-            <div class="filter-group date-filters">
-              <label>Дата</label>
-              <div class="date-inputs">
-                <input v-model="lessonsFilters.dateFrom" type="date" class="form-control date-input" placeholder="От" />
-                <span class="date-separator">—</span>
-                <input v-model="lessonsFilters.dateTo" type="date" class="form-control date-input" placeholder="До" />
-              </div>
-            </div>
-
             <div class="filter-group actions">
               <button class="btn btn-outline-secondary" @click="resetAllFilters">
                 <IconReset class="btn-icon" />
@@ -105,9 +105,9 @@
           <table class="lessons-table">
             <thead>
               <tr>
-                <th class="col-created sortable" :class="{ 'sort-active': sortField === 'created_at' }" @click="toggleSort('created_at')">
-                  Дата
-                  <span class="sort-icon" v-if="sortField === 'created_at'">{{ sortDirection === 'desc' ? '↓' : '↑' }}</span>
+                <th class="col-when sortable" :class="{ 'sort-active': sortField === 'date' }" @click="toggleSort('date')">
+                  Когда
+                  <span class="sort-icon" v-if="sortField === 'date'">{{ sortDirection === 'desc' ? '↓' : '↑' }}</span>
                 </th>
                 <th class="col-education">Образование</th>
                 <th class="col-title sortable" :class="{ 'sort-active': sortField === 'title' }" @click="toggleSort('title')">
@@ -116,9 +116,9 @@
                 </th>
                 <th class="col-group">Группа</th>
                 <th class="col-teacher">Преподаватель</th>
-                <th class="col-when sortable" :class="{ 'sort-active': sortField === 'date' }" @click="toggleSort('date')">
-                  Когда
-                  <span class="sort-icon" v-if="sortField === 'date'">{{ sortDirection === 'desc' ? '↓' : '↑' }}</span>
+                <th class="col-created sortable" :class="{ 'sort-active': sortField === 'created_at' }" @click="toggleSort('created_at')">
+                  Дата создания
+                  <span class="sort-icon" v-if="sortField === 'created_at'">{{ sortDirection === 'desc' ? '↓' : '↑' }}</span>
                 </th>
                 <th class="col-students">Студентов</th>
                 <th class="col-status sortable" :class="{ 'sort-active': sortField === 'status' }" @click="toggleSort('status')">
@@ -136,6 +136,7 @@
                 @row-click="openEditForm"
                 @complete="completeLesson"
                 @edit="openEditForm"
+                @duplicate="duplicateLesson"
                 @delete="deleteLesson"
               />
             </tbody>
@@ -159,6 +160,7 @@
             :lesson="lesson"
             @edit="openEditForm"
             @complete="completeLesson"
+            @duplicate="duplicateLesson"
             @delete="deleteLesson"
           />
         </div>
@@ -181,6 +183,16 @@
                 <button class="drawer-close" @click="mobileFiltersOpen = false">×</button>
               </div>
               <div class="drawer-body">
+                <!-- ДАТА ПРОВЕДЕНИЯ — НА ПЕРВОМ МЕСТЕ -->
+                <div class="filter-group">
+                  <label>Дата проведения — от</label>
+                  <input v-model="lessonsFilters.dateFrom" type="date" class="form-control" />
+                </div>
+                <div class="filter-group">
+                  <label>Дата проведения — до</label>
+                  <input v-model="lessonsFilters.dateTo" type="date" class="form-control" />
+                </div>
+
                 <div class="filter-group">
                   <label>Статус</label>
                   <select v-model="lessonsFilters.status" class="form-control">
@@ -201,14 +213,6 @@
                   <label>Поиск</label>
                   <input v-model="lessonsFilters.search" type="text" class="form-control" placeholder="Поиск по названию..." />
                 </div>
-                <div class="filter-group">
-                  <label>Дата от</label>
-                  <input v-model="lessonsFilters.dateFrom" type="date" class="form-control" />
-                </div>
-                <div class="filter-group">
-                  <label>Дата до</label>
-                  <input v-model="lessonsFilters.dateTo" type="date" class="form-control" />
-                </div>
               </div>
               <div class="drawer-footer">
                 <button class="btn btn-outline-secondary" @click="resetAllFilters">
@@ -224,6 +228,7 @@
       <LessonFormDrawer
         :visible="showForm"
         :lesson="editingItem"
+        :duplicate-source="duplicatingItem"
         @close="closeForm"
         @save="onSaved"
       />
@@ -334,9 +339,24 @@ const editingItem = computed(() =>
   lessonsItems.value.find((l) => l.id === editing.value.lesson) || null
 );
 
+// ← Копия занятия для дублирования (без id)
+const duplicatingItem = computed(() => {
+  const id = uiStore.duplicating?.lesson;
+  if (!id) return null;
+  const src = lessonsItems.value.find((l) => l.id === id);
+  if (!src) return null;
+
+  const { id: _omit, created_at, updated_at, ...rest } = src;
+  return {
+    ...rest,
+    title: src.title
+  };
+});
+
 const showForm = computed({
   get: () =>
     (editing.value.lesson !== null && editingItem.value !== null)
+    || (uiStore.duplicating?.lesson !== null && duplicatingItem.value !== null)
     || uiStore.creating.lesson,
   set: (val) => { if (!val) uiStore.closeEdit('lesson'); }
 });
@@ -345,13 +365,13 @@ const lessonsFilters = computed({
   get: () => filters.value.lessons || {
     status: '', group: '', search: '', dateFrom: '', dateTo: '',
     faculty: '', specialty: '', course: '', participant_type: '',
-    teacher: '', sortField: 'created_at', sortDirection: 'desc'
+    teacher: '', sortField: 'date', sortDirection: 'desc'
   },
   set: (val) => { filters.value.lessons = val; }
 });
 
 const sortField = computed({
-  get: () => lessonsFilters.value.sortField || 'created_at',
+  get: () => lessonsFilters.value.sortField || 'date',
   set: (val) => { lessonsFilters.value = { ...lessonsFilters.value, sortField: val }; }
 });
 
@@ -541,6 +561,12 @@ const openEditForm = (lesson) => {
   uiStore.openEdit('lesson', lesson.id);
 };
 
+// ← Дублирование занятия
+const duplicateLesson = (lesson) => {
+  if (!lesson?.id) return;
+  uiStore.openDuplicate('lesson', lesson.id);
+};
+
 const closeForm = () => uiStore.closeEdit('lesson');
 
 const onSaved = () => {
@@ -700,9 +726,6 @@ p { color: #6c757d; margin-bottom: 16px; }
   gap: 8px; flex: 0 0 auto;
 }
 
-/* ==========================================
-   ТАБЛИЦА — РЕЗИНОВАЯ
-   ========================================== */
 .table-container {
   background: white; border-radius: 12px;
   box-shadow: 0 2px 8px rgba(0, 0, 0, 0.06);
@@ -754,20 +777,12 @@ p { color: #6c757d; margin-bottom: 16px; }
   font-weight: 700;
 }
 
-/* ==========================================
-   ШИРИНЫ КОЛОНОК — 9 колонок (> 1600px, без сайдбара)
-   ==========================================
-   На > 1600px с сайдбаром — браузер сам пересчитает,
-   т.к. .lessons-main уже занимает свою часть.
-   Ниже 1600px сайдбара нет, поэтому таблица получает
-   больше места — можно распределить те же %.
-   ========================================== */
-.col-created   { width: 10%; }
+.col-when      { width: 12%; }
 .col-education { width: 14%; }
 .col-title     { width: 20%; }
 .col-group     { width: 11%; }
 .col-teacher   { width: 13%; }
-.col-when      { width: 12%; }
+.col-created   { width: 10%; }
 .col-students  { width: 8%; text-align: center; }
 .col-status    { width: 12%; }
 .col-actions   { width: 100px; }
@@ -782,9 +797,6 @@ p { color: #6c757d; margin-bottom: 16px; }
 
 .lessons-cards { display: flex; flex-direction: column; }
 
-/* ==========================================
-   ПЛАВНОЕ СЖАТИЕ ТАБЛИЦЫ (1401 – 1600px)
-   ========================================== */
 @media (max-width: 1600px) {
   .lessons-table th,
   .lessons-table td {
@@ -800,20 +812,17 @@ p { color: #6c757d; margin-bottom: 16px; }
     font-size: 13px;
   }
 
-  .col-created   { width: 11%; }
+  .col-when      { width: 12%; }
   .col-education { width: 15%; }
   .col-title     { width: 21%; }
   .col-group     { width: 11%; }
   .col-teacher   { width: 13%; }
-  .col-when      { width: 12%; }
+  .col-created   { width: 11%; }
   .col-students  { width: 7%; }
   .col-status    { width: 12%; }
   .col-actions   { width: 96px; }
 }
 
-/* ==========================================
-   OFF-CANVAS
-   ========================================== */
 .drawer-overlay {
   position: fixed; inset: 0; background: rgba(0, 0, 0, 0.45);
   z-index: 1000; display: flex; justify-content: flex-end;
@@ -856,9 +865,6 @@ p { color: #6c757d; margin-bottom: 16px; }
 .drawer-slide-enter-from,
 .drawer-slide-leave-to { transform: translateX(100%); }
 
-/* ==========================================
-   ≤ 1400px — МОБИЛЬНАЯ ВЁРСТКА (карточки)
-   ========================================== */
 @media (max-width: 1400px) {
   .lessons-wrapper { flex-direction: column; }
 
@@ -882,4 +888,4 @@ p { color: #6c757d; margin-bottom: 16px; }
 @media (max-width: 480px) {
   .drawer-window { width: 100vw; max-width: 100vw; }
 }
-</style>  
+</style>

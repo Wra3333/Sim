@@ -33,6 +33,14 @@
       <button class="btn btn-outline-secondary btn-sm" @click="$emit('edit', lesson)">
         <IconEdit class="btn-icon" /> Изменить
       </button>
+      <!-- ← ДОБАВЛЕНО: кнопка дублирования -->
+      <button
+        class="btn btn-outline-secondary btn-sm"
+        @click="$emit('duplicate', lesson)"
+        title="Дублировать"
+      >
+        <IconCopy class="btn-icon" />
+      </button>
       <button class="btn btn-outline-danger btn-sm" @click="$emit('delete', lesson.id)">
         <IconTrash class="btn-icon" />
       </button>
@@ -42,10 +50,10 @@
 
 <script setup>
 import { computed } from 'vue';
-import { IconCheck, IconEdit, IconTrash } from '../icons';
+import { IconCheck, IconEdit, IconCopy, IconTrash } from '../icons';
 
 const props = defineProps({ lesson: { type: Object, required: true } });
-defineEmits(['edit', 'complete', 'delete']);
+defineEmits(['edit', 'complete', 'duplicate', 'delete']);
 
 const statusClass = computed(() => ({
   'status-planned': props.lesson.status === 'Запланировано',
@@ -94,4 +102,15 @@ const formatDate = (d) => {
   padding-top: 10px; border-top: 1px solid #f1f3f5; flex-wrap: wrap;
 }
 .card-actions .btn { height: 34px; padding: 4px 10px; }
+
+/* Стили для кнопки дублирования (если ещё не определены глобально) */
+.btn-outline-secondary {
+  background: transparent;
+  color: #6c757d;
+  border: 1px solid #6c757d;
+}
+.btn-outline-secondary:hover {
+  background: #6c757d;
+  color: white;
+}
 </style>

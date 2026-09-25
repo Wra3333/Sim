@@ -1,13 +1,11 @@
 <template>
   <Teleport to="body">
-    <!-- ОВЕРЛЕЙ ДЛЯ ЗАТЕМНЕНИЯ -->
     <div 
       class="drawer-overlay" 
       :class="{ 'drawer-overlay-visible': visible }"
       @click="close"
     ></div>
 
-    <!-- ВЫДВИЖНАЯ ПАНЕЛЬ СПРАВА -->
     <div 
       class="drawer" 
       :class="{ 'drawer-open': visible }"
@@ -16,7 +14,11 @@
         <h3>
           <IconEdit v-if="currentLesson" class="header-icon" />
           <IconPlus v-else class="header-icon" />
-          {{ currentLesson ? 'Редактировать занятие' : 'Создать занятие' }}
+          {{
+            currentLesson ? 'Редактировать занятие'
+            : props.duplicateSource ? 'Создать копию занятия'
+            : 'Создать занятие'
+          }}
         </h3>
         <button class="btn-close" @click="close">×</button>
       </div>
@@ -66,7 +68,6 @@
             </div>
           </div>
 
-          <!-- ГРУППА И КОЛИЧЕСТВО СТУДЕНТОВ -->
           <div class="form-row">
             <div class="form-group">
               <label>
@@ -98,7 +99,6 @@
             </div>
           </div>
 
-          <!-- УРОВЕНЬ ОБРАЗОВАНИЯ -->
           <div class="form-group">
             <label>
               <IconUser class="label-icon" />
@@ -116,7 +116,6 @@
             </select>
           </div>
 
-          <!-- ФАКУЛЬТЕТ И СПЕЦИАЛЬНОСТЬ -->
           <div class="form-row">
             <div class="form-group">
               <label>
@@ -142,7 +141,6 @@
             </div>
           </div>
 
-          <!-- КУРС -->
           <div class="form-row" v-if="showCourseField">
             <div class="form-group">
               <label>
@@ -159,7 +157,6 @@
             <div class="form-group"></div>
           </div>
 
-          <!-- Шаблон -->
           <div class="form-group">
             <label>
               <IconTemplates class="label-icon" />
@@ -182,7 +179,6 @@
             </small>
           </div>
 
-          <!-- Статус -->
           <div class="form-group">
             <label>
               <IconAlert class="label-icon" />
@@ -199,7 +195,6 @@
             </small>
           </div>
 
-          <!-- Примечания -->
           <div class="form-group">
             <label>
               <IconFileText class="label-icon" />
@@ -208,7 +203,6 @@
             <textarea v-model="form.notes" class="form-control" rows="2" placeholder="Дополнительная информация..."></textarea>
           </div>
 
-          <!-- Оборудование -->
           <div class="form-group">
             <label>
               <IconEquipment class="label-icon" />
@@ -274,7 +268,9 @@ import {
 
 const props = defineProps({
   visible: { type: Boolean, default: false },
-  lesson: { type: Object, default: null }
+  lesson: { type: Object, default: null },
+  // ← ДОБАВЛЕНО: источник для дублирования (без id)
+  duplicateSource: { type: Object, default: null }
 });
 
 const emit = defineEmits(['close', 'save']);
@@ -288,7 +284,7 @@ const { formatDate } = useFormatters();
 const loading = ref(false);
 const equipmentList = ref([]);
 
-// Локальная копия занятия — обновляется только при открытии drawer'а.
+// Режим редактирования — только если у lesson есть id
 const currentLesson = ref(null);
 
 const availableGroups = ref([
@@ -323,9 +319,6 @@ const allEquipment = computed(() => {
   return equipmentStore.allEquipment || [];
 });
 
-// ============================================
-//  ЗАВИСИМОСТИ УРОВЕНЬ → СПЕЦИАЛЬНОСТЬ / КУРС
-// ============================================
 const availableSpecialties = computed(() =>
   getSpecialtiesForLevel(form.value.participant_type)
 );
@@ -338,7 +331,6 @@ const showCourseField = computed(() =>
   hasCourses(form.value.participant_type)
 );
 
-// Сброс специальности и курса при смене уровня
 watch(() => form.value.participant_type, (newLevel, oldLevel) => {
   if (newLevel !== oldLevel) {
     form.value.specialty = '';
@@ -346,9 +338,6 @@ watch(() => form.value.participant_type, (newLevel, oldLevel) => {
   }
 });
 
-// ============================================
-//  СКРОЛЛ
-// ============================================
 const toggleBodyScroll = (disable) => {
   if (disable) {
     document.documentElement.style.overflow = 'hidden';
@@ -357,9 +346,6 @@ const toggleBodyScroll = (disable) => {
   }
 };
 
-// ============================================
-//  СБРОС ФОРМЫ
-// ============================================
 const resetForm = () => {
   const today = new Date().toISOString().split('T')[0];
   form.value = {
@@ -381,9 +367,6 @@ const resetForm = () => {
   equipmentList.value = [];
 };
 
-// ============================================
-//  ЗАПОЛНЕНИЕ ИЗ LESSON
-// ============================================
 const fillForm = (val) => {
   form.value = {
     title: val.title || '',
@@ -409,9 +392,6 @@ const fillForm = (val) => {
   }
 };
 
-// ============================================
-//  МЕТОДЫ
-// ============================================
 const loadTemplateEquipment = () => {
   if (form.value.template_id) {
     const template = templatesStore.getById(form.value.template_id);
@@ -448,9 +428,6 @@ const close = () => {
   emit('close');
 };
 
-// ============================================
-//  SUBMIT
-// ============================================
 const submit = async () => {
   if (!form.value.title.trim()) {
     toast.warning('Введите название занятия');
@@ -469,9 +446,6 @@ const submit = async () => {
     return;
   }
 
-  // Блокируем «Требует ремонта», «В ремонте», «Списан»
-  // и write_off «На списание» / «Списан».
-  // «Исправен» и «Частично неисправен» — разрешены.
   const invalidEquipment = [];
   for (const id of equipmentList.value) {
     const eq = equipmentStore.getById(id);
@@ -499,6 +473,7 @@ const submit = async () => {
       quantity: 1
     }));
 
+    // ← ВАЖНО: id НЕ включаем в payload
     const data = {
       title: form.value.title,
       group: form.value.group || '',
@@ -518,9 +493,11 @@ const submit = async () => {
     };
 
     if (currentLesson.value) {
+      // Редактирование — currentLesson.value.id гарантированно есть
       await lessonsApi.update(currentLesson.value.id, data);
       toast.success('Занятие обновлено');
     } else {
+      // Создание или дублирование — POST без id
       await lessonsApi.create(data);
       if (data.status === 'Проведено' && data.equipment_list.length > 0) {
         toast.success('Занятие создано! Записи в учете времени добавлены автоматически.');
@@ -538,26 +515,26 @@ const submit = async () => {
   }
 };
 
-// ============================================
-//  WATCH: visible
-// ============================================
 watch(() => props.visible, (val) => {
   toggleBodyScroll(val);
 
   if (!val) return;
 
+  // Приоритет: сначала lesson (реальное редактирование), потом duplicateSource
   currentLesson.value = props.lesson ?? null;
 
   if (currentLesson.value) {
+    // Режим редактирования — есть id
     fillForm(currentLesson.value);
+  } else if (props.duplicateSource) {
+    // Режим дублирования — заполняем форму из копии, currentLesson остаётся null
+    fillForm(props.duplicateSource);
   } else {
+    // Режим создания
     resetForm();
   }
 }, { immediate: false });
 
-// ============================================
-//  ОБРАБОТЧИКИ
-// ============================================
 const handleKeydown = (e) => {
   if (e.key === 'Escape' && props.visible) {
     close();
@@ -571,9 +548,6 @@ const handleKeydown = (e) => {
   }
 };
 
-// ============================================
-//  LIFECYCLE
-// ============================================
 onMounted(async () => {
   await Promise.all([
     templatesStore.fetchAll(),
@@ -590,9 +564,6 @@ onBeforeUnmount(() => {
 </script>
 
 <style scoped>
-/* ============================================
-   ОВЕРЛЕЙ (ЗАТЕМНЕНИЕ)
-   ============================================ */
 .drawer-overlay {
   position: fixed;
   top: 0;
@@ -611,9 +582,6 @@ onBeforeUnmount(() => {
   pointer-events: auto;
 }
 
-/* ============================================
-   ВЫДВИЖНАЯ ПАНЕЛЬ
-   ============================================ */
 .drawer {
   position: fixed;
   top: 0;
@@ -634,9 +602,6 @@ onBeforeUnmount(() => {
   transform: translateX(0);
 }
 
-/* ============================================
-   ШАПКА
-   ============================================ */
 .drawer-header {
   display: flex;
   justify-content: space-between;
@@ -678,9 +643,6 @@ onBeforeUnmount(() => {
   color: #212529;
 }
 
-/* ============================================
-   ТЕЛО (СКРОЛЛ)
-   ============================================ */
 .drawer-body {
   flex: 1;
   overflow-y: auto;
@@ -704,9 +666,6 @@ onBeforeUnmount(() => {
   background: #a8a8a8;
 }
 
-/* ============================================
-   ФОРМА
-   ============================================ */
 .form-group {
   margin-bottom: 16px;
 }
@@ -802,9 +761,6 @@ textarea.form-control {
   color: white;
 }
 
-/* ============================================
-   КНОПКИ ВНИЗУ
-   ============================================ */
 .form-actions {
   display: flex;
   justify-content: flex-end;
@@ -875,9 +831,6 @@ textarea.form-control {
   font-size: 13px;
 }
 
-/* ============================================
-   АДАПТИВНОСТЬ
-   ============================================ */
 @media (max-width: 768px) {
   .drawer {
     width: 90%;

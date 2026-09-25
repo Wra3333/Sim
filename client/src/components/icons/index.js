@@ -59,3 +59,4 @@ export { default as IconUpload } from './IconUpload.vue'
 export { default as IconDownload } from './IconDownload.vue'
 export { default as IconChevronDown } from './IconChevronDown.vue';
 export { default as IconInbox } from './IconInbox.vue';
+export { default as IconCopy } from './IconCopy.vue';

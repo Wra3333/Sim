@@ -23,7 +23,7 @@ export const useUiStore = defineStore('ui', {
         search: '',
         dateFrom: '',
         dateTo: '',
-        sortField: 'created_at',
+        sortField: 'date',        // ← было 'created_at'
         sortDirection: 'desc'
       },
 
@@ -81,6 +81,14 @@ export const useUiStore = defineStore('ui', {
       template: false
     },
 
+    // ← ДОБАВЛЕНО: состояние дублирования
+    duplicating: {
+      equipment: null,
+      lesson: null,
+      repair: null,
+      template: null
+    },
+
     history: {
       equipment: null,
       lesson: null,
@@ -123,7 +131,7 @@ export const useUiStore = defineStore('ui', {
           search: '',
           dateFrom: '',
           dateTo: '',
-          sortField: 'created_at',
+          sortField: 'date',        // ← было 'created_at'
           sortDirection: 'desc'
         },
         repairs: {
@@ -169,7 +177,7 @@ export const useUiStore = defineStore('ui', {
           search: '',
           dateFrom: '',
           dateTo: '',
-          sortField: 'created_at',
+          sortField: 'date',        // ← было 'created_at'
           sortDirection: 'desc'
         },
         repairs: {
@@ -220,18 +228,31 @@ export const useUiStore = defineStore('ui', {
       if (this.creating[module] !== undefined) {
         this.creating[module] = true
         this.editing[module] = null
+        this.duplicating[module] = null   // ← ДОБАВЛЕНО
       }
     },
     openEdit(module, id) {
       if (this.editing[module] !== undefined) {
         this.creating[module] = false
         this.editing[module] = id
+        this.duplicating[module] = null   // ← ДОБАВЛЕНО
       }
     },
+
+    // ← ДОБАВЛЕНО: открыть форму дублирования
+    openDuplicate(module, id) {
+      if (this.duplicating[module] !== undefined) {
+        this.creating[module] = false
+        this.editing[module] = null
+        this.duplicating[module] = id
+      }
+    },
+
     closeEdit(module) {
       if (this.editing[module] !== undefined) {
         this.creating[module] = false
         this.editing[module] = null
+        this.duplicating[module] = null   // ← ДОБАВЛЕНО
       }
     },
     isEditing(module, id) {
