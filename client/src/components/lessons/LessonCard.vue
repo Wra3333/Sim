@@ -183,7 +183,7 @@ const handleRowClick = () => {
 }
 
 .lesson-card-row td {
-  padding: 10px 16px;
+  padding: 10px 10px;
   border-bottom: 1px solid #e9ecef;
   vertical-align: middle;
   line-height: 1.4;
@@ -339,7 +339,7 @@ const handleRowClick = () => {
   display: flex;
   gap: 4px;
   justify-content: flex-end;
-  flex-wrap: nowrap;
+  flex-wrap: wrap;
 }
 
 .btn {
