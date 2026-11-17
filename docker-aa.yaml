@@ -1,0 +1,30 @@
+services:
+  portainer:
+    image: portainer/portainer-ce:latest
+    container_name: portainer
+    restart: unless-stopped
+    ports:
+      - "9443:9443"
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock
+      - portainer_data:/data
+
+  duplicati:
+    image: lscr.io/linuxserver/duplicati:latest
+    container_name: duplicati
+    restart: unless-stopped
+    environment:
+      - PUID=0
+      - PGID=0
+      - TZ=Asia/Yakutsk
+    ports:
+      - "8200:8200"
+    volumes:
+      - duplicati_config:/config
+      - /opt/backups:/backups               # Папка, куда будут сохраняться локальные бэкапы
+      - /var/lib/docker/volumes:/source/volumes:ro  # Доступ ко всем томам Docker (только чтение)
+      - /home:/source/home:ro               # Доступ к папке /home (если проекты лежат там)
+
+volumes:
+  portainer_data:
+  duplicati_config:
