@@ -17,13 +17,16 @@ services:
       - PUID=0
       - PGID=0
       - TZ=Asia/Yakutsk
+      - SETTINGS_ENCRYPTION_KEY=mysecretkey123
+      - DUPLICATI__WEBSERVICE_INTERFACE=any
+      - DUPLICATI__WEBSERVICE_ALLOWED_HOSTNAMES=*
     ports:
       - "8200:8200"
     volumes:
       - duplicati_config:/config
-      - /opt/backups:/backups               # Папка, куда будут сохраняться локальные бэкапы
-      - /var/lib/docker/volumes:/source/volumes:ro  # Доступ ко всем томам Docker (только чтение)
-      - /home:/source/home:ro               # Доступ к папке /home (если проекты лежат там)
+      - /opt/backups:/backups
+      - /var/lib/docker/volumes:/source/volumes:ro
+      - /home:/source/home:ro
 
 volumes:
   portainer_data:
