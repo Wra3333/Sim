@@ -20,6 +20,7 @@ services:
       - SETTINGS_ENCRYPTION_KEY=mysecretkey123
       - DUPLICATI__WEBSERVICE_INTERFACE=any
       - DUPLICATI__WEBSERVICE_ALLOWED_HOSTNAMES=*
+      - DUPLICATI__WEBSERVICE_PASSWORD=ujhbrj101
     ports:
       - "8200:8200"
     volumes:
