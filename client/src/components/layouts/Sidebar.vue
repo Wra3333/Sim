@@ -103,6 +103,11 @@
           </button>
         </div>
       </div>
+
+      <!-- 💡 ПОДСКАЗКА ПРО ESCAPE -->
+      <div class="sidebar-hint">
+        Нажмите <kbd>Esc</kbd>, чтобы закрепить
+      </div>
     </template>
 
     <!-- ============================== -->
@@ -225,6 +230,7 @@ const handleResize = () => {
 // Закрываем модалку при смене маршрута
 watch(() => route.fullPath, () => { moreOpen.value = false; });
 
+// 💡 Escape закрепляет сайдбар (он перестаёт скрываться при уходе мыши)
 const handleKeydown = (e) => {
   if (e.key === 'Escape') {
     if (moreOpen.value) {
@@ -232,7 +238,7 @@ const handleKeydown = (e) => {
       closeMore();
     } else if (!isMobile.value) {
       e.preventDefault();
-      toggleSidebar();
+      toggleSidebar(); // <-- ЗАКРЕПЛЕНИЕ САЙДБАРА
     }
   }
 };
@@ -278,22 +284,37 @@ onUnmounted(() => {
   flex-direction: column;
   padding: 24px 16px;
   flex-shrink: 0;
+  /* Плавный переход для ширины, паддингов и прозрачности */
   transition: width 0.3s cubic-bezier(0.4, 0, 0.2, 1),
-              transform 0.3s cubic-bezier(0.4, 0, 0.2, 1),
-              padding 0.3s cubic-bezier(0.4, 0, 0.2, 1);
-  transform: translateX(0);
+              padding 0.3s cubic-bezier(0.4, 0, 0.2, 1),
+              opacity 0.2s ease-in-out;
   box-shadow: 2px 0 12px rgba(0, 0, 0, 0.15);
-  overflow: hidden;
+  overflow: hidden; /* Обрезаем всё, что не влезает */
   position: relative;
   z-index: 10;
 }
+
 .sidebar-hidden {
   width: 0;
-  padding: 0;
-  min-height: 0;
-  overflow: hidden;
+  padding: 24px 0; /* Убираем горизонтальные паддинги */
   box-shadow: none;
-  transform: translateX(-100%);
+  opacity: 0;
+}
+
+/* Скрываем контент внутри при закрытии, чтобы он не "дергался" */
+.sidebar-hidden > * {
+  opacity: 0;
+  visibility: hidden;
+  transition: opacity 0.1s ease-out, visibility 0.1s;
+}
+
+/* Фиксируем внутренние блоки, чтобы они не сжимались */
+.logo,
+.nav,
+.user,
+.sidebar-hint {
+  min-width: 228px; /* 260 (ширина) - 32 (паддинги) */
+  flex-shrink: 0;
 }
 
 /* Лого */
@@ -308,7 +329,12 @@ onUnmounted(() => {
 .logo-link { display: block; width: 100%; text-decoration: none; }
 
 /* Навигация */
-.nav { flex: 1; display: flex; flex-direction: column; gap: 2px; }
+.nav { 
+  flex: 1; 
+  display: flex; 
+  flex-direction: column; 
+  gap: 2px; 
+}
 
 .nav-link {
   display: flex;
@@ -322,6 +348,8 @@ onUnmounted(() => {
   font-size: 15px;
   font-weight: 500;
   white-space: nowrap;
+  flex-shrink: 0;
+  width: 100%;
 }
 .nav-link:hover { background: rgba(255, 255, 255, 0.12); color: #fff; }
 .nav-link.active {
@@ -396,6 +424,38 @@ onUnmounted(() => {
 .bottom-bar { display: none; }
 
 /* ============================================
+   ПОДСКАЗКА ДЛЯ КЛАВИШИ ESCAPE
+   ============================================ */
+.sidebar-hint {
+  margin-top: 16px;
+  padding: 10px 12px;
+  background: rgba(255, 255, 255, 0.08);
+  border-radius: 8px;
+  font-size: 12px;
+  color: rgba(255, 255, 255, 0.7);
+  text-align: center;
+  line-height: 1.4;
+  border: 1px solid rgba(255, 255, 255, 0.05);
+  white-space: nowrap;
+}
+
+.sidebar-hint kbd {
+  display: inline-block;
+  padding: 2px 6px;
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+  font-size: 11px;
+  font-weight: 600;
+  color: #1f2937;
+  background: #f3f4f6;
+  border: 1px solid #d1d5db;
+  border-bottom-width: 2px;
+  border-radius: 4px;
+  box-shadow: 0 1px 1px rgba(0, 0, 0, 0.1);
+  margin: 0 2px;
+  line-height: 1;
+}
+
+/* ============================================
    📱 МОБИЛЬНАЯ ВЕРСИЯ
    ============================================ */
 @media (max-width: 768px) {
@@ -416,6 +476,7 @@ onUnmounted(() => {
     border-top: 1px solid rgba(255, 255, 255, 0.1);
     z-index: 1000;
     overflow: hidden;
+    opacity: 1; /* Сбрасываем прозрачность с десктопа */
   }
   .sidebar-hidden {
     width: 100%;
@@ -424,6 +485,19 @@ onUnmounted(() => {
     transform: none;
     box-shadow: 0 -2px 12px rgba(0, 0, 0, 0.2);
     overflow: hidden;
+    opacity: 1; /* На мобилках панель всегда видима */
+  }
+  .sidebar-hidden > * {
+    opacity: 1;
+    visibility: visible;
+  }
+
+  .sidebar-hint {
+    display: none; /* Скрываем подсказку на мобилках */
+  }
+
+  .logo, .nav, .user {
+    min-width: 0; /* Сбрасываем фиксированную ширину для мобилок */
   }
 
   .bottom-bar {
@@ -434,6 +508,7 @@ onUnmounted(() => {
     align-items: center;
     justify-content: space-around;
     width: 100%;
+    min-width: 0; /* Сбрасываем фиксированную ширину */
   }
 
   .bottom-link {
