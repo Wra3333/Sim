@@ -61,7 +61,7 @@
               :equipment-options="allEquipment"
               placeholder="Выберите оборудование..."
             />
-          </div>g
+          </div>
           <div class="form-row">
             <div class="form-group">
               <label>
