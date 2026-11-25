@@ -50,7 +50,18 @@
               <input v-model="form.date" type="date" class="form-control" required />
             </div>
           </div>
-
+          <div class="form-group">
+            <label>
+              <IconEquipment class="label-icon" />
+              Оборудование
+            </label>
+            
+            <EquipmentSelect
+              v-model="equipmentList"
+              :equipment-options="allEquipment"
+              placeholder="Выберите оборудование..."
+            />
+          </div>
           <div class="form-row">
             <div class="form-group">
               <label>
@@ -156,7 +167,7 @@
             </div>
             <div class="form-group"></div>
           </div>
-
+          
           <div class="form-group">
             <label>
               <IconTemplates class="label-icon" />
@@ -203,18 +214,7 @@
             <textarea v-model="form.notes" class="form-control" rows="2" placeholder="Дополнительная информация..."></textarea>
           </div>
 
-          <div class="form-group">
-            <label>
-              <IconEquipment class="label-icon" />
-              Оборудование
-            </label>
-            
-            <EquipmentSelect
-              v-model="equipmentList"
-              :equipment-options="allEquipment"
-              placeholder="Выберите оборудование..."
-            />
-          </div>
+
 
           <div class="form-actions">
             <button type="button" class="btn btn-outline-secondary" @click="close">

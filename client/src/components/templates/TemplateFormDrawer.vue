@@ -48,6 +48,19 @@
                 />
               </div>
             </div>
+                        <!-- Оборудование -->
+            <div class="form-group">
+              <label>
+                <IconEquipment class="label-icon" />
+                Оборудование
+              </label>
+              
+              <EquipmentSelect
+                v-model="equipmentIds"
+                :equipment-options="allEquipment"
+                placeholder="Выберите оборудование..."
+              />
+            </div>
 
             <div class="form-group">
               <label>
@@ -72,19 +85,7 @@
               </small>
             </div>
 
-            <!-- Оборудование -->
-            <div class="form-group">
-              <label>
-                <IconEquipment class="label-icon" />
-                Оборудование
-              </label>
-              
-              <EquipmentSelect
-                v-model="equipmentIds"
-                :equipment-options="allEquipment"
-                placeholder="Выберите оборудование..."
-              />
-            </div>
+
 
             <div class="form-actions">
               <button type="button" class="btn btn-outline-secondary" @click="close">
